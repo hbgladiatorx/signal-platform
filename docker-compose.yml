@@ -2,8 +2,8 @@
 # Signal Platform — service stack
 #
 # Phase 1 services: postgres (TimescaleDB), redis, ingestion_binanceus,
-#                   persistence_worker
-# Later phases add: api, frontend, caddy
+#                   persistence_worker, api
+# Later phases add: frontend, caddy
 #
 # Run:   docker compose up -d
 # Stop:  docker compose down
@@ -112,6 +112,47 @@ services:
           memory: 400M
         reservations:
           memory: 150M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/python.Dockerfile
+    container_name: signal_api
+    restart: unless-stopped
+    command: >
+      gunicorn services.api.main:app
+      -k uvicorn.workers.UvicornWorker
+      --bind 0.0.0.0:8000
+      --workers 2
+      --access-logfile -
+    env_file:
+      - .env
+    ports:
+      # TEMPORARY — exposed to host for Step 7 testing.
+      # Removed in Step 9 when Caddy becomes the only public entry.
+      - "0.0.0.0:8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - signal_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 500M
+        reservations:
+          memory: 200M
     logging:
       driver: json-file
       options:
