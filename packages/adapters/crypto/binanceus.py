@@ -5,6 +5,12 @@ Documentation: https://docs.binance.us/
 Connects to the combined-stream endpoint which multiplexes multiple
 subscriptions over a single WebSocket. Reconnects with exponential
 backoff on disconnect.
+
+Uses Binance.US's aggTrade stream (not @trade). aggTrade aggregates
+contiguous fills at the same price into a single event; it's the
+practical choice for charting and most strategies. The platform-wide
+TradeEvent shape is unchanged — we just use the aggregate trade ID
+as venue_trade_id instead of the individual fill ID.
 """
 from __future__ import annotations
 
@@ -79,7 +85,7 @@ class BinanceUSAdapter(AssetAdapter):
         canonical_symbols: list[str],
     ) -> AsyncIterator[TradeEvent]:
         native = [self.to_native_symbol(s) for s in canonical_symbols]
-        url = self._build_stream_url(native, "trade")
+        url = self._build_stream_url(native, "aggTrade")
         async for event in self._reconnect_loop(url, self._parse_trade):
             yield event
 
@@ -133,22 +139,23 @@ class BinanceUSAdapter(AssetAdapter):
                 backoff = min(backoff * 2, 60)
 
     def _parse_trade(self, msg: dict[str, Any]) -> TradeEvent | None:
-        """Parse a Binance.US trade WebSocket message into a TradeEvent.
+        """Parse a Binance.US aggTrade WebSocket message into a TradeEvent.
 
         Combined-stream format wraps the payload:
-            {"stream": "btcusdt@trade", "data": {...}}
-        The trade event itself in `data` has these fields we use:
-            e: event type ("trade")
+            {"stream": "btcusdt@aggTrade", "data": {...}}
+        The aggTrade event in `data` has these fields we use:
+            e: event type ("aggTrade")
             E: event time (epoch ms)
             s: symbol ("BTCUSDT")
-            t: trade ID
+            a: aggregate trade ID
             p: price (string)
-            q: quantity (string)
+            q: aggregated quantity (string)
             T: trade time (epoch ms)
-            m: is buyer the market maker? (true = seller-initiated)
+            m: was the buyer the market maker? (true = seller-initiated)
+            f, l: first/last individual trade IDs in this aggregation (unused)
         """
         data = msg.get("data")
-        if not data or data.get("e") != "trade":
+        if not data or data.get("e") != "aggTrade":
             return None
 
         ts = datetime.fromtimestamp(data["T"] / 1000, tz=timezone.utc)
@@ -162,7 +169,7 @@ class BinanceUSAdapter(AssetAdapter):
             price=Decimal(data["p"]),
             quantity=Decimal(data["q"]),
             side=side,
-            venue_trade_id=str(data["t"]),
+            venue_trade_id=str(data["a"]),
         )
 
     def _parse_quote(self, msg: dict[str, Any]) -> QuoteL1Event | None:
