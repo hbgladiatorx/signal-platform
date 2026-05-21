@@ -1,0 +1,79 @@
+# docker-compose.yml
+# Signal Platform — service stack
+#
+# Phase 1 services: postgres (TimescaleDB), redis
+# Later phases add: api, ingestion_binanceus, persistence_worker, frontend, caddy
+#
+# Run:   docker compose up -d
+# Stop:  docker compose down
+# Wipe:  docker compose down -v   (CAUTION: deletes database volume)
+
+services:
+  postgres:
+    image: timescale/timescaledb:2.16.1-pg16
+    container_name: signal_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      # Tune Postgres for our workload size (4 GB RAM box)
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - signal_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    # No port mapping to host — only services on signal_net can reach it.
+    # Uncomment the next two lines TEMPORARILY if you need to connect from
+    # the host for debugging. Re-comment when done.
+    # ports:
+    #   - "127.0.0.1:5432:5432"
+    deploy:
+      resources:
+        limits:
+          memory: 1500M
+        reservations:
+          memory: 800M
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: signal_redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --save 60 1000
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redisdata:/data
+    networks:
+      - signal_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+        reservations:
+          memory: 100M
+
+volumes:
+  pgdata:
+    name: signal_pgdata
+  redisdata:
+    name: signal_redisdata
+
+networks:
+  signal_net:
+    name: signal_net
+    driver: bridge
