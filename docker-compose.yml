@@ -2,8 +2,7 @@
 # Signal Platform — service stack
 #
 # Phase 1 services: postgres (TimescaleDB), redis, ingestion_binanceus,
-#                   persistence_worker, api, caddy
-# Later phases add: frontend
+#                   persistence_worker, api, frontend, caddy
 #
 # Run:   docker compose up -d
 # Stop:  docker compose down
@@ -132,8 +131,6 @@ services:
       --access-logfile -
     env_file:
       - .env
-    # NOTE: Port 8000 is NO LONGER exposed to the host.
-    # Caddy proxies to api:8000 over the internal signal_net network.
     depends_on:
       postgres:
         condition: service_healthy
@@ -157,6 +154,35 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  frontend:
+    build:
+      context: .
+      dockerfile: infra/docker/frontend.Dockerfile
+      args:
+        NEXT_PUBLIC_AUTH0_DOMAIN: ${NEXT_PUBLIC_AUTH0_DOMAIN}
+        NEXT_PUBLIC_AUTH0_CLIENT_ID: ${NEXT_PUBLIC_AUTH0_CLIENT_ID}
+        NEXT_PUBLIC_AUTH0_AUDIENCE: ${NEXT_PUBLIC_AUTH0_AUDIENCE}
+        NEXT_PUBLIC_AUTH0_CALLBACK_URL: ${NEXT_PUBLIC_AUTH0_CALLBACK_URL}
+        NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE}
+    container_name: signal_frontend
+    restart: unless-stopped
+    networks:
+      - signal_net
+    depends_on:
+      api:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 500M
+        reservations:
+          memory: 150M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   caddy:
     image: caddy:2.8-alpine
     container_name: signal_caddy
@@ -171,6 +197,8 @@ services:
     depends_on:
       api:
         condition: service_healthy
+      frontend:
+        condition: service_started
     networks:
       - signal_net
     deploy:
