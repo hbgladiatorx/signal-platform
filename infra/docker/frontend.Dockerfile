@@ -13,8 +13,10 @@ RUN apk add --no-cache libc6-compat
 
 # Install deps from lockfile. We accept either package-lock.json or
 # yarn.lock; npm is the default if neither is present.
+# --legacy-peer-deps tolerates the eslint-config-next/eslint v9 conflict
+# documented at https://github.com/vercel/next.js/issues/72674
 COPY frontend/package.json frontend/package-lock.json* ./
-RUN npm install --no-audit --no-fund
+RUN npm install --no-audit --no-fund --legacy-peer-deps
 
 # ---------- Stage 2: builder ----------
 FROM node:20-alpine AS builder
@@ -23,9 +25,6 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY frontend/ ./
 
-# These NEXT_PUBLIC_* vars must be available at build time, because Next.js
-# bakes them into the client bundle. They're passed via docker compose
-# build args / env.
 ARG NEXT_PUBLIC_AUTH0_DOMAIN
 ARG NEXT_PUBLIC_AUTH0_CLIENT_ID
 ARG NEXT_PUBLIC_AUTH0_AUDIENCE
@@ -47,12 +46,9 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Create non-root user
 RUN addgroup --system --gid 1001 nodejs \
  && adduser --system --uid 1001 nextjs
 
-# Copy the standalone output. `output: 'standalone'` in next.config.js
-# bundles only what's needed.
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
