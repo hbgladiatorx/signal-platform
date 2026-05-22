@@ -4,7 +4,7 @@ GET /market/trades                 — recent trades for an instrument
 GET /market/quotes                 — recent L1 quotes for an instrument
 GET /market/quote/latest           — most recent quote (single row)
 
-All endpoints take a `symbol` query param (canonical form).
+All endpoints require a valid JWT and take a `symbol` query param (canonical form).
 Phase 1: simple limit-based queries.
 Step 11: adds proper time-range queries (from=, to=, resolution=).
 """
@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -20,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from packages.core.models import QuoteL1Event, TradeEvent
 from packages.core.types import TradeSide
+from services.api.auth import get_current_user
 from services.api.deps import get_db_session
 
 router = APIRouter(prefix="/market", tags=["market"])
@@ -62,6 +64,7 @@ async def list_recent_trades(
     symbol: str = Query(..., description="Canonical symbol, e.g. BTC-USDT@BINANCEUS"),
     limit: int = Query(default=100, ge=1, le=1000, description="Max rows to return"),
     session: AsyncSession = Depends(get_db_session),
+    _user: dict[str, Any] = Depends(get_current_user),
 ) -> list[TradeEvent]:
     """Return the most recent trades for an instrument, newest first."""
     instrument_id = await _resolve_instrument_id(symbol, session)
@@ -105,6 +108,7 @@ async def list_recent_quotes(
     symbol: str = Query(..., description="Canonical symbol, e.g. BTC-USDT@BINANCEUS"),
     limit: int = Query(default=100, ge=1, le=1000, description="Max rows to return"),
     session: AsyncSession = Depends(get_db_session),
+    _user: dict[str, Any] = Depends(get_current_user),
 ) -> list[QuoteL1Event]:
     """Return the most recent L1 quotes for an instrument, newest first."""
     instrument_id = await _resolve_instrument_id(symbol, session)
@@ -141,6 +145,7 @@ async def list_recent_quotes(
 async def get_latest_quote(
     symbol: str = Query(..., description="Canonical symbol, e.g. BTC-USDT@BINANCEUS"),
     session: AsyncSession = Depends(get_db_session),
+    _user: dict[str, Any] = Depends(get_current_user),
 ) -> LatestQuoteResponse:
     """Return the single most recent L1 quote with computed mid and spread."""
     instrument_id = await _resolve_instrument_id(symbol, session)

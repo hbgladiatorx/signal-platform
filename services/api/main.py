@@ -27,7 +27,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from packages.data.db import dispose_engine, get_engine
-from services.api.routers import health, instruments, market
+from services.api.routers import health, instruments, market, me
 
 
 # ============================================================
@@ -140,6 +140,7 @@ async def log_requests(request: Request, call_next):
 app.include_router(health.router)
 app.include_router(instruments.router)
 app.include_router(market.router)
+app.include_router(me.router)
 
 
 # ============================================================

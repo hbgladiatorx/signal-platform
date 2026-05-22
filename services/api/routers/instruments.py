@@ -3,10 +3,11 @@
 GET /instruments                           — list all active instruments
 GET /instruments/{canonical_symbol}        — single instrument lookup
 
-Phase 1 returns the two seeded instruments. Phase 4+ will see hundreds
-of options contracts; the endpoint structure is ready for that.
+Both endpoints require a valid JWT.
 """
 from __future__ import annotations
+
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text
@@ -14,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from packages.core.models import Instrument
 from packages.core.types import AssetClass
+from services.api.auth import get_current_user
 from services.api.deps import get_db_session
 
 router = APIRouter(prefix="/instruments", tags=["instruments"])
@@ -25,6 +27,7 @@ async def list_instruments(
     asset_class: AssetClass | None = Query(default=None, description="Filter by asset class"),
     active: bool = Query(default=True, description="Only active instruments"),
     session: AsyncSession = Depends(get_db_session),
+    _user: dict[str, Any] = Depends(get_current_user),
 ) -> list[Instrument]:
     """List instruments with optional venue and asset-class filters."""
     query = """
@@ -55,6 +58,7 @@ async def list_instruments(
 async def get_instrument(
     canonical_symbol: str,
     session: AsyncSession = Depends(get_db_session),
+    _user: dict[str, Any] = Depends(get_current_user),
 ) -> Instrument:
     """Look up a single instrument by its canonical symbol."""
     result = await session.execute(
