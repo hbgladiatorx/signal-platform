@@ -2,8 +2,8 @@
 # Signal Platform — service stack
 #
 # Phase 1 services: postgres (TimescaleDB), redis, ingestion_binanceus,
-#                   persistence_worker, api
-# Later phases add: frontend, caddy
+#                   persistence_worker, api, caddy
+# Later phases add: frontend
 #
 # Run:   docker compose up -d
 # Stop:  docker compose down
@@ -132,17 +132,15 @@ services:
       --access-logfile -
     env_file:
       - .env
-    ports:
-      # TEMPORARY — exposed to host for Step 7 testing.
-      # Removed in Step 9 when Caddy becomes the only public entry.
-      - "0.0.0.0:8000:8000"
+    # NOTE: Port 8000 is NO LONGER exposed to the host.
+    # Caddy proxies to api:8000 over the internal signal_net network.
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - signal_net
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health || exit 1"]
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/health\")' || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -159,11 +157,43 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: signal_caddy
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:80:80"
+      - "0.0.0.0:443:443"
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - signal_net
+    deploy:
+      resources:
+        limits:
+          memory: 200M
+        reservations:
+          memory: 50M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 volumes:
   pgdata:
     name: signal_pgdata
   redisdata:
     name: signal_redisdata
+  caddy_data:
+    name: signal_caddy_data
+  caddy_config:
+    name: signal_caddy_config
 
 networks:
   signal_net:

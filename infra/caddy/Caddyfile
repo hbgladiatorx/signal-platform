@@ -1,0 +1,44 @@
+# infra/caddy/Caddyfile
+#
+# Caddy reverse proxy for Signal Platform.
+#
+# Behaviour:
+#   - signal.cimcha.com (HTTPS, port 443): proxies to api:8000
+#   - HTTP (port 80) auto-redirects to HTTPS
+#   - SSL cert auto-provisioned from Let's Encrypt via HTTP-01 challenge
+#   - Cert renewed automatically at 2/3 of its 90-day lifetime
+#
+# The `acme_ca` directive uses production Let's Encrypt by default. If you
+# need to debug provisioning without burning rate limits, uncomment the
+# `acme_ca` line to point at the staging CA (issues untrusted certs).
+
+{
+    email admin@cimcha.com
+    # acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+signal.cimcha.com {
+    encode gzip zstd
+
+    # Forward all traffic to the API container.
+    # Caddy resolves `api` via Docker's internal DNS on the signal_net network.
+    reverse_proxy api:8000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    # Standard security headers for all responses.
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    log {
+        output stdout
+        format json
+    }
+}
