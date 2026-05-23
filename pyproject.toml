@@ -38,6 +38,9 @@ dependencies = [
 
     # Performance
     "orjson>=3.10.0",
+    # Strategy framework (Step 19+): indicators, DataFrames
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
 
     # Config
     "python-dotenv>=1.0.1",
