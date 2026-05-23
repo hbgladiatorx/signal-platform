@@ -1,98 +1,96 @@
 "use client";
 
 import { useAuth0 } from "@auth0/auth0-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 
+import { APIKeysSection } from "@/components/settings/APIKeysSection";
+import { ProfileSection } from "@/components/settings/ProfileSection";
 import { AppShell } from "@/components/nav/AppShell";
 import { useApi } from "@/lib/useApi";
-import type { MeResponse } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import type { ProfileResponse, ProfileSync } from "@/lib/types";
+
+type Tab = "profile" | "api-keys";
 
 export default function SettingsPage() {
+  const [tab, setTab] = useState<Tab>("profile");
   const { user } = useAuth0();
   const api = useApi();
+  const qc = useQueryClient();
 
-  const meQuery = useQuery({
-    queryKey: ["me"],
-    queryFn: () => api.get<MeResponse>("/me"),
+  // Sync email/name from the Auth0 ID token to the backend profile.
+  // Backend uses COALESCE, so existing values are not overwritten.
+  // We only fire this once per page mount.
+  const syncedRef = useRef(false);
+  const syncMutation = useMutation({
+    mutationFn: (body: ProfileSync) =>
+      api.post<ProfileResponse>("/settings/profile/sync", body),
+    onSuccess: (data) => {
+      qc.setQueryData(["settings", "profile"], data);
+    },
   });
+
+  useEffect(() => {
+    if (syncedRef.current) return;
+    if (!user) return;
+    if (!user.email && !user.name) return;
+    syncedRef.current = true;
+    syncMutation.mutate({
+      email: user.email ?? undefined,
+      name: user.name ?? undefined,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   return (
     <AppShell title="Settings">
       <div className="space-y-6">
-        <div className="rounded-lg border border-gray-200 bg-white p-6">
-          <h2 className="text-base font-semibold text-navy-700">
-            Your account
-          </h2>
-          <div className="mt-4 grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
-            <Row label="Email" value={user?.email ?? "—"} />
-            <Row label="Name" value={user?.name ?? "—"} />
-            <Row label="Auth0 sub" value={user?.sub ?? "—"} mono />
-            <Row
-              label="Email verified"
-              value={user?.email_verified ? "Yes" : "No"}
-            />
-          </div>
+        <div className="border-b border-gray-200">
+          <nav className="-mb-px flex gap-6">
+            <TabButton
+              active={tab === "profile"}
+              onClick={() => setTab("profile")}
+            >
+              Profile
+            </TabButton>
+            <TabButton
+              active={tab === "api-keys"}
+              onClick={() => setTab("api-keys")}
+            >
+              API Keys
+            </TabButton>
+          </nav>
         </div>
 
-        <div className="rounded-lg border border-gray-200 bg-white p-6">
-          <h2 className="text-base font-semibold text-navy-700">
-            Backend claims (/me)
-          </h2>
-          <p className="mt-1 text-xs text-gray-500">
-            Returned by the API when this page calls /me with your JWT.
-            Useful to verify end-to-end auth.
-          </p>
-          {meQuery.isLoading && (
-            <p className="mt-3 text-sm text-gray-500">Loading…</p>
-          )}
-          {meQuery.error && (
-            <p className="mt-3 text-sm text-red-600">
-              {(meQuery.error as Error).message}
-            </p>
-          )}
-          {meQuery.data && (
-            <pre className="mt-3 overflow-x-auto rounded-md bg-gray-50 p-4 text-xs text-gray-700">
-              {JSON.stringify(meQuery.data, null, 2)}
-            </pre>
-          )}
-        </div>
-
-        <div className="rounded-lg border border-gray-200 bg-white p-6">
-          <h2 className="text-base font-semibold text-navy-700">Phase 1</h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Profile + API key management (Tier 1) lands in Step 13.
-            Instrument and data-source selection (Tier 2) in Step 14.
-            Today this page is here so the route exists.
-          </p>
-        </div>
+        {tab === "profile" && <ProfileSection />}
+        {tab === "api-keys" && <APIKeysSection />}
       </div>
     </AppShell>
   );
 }
 
-function Row({
-  label,
-  value,
-  mono,
+function TabButton({
+  active,
+  onClick,
+  children,
 }: {
-  label: string;
-  value: string;
-  mono?: boolean;
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
 }) {
   return (
-    <div>
-      <div className="text-xs uppercase tracking-wide text-gray-500">
-        {label}
-      </div>
-      <div
-        className={
-          mono
-            ? "mt-1 break-all font-mono text-xs text-gray-800"
-            : "mt-1 text-sm text-gray-800"
-        }
-      >
-        {value}
-      </div>
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "border-b-2 px-1 py-3 text-sm font-medium transition-colors",
+        active
+          ? "border-navy-600 text-navy-700"
+          : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700",
+      )}
+    >
+      {children}
+    </button>
   );
 }

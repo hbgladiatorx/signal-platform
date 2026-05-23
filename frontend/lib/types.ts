@@ -148,3 +148,76 @@ export interface SystemHealthDetail {
   persistence_pending_total: number;
   ws_broadcast_pending_total: number;
 }
+
+// ----- Settings types -----
+
+export interface ProfileResponse {
+  user_id: string;
+  auth0_sub: string;
+  email: string | null;
+  name: string | null;
+  timezone: string;
+  theme: "light" | "dark" | "system";
+  notifications_enabled: boolean;
+  created_at: string;
+}
+
+export interface ProfileUpdate {
+  name?: string;
+  timezone?: string;
+  theme?: "light" | "dark" | "system";
+  notifications_enabled?: boolean;
+}
+
+export interface ProfileSync {
+  email?: string;
+  name?: string;
+}
+
+export interface APICredentialSummary {
+  id: string;
+  service: string;
+  label: string;
+  last_four: string | null;
+  created_at: string;
+  last_used_at: string | null;
+}
+
+export interface APICredentialCreate {
+  service: string;
+  label: string;
+  payload: Record<string, string>;
+}
+
+// Frontend mirror of backend SERVICE_FIELDS — add a service in both places.
+export interface ServiceSchema {
+  id: string; // matches backend key
+  displayName: string;
+  fields: { key: string; label: string; placeholder?: string }[];
+  /** Which field's last-4 chars to display for identification later */
+  primaryField: string;
+  helpUrl?: string;
+}
+
+export const SERVICE_SCHEMAS: ServiceSchema[] = [
+  {
+    id: "binanceus",
+    displayName: "Binance.US",
+    fields: [
+      { key: "api_key", label: "API Key", placeholder: "Your Binance.US API key" },
+      { key: "secret_key", label: "Secret Key", placeholder: "Your Binance.US secret key" },
+    ],
+    primaryField: "api_key",
+    helpUrl: "https://www.binance.us/usercenter/settings/api-management",
+  },
+  {
+    id: "alpaca",
+    displayName: "Alpaca",
+    fields: [
+      { key: "api_key_id", label: "API Key ID" },
+      { key: "secret_key", label: "Secret Key" },
+    ],
+    primaryField: "api_key_id",
+    helpUrl: "https://app.alpaca.markets/paper/dashboard/overview",
+  },
+];

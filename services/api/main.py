@@ -1,7 +1,6 @@
 """FastAPI application entry point.
 
-Composes the routers, configures middleware, starts the Redis subscriber
-background task, and exposes `app` for gunicorn/uvicorn to serve.
+Composes routers, middleware, lifecycle, and exposes `app` for gunicorn/uvicorn.
 """
 from __future__ import annotations
 
@@ -19,7 +18,15 @@ from fastapi.responses import JSONResponse
 
 from packages.data.db import dispose_engine, get_engine
 from services.api.redis_subscriber import broadcaster
-from services.api.routers import health, instruments, market, me, system, ws
+from services.api.routers import (
+    health,
+    instruments,
+    market,
+    me,
+    settings as settings_router,
+    system,
+    ws,
+)
 
 
 def _configure_logging() -> None:
@@ -62,7 +69,7 @@ app = FastAPI(
     description=(
         "Multi-asset quantitative research and trading platform.\n\n"
         "Phase 1: market data ingestion, queryable history, live websocket,\n"
-        "and operations health dashboard.\n"
+        "operations health dashboard, and user settings.\n"
         "Phase 2+: strategies, backtests, paper trading, live execution."
     ),
     version="0.1.0",
@@ -107,6 +114,7 @@ app.include_router(instruments.router)
 app.include_router(market.router)
 app.include_router(me.router)
 app.include_router(system.router)
+app.include_router(settings_router.router)
 app.include_router(ws.router)
 
 
