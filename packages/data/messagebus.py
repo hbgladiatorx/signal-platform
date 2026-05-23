@@ -151,6 +151,13 @@ STREAM_TRADES_RAW = "trades:raw"
 STREAM_QUOTES_RAW = "quotes:raw"
 STREAM_BARS_RAW = "bars:raw"
 
+# Step 18 additions: bar-builder publishes to these
+STREAM_BARS_LIVE = "bars:live"      # throttled in-progress bar snapshots
+STREAM_BARS_CLOSED = "bars:closed"  # one event per bar at bucket boundary
+
 # Canonical consumer group names
 GROUP_PERSISTENCE = "persistence"
 GROUP_WS_BROADCAST = "ws-broadcast"
+
+# Step 18 additions
+GROUP_BAR_BUILDER = "bar-builder"   # consumes trades:raw, builds bars

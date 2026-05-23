@@ -3,6 +3,7 @@
 #
 # Phase 1 services: postgres (TimescaleDB), redis, ingestion_binanceus,
 #                   persistence_worker, api, frontend, caddy
+# Phase 2 additions: bar_builder
 #
 # Run:   docker compose up -d
 # Stop:  docker compose down
@@ -111,6 +112,32 @@ services:
           memory: 400M
         reservations:
           memory: 150M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  bar_builder:
+    build:
+      context: .
+      dockerfile: infra/docker/python.Dockerfile
+    container_name: signal_bar_builder
+    restart: unless-stopped
+    command: ["python", "-m", "services.bar_builder.main"]
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - signal_net
+    deploy:
+      resources:
+        limits:
+          memory: 200M
+        reservations:
+          memory: 80M
     logging:
       driver: json-file
       options:
