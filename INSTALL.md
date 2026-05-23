@@ -1,78 +1,63 @@
-# Step 18 — Live Bar-Builder Service
+# Step 19 — Strategy Framework
 
 Files in this archive:
 
-- `services/bar_builder/__init__.py` — NEW: package marker
-- `services/bar_builder/main.py` — NEW: the bar-builder service itself
-- `packages/data/messagebus.py` — REPLACED: adds STREAM_BARS_LIVE, STREAM_BARS_CLOSED, GROUP_BAR_BUILDER constants (everything else preserved)
-- `docker-compose.yml` — REPLACED: adds the `bar_builder` service (all 7 existing services preserved)
+**Framework (packages/strategy):**
+- `packages/strategy/__init__.py` — NEW: re-exports public API
+- `packages/strategy/base.py` — NEW: `Strategy[P]` abstract class, `Order`, enums
+- `packages/strategy/context.py` — NEW: `BarContext` — strategy's typed view of state
+- `packages/strategy/indicators.py` — NEW: SMA, EMA, RSI, ATR over pandas
+- `packages/strategy/registry.py` — NEW: discover strategies in `strategies/` dir
+
+**Strategies dir:**
+- `strategies/__init__.py` — NEW: package marker
+- `strategies/sma_crossover.py` — NEW: example SMA crossover strategy
 
 ## Apply (Mac)
 
 ```bash
 cd ~/signal-platform
-unzip -o ~/Downloads/step18-bar-builder.zip
-git status
-```
-
-Expected from `git status`:
-- 2 modified: `packages/data/messagebus.py`, `docker-compose.yml`
-- 1 new directory tree: `services/bar_builder/` (containing `__init__.py`, `main.py`)
-- 1 modified: `INSTALL.md`
-
-Commit and push:
-
-```bash
+unzip -o ~/Downloads/step19-strategy-framework.zip
 git add -A
-git commit -m "Step 18: live bar-builder service"
+git commit -m "Step 19: strategy framework + SMA crossover example"
 git push
 ```
 
-## Deploy (Box)
+## Verify (Box) — No Deploy Needed
+
+Step 19 ships framework code only. No services touched. We verify by
+running a small Python session inside the API container, which already
+has the dependencies we need.
 
 ```bash
 cd ~/app
 git pull
-docker compose build bar_builder
-docker compose up -d bar_builder
+docker exec -it signal_api python3 << 'EOF'
+from pathlib import Path
+from packages.strategy.registry import discover_strategies
+
+strats = discover_strategies(Path("/app/strategies"))
+print(f"Discovered: {list(strats.keys())}")
+
+if "SMACrossover" in strats:
+    sma = strats["SMACrossover"]
+    print(f"Description: {sma.description()}")
+    print(f"Params schema fields: {list(sma.PARAMS_MODEL.model_fields.keys())}")
+    # Instantiate with default params
+    p = sma.PARAMS_MODEL()
+    s = sma(symbols=["BTC-USDT@BINANCEUS"], params=p)
+    s.on_init()
+    print(f"Instantiated OK. State: {s.state}")
+EOF
 ```
 
-The `bar_builder` service is independent — it doesn't share images with api/frontend/etc. (well, it shares the python image build, but only the bar_builder container needs (re)creating). No need to recreate other services.
+Expected output: `Discovered: ['SMACrossover']` and then descriptions of
+the strategy. If you see this, the framework is loaded correctly inside
+the running platform.
 
-## Verify
+## What's Next (Step 20)
 
-Check the new container is running:
-
-```bash
-docker compose ps bar_builder
-docker compose logs --tail=30 bar_builder
-```
-
-Expected logs:
-- `bar_builder.starting` with stream/group/consumer/resolutions fields
-- Periodic `bar_builder.bar_closed` events as 1m buckets transition (~every minute when trades occur)
-
-Confirm the consumer group registered with Redis:
-
-```bash
-docker exec signal_redis redis-cli XINFO GROUPS trades:raw
-```
-
-Expected: 3 groups now (was 2): `persistence`, `ws-broadcast`, `bar-builder`.
-
-Confirm the new streams are receiving data:
-
-```bash
-docker exec signal_redis redis-cli XLEN bars:live
-docker exec signal_redis redis-cli XLEN bars:closed
-```
-
-Expected: `bars:live` ramps up to ~12 entries per second (2 instruments × 6 resolutions). `bars:closed` ticks slowly (~1m bars close every minute).
-
-Peek at the latest entry:
-
-```bash
-docker exec signal_redis redis-cli XREVRANGE bars:live + - COUNT 1
-```
-
-Expected: a single entry whose `payload` field contains JSON with `instrument_id`, `canonical_symbol`, `resolution`, `bucket_start`, OHLCV, `vwap`, `closed: false`.
+Step 20 builds the backtest engine: takes a Strategy + historical bars +
+starting cash and replays them, simulating fills, tracking position and
+equity. The output of Step 20 is a `BacktestResult` object (trades, equity
+curve, P&L). No DB or worker yet — that's Step 22.
