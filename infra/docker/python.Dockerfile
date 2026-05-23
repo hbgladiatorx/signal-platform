@@ -25,6 +25,7 @@ RUN uv pip install --system --no-cache .
 # Copy application code
 COPY packages ./packages
 COPY services ./services
+COPY strategies ./strategies
 COPY migrations ./migrations
 
 # Ensure imports work from any subdirectory
