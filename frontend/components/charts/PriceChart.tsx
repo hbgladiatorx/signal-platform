@@ -29,11 +29,6 @@ interface PriceChartProps {
   canonicalSymbol: string;
 }
 
-// Lightweight-charts wants:
-//   - candle/volume: { time: UTCTimestamp (seconds), open, high, low, close } / { time, value, color }
-//   - line: { time, value }
-// Bar timestamps from the API are ISO strings. Convert here.
-
 function isoToUnixSeconds(iso: string): UTCTimestamp {
   return Math.floor(new Date(iso).getTime() / 1000) as UTCTimestamp;
 }
@@ -63,7 +58,6 @@ function barToVolume(bar: Bar): HistogramData {
   return {
     time: isoToUnixSeconds(bar.bucket),
     value: parseFloat(bar.volume),
-    // Lightweight charts allows per-bar color
     color: isUp ? "rgba(38, 166, 154, 0.5)" : "rgba(239, 83, 80, 0.5)",
   };
 }
@@ -143,7 +137,6 @@ export function PriceChart({ canonicalSymbol }: PriceChartProps) {
       priceScaleId: "",
       color: "rgba(59, 130, 246, 0.4)",
     });
-    // Pin the volume series to the bottom 20% of the chart
     volume.priceScale().applyOptions({
       scaleMargins: { top: 0.8, bottom: 0 },
     });
@@ -152,7 +145,6 @@ export function PriceChart({ canonicalSymbol }: PriceChartProps) {
     candleSeriesRef.current = candle;
     volumeSeriesRef.current = volume;
 
-    // Resize observer
     const ro = new ResizeObserver(() => {
       if (containerRef.current && chartRef.current) {
         chartRef.current.applyOptions({
@@ -185,7 +177,6 @@ export function PriceChart({ canonicalSymbol }: PriceChartProps) {
         priceLineVisible: false,
         lastValueVisible: true,
       });
-      // Repopulate with current bars
       const data = (barsQuery.data?.bars ?? [])
         .map(barToVwap)
         .filter((p): p is LineData => p !== null);
@@ -216,7 +207,6 @@ export function PriceChart({ canonicalSymbol }: PriceChartProps) {
     lastBarRef.current = candles[candles.length - 1] ?? null;
     lastVolumeRef.current = volumes[volumes.length - 1] ?? null;
 
-    // Fit the view
     chartRef.current?.timeScale().fitContent();
   }, [barsQuery.data]);
 
@@ -234,7 +224,6 @@ export function PriceChart({ canonicalSymbol }: PriceChartProps) {
 
       const last = lastBarRef.current;
       if (last && last.time === bucketSec) {
-        // Update in-progress bar
         const updated: CandlestickData = {
           time: bucketSec,
           open: last.open,
@@ -257,7 +246,6 @@ export function PriceChart({ canonicalSymbol }: PriceChartProps) {
         volumeSeriesRef.current.update(updatedVol);
         lastVolumeRef.current = updatedVol;
       } else {
-        // New bucket: open a new bar
         const newBar: CandlestickData = {
           time: bucketSec,
           open: price,
@@ -284,17 +272,17 @@ export function PriceChart({ canonicalSymbol }: PriceChartProps) {
     onMessage: handleMessage,
   });
 
-  // Subscribe / unsubscribe to this symbol as it changes
+  // Subscribe / unsubscribe to this symbol as connection state and symbol change
   useEffect(() => {
-    if (ws.readyState === "open") {
-      ws.send({ type: "subscribe", symbol: canonicalSymbol });
+    if (ws.isConnected && ws.isAuthenticated) {
+      ws.sendMessage({ type: "subscribe", symbol: canonicalSymbol });
       return () => {
-        if (ws.readyState === "open") {
-          ws.send({ type: "unsubscribe", symbol: canonicalSymbol });
-        }
+        ws.sendMessage({ type: "unsubscribe", symbol: canonicalSymbol });
       };
     }
-  }, [ws.readyState, canonicalSymbol, ws]);
+  }, [ws.isConnected, ws.isAuthenticated, canonicalSymbol, ws]);
+
+  const isLive = ws.isConnected && ws.isAuthenticated;
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white">
@@ -306,15 +294,15 @@ export function PriceChart({ canonicalSymbol }: PriceChartProps) {
           <span className="font-mono text-sm text-gray-700">
             {canonicalSymbol}
           </span>
-          {ws.readyState === "open" && (
+          {isLive ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500" />
               Live
             </span>
-          )}
-          {ws.readyState !== "open" && (
+          ) : (
             <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
-              {ws.readyState}
+              <span className="h-1.5 w-1.5 rounded-full bg-gray-400" />
+              Connecting
             </span>
           )}
         </div>
