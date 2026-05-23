@@ -197,11 +197,7 @@ export default function InstrumentDetailPage() {
           </div>
         </div>
 
-        <PriceChart
-          history={chartHistory}
-          liveMidPrice={liveMid}
-          isLive={isConnected && isAuthenticated}
-        />
+        <PriceChart canonicalSymbol={symbol} />
 
         <LiveTrades initial={initialTrades} incoming={liveTrade} />
       </div>
