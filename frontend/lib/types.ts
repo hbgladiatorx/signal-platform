@@ -18,6 +18,13 @@ export interface Instrument {
   active: boolean;
 }
 
+export interface InstrumentCreate {
+  asset_class: AssetClass;
+  venue: string;
+  base: string;
+  quote: string;
+}
+
 export interface TradeEvent {
   canonical_symbol: string;
   ts: string;
@@ -219,5 +226,43 @@ export const SERVICE_SCHEMAS: ServiceSchema[] = [
     ],
     primaryField: "api_key_id",
     helpUrl: "https://app.alpaca.markets/paper/dashboard/overview",
+  },
+];
+
+// ----- Step 14 frontend mirror for available venues -----
+
+export interface VenueSchema {
+  id: string; // matches backend venue codes
+  displayName: string;
+  supportedAssetClasses: AssetClass[];
+  status: "available" | "coming_soon";
+  notes?: string;
+  /** Quick-pick suggestions for the "add instrument" form */
+  suggestedPairs?: { base: string; quote: string }[];
+}
+
+export const VENUE_SCHEMAS: VenueSchema[] = [
+  {
+    id: "BINANCEUS",
+    displayName: "Binance.US",
+    supportedAssetClasses: ["crypto_spot"],
+    status: "available",
+    notes:
+      "Live ingestion via Binance.US WebSocket Streams. " +
+      "Symbols verified against the public exchange info endpoint before save.",
+    suggestedPairs: [
+      { base: "BTC", quote: "USDT" },
+      { base: "ETH", quote: "USDT" },
+      { base: "SOL", quote: "USDT" },
+      { base: "BTC", quote: "USD" },
+      { base: "ETH", quote: "USD" },
+    ],
+  },
+  {
+    id: "ALPACA",
+    displayName: "Alpaca (US equities + crypto)",
+    supportedAssetClasses: ["equity", "crypto_spot"],
+    status: "coming_soon",
+    notes: "Adapter scheduled for Phase 4 (live execution layer).",
   },
 ];
