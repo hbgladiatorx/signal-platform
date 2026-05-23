@@ -6,6 +6,25 @@ export type AssetClass = "crypto_spot" | "crypto_perp" | "option" | "equity";
 export type TradeSide = "b" | "s";
 export type BarResolution = "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
 
+export const BAR_RESOLUTIONS: BarResolution[] = [
+  "1m",
+  "5m",
+  "15m",
+  "1h",
+  "4h",
+  "1d",
+];
+
+/** Resolution → seconds in one bar. Used for live bucketing. */
+export const RESOLUTION_SECONDS: Record<BarResolution, number> = {
+  "1m": 60,
+  "5m": 300,
+  "15m": 900,
+  "1h": 3_600,
+  "4h": 14_400,
+  "1d": 86_400,
+};
+
 export interface Instrument {
   id: number;
   asset_class: AssetClass;
@@ -54,6 +73,23 @@ export interface QuoteChartPoint {
   bid: string | null;
   ask: string | null;
   mid: string | null;
+}
+
+export interface Bar {
+  bucket: string;       // ISO timestamp
+  open: string;         // Decimal as string
+  high: string;
+  low: string;
+  close: string;
+  volume: string;
+  trade_count: number;
+  vwap: string | null;
+}
+
+export interface BarsResponse {
+  canonical_symbol: string;
+  resolution: BarResolution;
+  bars: Bar[];
 }
 
 export interface HealthResponse {
@@ -196,12 +232,10 @@ export interface APICredentialCreate {
   payload: Record<string, string>;
 }
 
-// Frontend mirror of backend SERVICE_FIELDS — add a service in both places.
 export interface ServiceSchema {
-  id: string; // matches backend key
+  id: string;
   displayName: string;
   fields: { key: string; label: string; placeholder?: string }[];
-  /** Which field's last-4 chars to display for identification later */
   primaryField: string;
   helpUrl?: string;
 }
@@ -229,15 +263,12 @@ export const SERVICE_SCHEMAS: ServiceSchema[] = [
   },
 ];
 
-// ----- Step 14 frontend mirror for available venues -----
-
 export interface VenueSchema {
-  id: string; // matches backend venue codes
+  id: string;
   displayName: string;
   supportedAssetClasses: AssetClass[];
   status: "available" | "coming_soon";
   notes?: string;
-  /** Quick-pick suggestions for the "add instrument" form */
   suggestedPairs?: { base: string; quote: string }[];
 }
 

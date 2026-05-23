@@ -1,14 +1,23 @@
 """Market data endpoints.
 
-GET /market/trades                 — recent trades for an instrument
-GET /market/quotes                 — recent L1 quotes for an instrument (newest first)
-GET /market/quotes/recent          — recent L1 quotes ordered oldest first for charting
-GET /market/quote/latest           — most recent quote with mid/spread
+GET /market/trades                — recent trades for an instrument
+GET /market/quotes                — recent L1 quotes for an instrument
+GET /market/quote/latest          — most recent quote with computed mid/spread
+GET /market/bars                  — OHLCV bars at one of six resolutions
+
+Bars are sourced from the continuous aggregates created in Steps 15-16:
+    1m  → cagg_bars_1m
+    5m  → cagg_bars_5m
+    15m → cagg_bars_15m
+    1h  → cagg_bars_1h
+    4h  → cagg_bars_4h
+    1d  → cagg_bars_1d
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -17,14 +26,43 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from packages.core.models import QuoteL1Event, TradeEvent
 from packages.core.types import TradeSide
+from services.api.auth import get_current_user
 from services.api.deps import get_db_session
 
 router = APIRouter(prefix="/market", tags=["market"])
 
 
-class LatestQuoteResponse(BaseModel):
-    """Latest L1 quote response with computed mid/spread fields."""
+# ============================================================
+# Resolution → table-name mapping (whitelist; no string interpolation
+# of user input into SQL)
+# ============================================================
+BarResolution = Literal["1m", "5m", "15m", "1h", "4h", "1d"]
 
+RESOLUTION_TABLE: dict[str, str] = {
+    "1m": "cagg_bars_1m",
+    "5m": "cagg_bars_5m",
+    "15m": "cagg_bars_15m",
+    "1h": "cagg_bars_1h",
+    "4h": "cagg_bars_4h",
+    "1d": "cagg_bars_1d",
+}
+
+RESOLUTION_DEFAULT_LOOKBACK: dict[str, timedelta] = {
+    "1m": timedelta(hours=2),
+    "5m": timedelta(hours=8),
+    "15m": timedelta(days=1),
+    "1h": timedelta(days=5),
+    "4h": timedelta(days=20),
+    "1d": timedelta(days=365),
+}
+
+
+# ============================================================
+# Response models
+# ============================================================
+
+
+class LatestQuoteResponse(BaseModel):
     canonical_symbol: str
     ts: datetime
     bid: Decimal | None = None
@@ -36,20 +74,34 @@ class LatestQuoteResponse(BaseModel):
     spread_bps: Decimal | None = None
 
 
-class QuoteChartPoint(BaseModel):
-    """Compact quote point for chart consumption (oldest first ordering)."""
+class Bar(BaseModel):
+    """OHLCV bar from a continuous aggregate."""
 
-    ts: datetime
-    bid: Decimal | None = None
-    ask: Decimal | None = None
-    mid: Decimal | None = None
+    bucket: datetime
+    open: Decimal
+    high: Decimal
+    low: Decimal
+    close: Decimal
+    volume: Decimal
+    trade_count: int
+    vwap: Decimal | None = None
+
+
+class BarsResponse(BaseModel):
+    canonical_symbol: str
+    resolution: str
+    bars: list[Bar]
+
+
+# ============================================================
+# Helpers
+# ============================================================
 
 
 async def _resolve_instrument_id(
     canonical_symbol: str,
     session: AsyncSession,
 ) -> int:
-    """Look up the instrument_id for a canonical symbol or raise 404."""
     result = await session.execute(
         text("SELECT id FROM instruments WHERE canonical_symbol = :symbol"),
         {"symbol": canonical_symbol},
@@ -63,11 +115,17 @@ async def _resolve_instrument_id(
     return row.id
 
 
+# ============================================================
+# Existing endpoints (preserved from Step 7)
+# ============================================================
+
+
 @router.get("/trades", response_model=list[TradeEvent])
 async def list_recent_trades(
     symbol: str = Query(..., description="Canonical symbol, e.g. BTC-USDT@BINANCEUS"),
     limit: int = Query(default=100, ge=1, le=1000),
     session: AsyncSession = Depends(get_db_session),
+    _user: dict = Depends(get_current_user),
 ) -> list[TradeEvent]:
     instrument_id = await _resolve_instrument_id(symbol, session)
     result = await session.execute(
@@ -105,9 +163,10 @@ async def list_recent_trades(
 
 @router.get("/quotes", response_model=list[QuoteL1Event])
 async def list_recent_quotes(
-    symbol: str = Query(..., description="Canonical symbol, e.g. BTC-USDT@BINANCEUS"),
+    symbol: str = Query(...),
     limit: int = Query(default=100, ge=1, le=1000),
     session: AsyncSession = Depends(get_db_session),
+    _user: dict = Depends(get_current_user),
 ) -> list[QuoteL1Event]:
     instrument_id = await _resolve_instrument_id(symbol, session)
     result = await session.execute(
@@ -137,66 +196,11 @@ async def list_recent_quotes(
     return quotes
 
 
-@router.get("/quotes/recent", response_model=list[QuoteChartPoint])
-async def list_recent_quotes_for_chart(
-    symbol: str = Query(..., description="Canonical symbol, e.g. BTC-USDT@BINANCEUS"),
-    minutes: int = Query(
-        default=60,
-        ge=1,
-        le=1440,
-        description="Look-back window in minutes (default 60)",
-    ),
-    max_points: int = Query(
-        default=2000,
-        ge=1,
-        le=10_000,
-        description="Hard cap on returned points",
-    ),
-    session: AsyncSession = Depends(get_db_session),
-) -> list[QuoteChartPoint]:
-    """
-    Return L1 quotes for the chart, ordered OLDEST first so the frontend
-    can append live updates to the right side without resorting.
-
-    For Phase 1 we return raw points without resampling. The `max_points`
-    cap protects against pulling millions of rows if minutes is large and
-    the venue is chatty.
-    """
-    instrument_id = await _resolve_instrument_id(symbol, session)
-    result = await session.execute(
-        text(
-            """
-            SELECT ts, bid, ask
-            FROM quotes_l1
-            WHERE instrument_id = :instrument_id
-              AND ts >= NOW() - (:minutes * INTERVAL '1 minute')
-            ORDER BY ts ASC
-            LIMIT :max_points
-            """
-        ),
-        {
-            "instrument_id": instrument_id,
-            "minutes": minutes,
-            "max_points": max_points,
-        },
-    )
-    points: list[QuoteChartPoint] = []
-    for row in result.mappings():
-        bid = row["bid"]
-        ask = row["ask"]
-        mid: Decimal | None = None
-        if bid is not None and ask is not None:
-            mid = (bid + ask) / Decimal("2")
-        points.append(
-            QuoteChartPoint(ts=row["ts"], bid=bid, ask=ask, mid=mid)
-        )
-    return points
-
-
 @router.get("/quote/latest", response_model=LatestQuoteResponse)
 async def get_latest_quote(
-    symbol: str = Query(..., description="Canonical symbol, e.g. BTC-USDT@BINANCEUS"),
+    symbol: str = Query(...),
     session: AsyncSession = Depends(get_db_session),
+    _user: dict = Depends(get_current_user),
 ) -> LatestQuoteResponse:
     instrument_id = await _resolve_instrument_id(symbol, session)
     result = await session.execute(
@@ -239,4 +243,123 @@ async def get_latest_quote(
         mid=mid,
         spread=spread,
         spread_bps=spread_bps,
+    )
+
+
+# ============================================================
+# NEW: bars endpoint
+# ============================================================
+
+
+@router.get("/bars", response_model=BarsResponse)
+async def get_bars(
+    symbol: str = Query(..., description="Canonical symbol, e.g. BTC-USDT@BINANCEUS"),
+    resolution: str = Query(
+        default="1m",
+        description="Bar resolution. One of: 1m, 5m, 15m, 1h, 4h, 1d",
+    ),
+    start: datetime | None = Query(
+        default=None,
+        alias="from",
+        description="Inclusive start timestamp (ISO 8601, UTC).",
+    ),
+    end: datetime | None = Query(
+        default=None,
+        alias="to",
+        description="Exclusive end timestamp (ISO 8601, UTC). Defaults to now.",
+    ),
+    limit: int = Query(
+        default=500,
+        ge=1,
+        le=5000,
+        description="Maximum bars to return when no explicit time range given.",
+    ),
+    session: AsyncSession = Depends(get_db_session),
+    _user: dict = Depends(get_current_user),
+) -> BarsResponse:
+    """
+    Return OHLCV bars for an instrument at the requested resolution.
+
+    Time range resolution:
+      - If both `from` and `to` are provided, use them.
+      - If `to` is omitted, defaults to NOW().
+      - If `from` is omitted, defaults to a resolution-appropriate lookback
+        (e.g. 2 hours for 1m, 365 days for 1d).
+    """
+    table = RESOLUTION_TABLE.get(resolution)
+    if not table:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Invalid resolution '{resolution}'. "
+                f"Allowed: {sorted(RESOLUTION_TABLE.keys())}"
+            ),
+        )
+
+    instrument_id = await _resolve_instrument_id(symbol, session)
+
+    end_ts = end or datetime.now(timezone.utc)
+    if start is None:
+        start_ts = end_ts - RESOLUTION_DEFAULT_LOOKBACK[resolution]
+    else:
+        start_ts = start
+
+    if start_ts >= end_ts:
+        raise HTTPException(
+            status_code=400,
+            detail="`from` must be strictly less than `to`",
+        )
+
+    # Table name is from a whitelist; safe to format into the query.
+    query = text(
+        f"""
+        SELECT
+            bucket,
+            open,
+            high,
+            low,
+            close,
+            volume,
+            trade_count,
+            CASE WHEN volume_for_vwap > 0
+                 THEN price_volume_sum / volume_for_vwap
+                 ELSE NULL END AS vwap
+        FROM {table}
+        WHERE instrument_id = :instrument_id
+          AND bucket >= :start_ts
+          AND bucket <  :end_ts
+        ORDER BY bucket
+        LIMIT :limit
+        """
+    )
+
+    result = await session.execute(
+        query,
+        {
+            "instrument_id": instrument_id,
+            "start_ts": start_ts,
+            "end_ts": end_ts,
+            "limit": limit,
+        },
+    )
+
+    bars: list[Bar] = []
+    for row in result.mappings():
+        bars.append(
+            Bar(
+                bucket=row["bucket"],
+                open=row["open"],
+                high=row["high"],
+                low=row["low"],
+                close=row["close"],
+                volume=row["volume"],
+                trade_count=row["trade_count"],
+                vwap=row["vwap"],
+            )
+        )
+
+    return BarsResponse(
+        canonical_symbol=symbol,
+        resolution=resolution,
+        bars=bars,
     )

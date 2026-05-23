@@ -1,54 +1,37 @@
-# Step 16 — Higher-Resolution Bar Aggregates (5m / 15m / 1h / 4h / 1d)
+# Step 17 — Bar API + Candlestick Chart
 
-Single migration in this archive:
+Files in this archive:
 
-- `migrations/versions/0004_higher_resolution_bars.sql`
+**Backend:**
+- `services/api/routers/market.py` — REPLACED: adds `GET /market/bars` endpoint
+
+**Frontend:**
+- `frontend/lib/types.ts` — REPLACED: adds `Bar`, `BarResolution`, `BAR_RESOLUTIONS`, `RESOLUTION_SECONDS`
+- `frontend/components/charts/PriceChart.tsx` — REPLACED: full candlestick chart with resolution selector, volume histogram, VWAP overlay, live trade updates
 
 ## Apply (Mac)
 
 ```bash
 cd ~/signal-platform
-unzip -o ~/Downloads/step16-higher-res-bars.zip
+unzip -o ~/Downloads/step17-bars-chart.zip
 git add -A
-git commit -m "Step 16: 5m/15m/1h/4h/1d continuous aggregates"
+git commit -m "Step 17: bar API + candlestick chart"
 git push
 ```
 
-## Run Migration (Box)
+## Deploy (Box)
 
 ```bash
 cd ~/app
 git pull
-docker exec -i signal_postgres psql -U signal -d signal_platform \
-  < migrations/versions/0004_higher_resolution_bars.sql
+docker compose build api frontend
+docker compose up -d --force-recreate api frontend
 ```
 
-Expected output: 5 × (CREATE MATERIALIZED VIEW, CALL, policy ID returned, CREATE INDEX), plus 5 × CREATE VIEW.
+## Verify
 
-## Verify (Box)
-
-```bash
-docker exec -it signal_postgres psql -U signal -d signal_platform -c "
-SELECT '1m' AS res, count(*) FROM cagg_bars_1m
-UNION ALL SELECT '5m', count(*) FROM cagg_bars_5m
-UNION ALL SELECT '15m', count(*) FROM cagg_bars_15m
-UNION ALL SELECT '1h', count(*) FROM cagg_bars_1h
-UNION ALL SELECT '4h', count(*) FROM cagg_bars_4h
-UNION ALL SELECT '1d', count(*) FROM cagg_bars_1d;
-"
-```
-
-Expected: row counts decreasing as resolution grows coarser.
-
-Confirm all auto-refresh policies registered:
-
-```bash
-docker exec -it signal_postgres psql -U signal -d signal_platform -c "
-SELECT j.job_id, j.hypertable_name, j.schedule_interval
-FROM timescaledb_information.jobs j
-WHERE j.proc_name = 'policy_refresh_continuous_aggregate'
-ORDER BY j.job_id;
-"
-```
-
-Expected: 6 rows (policy for 1m from Step 15 + 5 new policies).
+1. Open `https://signal.cimcha.com/instruments/BTC-USDT@BINANCEUS`
+2. Chart should show candlesticks (red/green) with volume histogram below
+3. Click the **1m / 5m / 15m / 1h / 4h / 1d** buttons to switch resolution; chart re-fetches
+4. Check the **VWAP** checkbox to overlay the orange VWAP line
+5. The "Live" badge should be green and pulsing; new trades update the current bar's high/low/close in real-time
