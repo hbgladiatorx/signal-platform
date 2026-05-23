@@ -2,7 +2,7 @@
 
 Consumes trade events from STREAM_TRADES_RAW via consumer group
 'bar-builder'. Maintains in-memory current-bar state for each
-(instrument_id, resolution) pair across all six resolutions:
+(canonical_symbol, resolution) pair across all six resolutions:
 1m, 5m, 15m, 1h, 4h, 1d.
 
 On each trade:
@@ -13,11 +13,15 @@ On each trade:
     - If same bucket: update H = max(H, price), L = min(L, price),
       C = price, V += quantity, trade_count += 1, price_volume_sum += price * quantity
   - Throttled: publish in-progress bar snapshot to STREAM_BARS_LIVE at most
-    once per second per (instrument, resolution).
+    once per second per (symbol, resolution).
+
+Trade events on trades:raw carry `canonical_symbol`, not `instrument_id`
+(the persistence_worker resolves the FK at DB-write time). Bar events
+follow the same convention: downstream consumers (backtest, paper-trade)
+resolve canonical_symbol → instrument_id on their own as needed.
 
 In-memory only. Restart-safe via Redis Streams consumer-group semantics:
-on restart we resume from the last-acked id. We may briefly see incomplete
-bars during the catch-up window, but new trades quickly refill them.
+on restart we resume from the last-acked id.
 
 VWAP correctness: we carry price_volume_sum and volume separately. The
 true VWAP at any moment is price_volume_sum / volume. Phase 2's analytics
@@ -92,9 +96,8 @@ LIVE_PUBLISH_INTERVAL_S = 1.0
 # ============================================================
 @dataclass
 class BarState:
-    """In-progress bar state for a (instrument_id, resolution) pair."""
+    """In-progress bar state for a (canonical_symbol, resolution) pair."""
 
-    instrument_id: int
     canonical_symbol: str
     resolution: str
     bucket_start_ts: int  # Unix seconds, floor-aligned to resolution
@@ -108,8 +111,8 @@ class BarState:
     last_published_monotonic: float  # Last bars:live publish time
 
 
-# (instrument_id, resolution) -> BarState
-_bars: dict[tuple[int, str], BarState] = {}
+# (canonical_symbol, resolution) -> BarState
+_bars: dict[tuple[str, str], BarState] = {}
 
 
 # ============================================================
@@ -129,7 +132,6 @@ def _vwap(state: BarState) -> Decimal | None:
 def _state_to_payload(state: BarState, *, closed: bool) -> dict[str, Any]:
     vwap = _vwap(state)
     return {
-        "instrument_id": state.instrument_id,
         "canonical_symbol": state.canonical_symbol,
         "resolution": state.resolution,
         "bucket_start": state.bucket_start_ts,
@@ -165,34 +167,31 @@ def _parse_decimal(v: Any) -> Decimal:
 # ============================================================
 async def process_trade(bus: RedisStreamsBus, trade: dict[str, Any]) -> None:
     """Update all six in-progress bars for the instrument with this trade."""
-    try:
-        instrument_id = int(trade["instrument_id"])
-    except (KeyError, TypeError, ValueError):
+    canonical_symbol = trade.get("canonical_symbol")
+    if not canonical_symbol:
         log.warning(
-            "bar_builder.trade.missing_instrument_id",
+            "bar_builder.trade.missing_canonical_symbol",
             trade_keys=list(trade.keys()),
         )
         return
-
-    canonical_symbol = trade.get("canonical_symbol", "")
 
     try:
         price = _parse_decimal(trade["price"])
         quantity = _parse_decimal(trade["quantity"])
         ts_sec = _parse_ts(trade["ts"])
     except (KeyError, ValueError) as e:
-        log.warning("bar_builder.trade.parse_error", err=str(e))
+        log.warning("bar_builder.trade.parse_error", err=str(e), symbol=canonical_symbol)
         return
 
     now_mono = time.monotonic()
 
     for resolution in RESOLUTIONS:
         bucket = _bucket_start(ts_sec, resolution)
-        key = (instrument_id, resolution)
+        key = (canonical_symbol, resolution)
         state = _bars.get(key)
 
         if state is None or state.bucket_start_ts != bucket:
-            # Close the previous bar (only if we genuinely transitioned forward).
+            # Close the previous bar (only on a genuine forward transition).
             if state is not None and state.bucket_start_ts < bucket:
                 await bus.publish(
                     STREAM_BARS_CLOSED, _state_to_payload(state, closed=True)
@@ -208,7 +207,6 @@ async def process_trade(bus: RedisStreamsBus, trade: dict[str, Any]) -> None:
 
             # Open new bar — trade defines O=H=L=C
             state = BarState(
-                instrument_id=instrument_id,
                 canonical_symbol=canonical_symbol,
                 resolution=resolution,
                 bucket_start_ts=bucket,
@@ -263,7 +261,6 @@ async def main_loop() -> None:
         try:
             loop.add_signal_handler(sig, _on_signal, sig)
         except NotImplementedError:
-            # Not available on some platforms; fall back to default behavior
             pass
 
     while not shutdown_event.is_set():
