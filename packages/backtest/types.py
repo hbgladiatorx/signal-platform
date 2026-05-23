@@ -1,0 +1,143 @@
+"""Backtest result types — pure data structures.
+
+These are the I/O of run_backtest(). The engine populates them; downstream
+consumers (analytics in Step 21, persistence in Step 22, UI in Step 26)
+read from them.
+
+All monetary values are Decimal for precision. Floats are used only for
+serialization to JSON or pandas operations and are explicitly converted.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime
+from decimal import Decimal
+from typing import Any
+
+from packages.strategy.base import Order, OrderSide, OrderType
+
+
+# ============================================================
+# Configuration
+# ============================================================
+@dataclass(frozen=True)
+class BacktestConfig:
+    """Knobs that control the simulator's realism.
+
+    Defaults model a small retail crypto account on Binance.US:
+      - 10 bps (0.10%) fee per fill (Binance.US taker after volume tiers)
+      - 5 bps (0.05%) slippage on market orders
+      - $10,000 starting cash
+    """
+
+    starting_cash: Decimal = Decimal("10000")
+    fee_rate_bps: int = 10
+    slippage_bps: int = 5
+
+    @property
+    def fee_rate(self) -> Decimal:
+        """Fee as a Decimal fraction (e.g. 0.001 for 10 bps)."""
+        return Decimal(self.fee_rate_bps) / Decimal(10_000)
+
+    @property
+    def slippage(self) -> Decimal:
+        """Slippage as a Decimal fraction."""
+        return Decimal(self.slippage_bps) / Decimal(10_000)
+
+
+# ============================================================
+# Per-trade records
+# ============================================================
+@dataclass(frozen=True)
+class Fill:
+    """A filled order in the simulator.
+
+    `price` is the actual fill price including slippage. `fee` is the
+    absolute amount paid in fees on this fill (in quote currency).
+    `filled_ts` is the timestamp of the BAR at which the fill occurred,
+    which is one bar after `order_submitted_ts` for market orders.
+    """
+
+    client_order_id: str
+    symbol: str
+    side: OrderSide
+    order_type: OrderType
+    quantity: Decimal
+    price: Decimal
+    fee: Decimal
+    filled_ts: datetime
+    order_submitted_ts: datetime
+
+
+# ============================================================
+# Position tracking
+# ============================================================
+@dataclass
+class Position:
+    """An open position in one symbol. Mutable; the Portfolio updates it.
+
+    `avg_cost` is the quantity-weighted average price across all entries.
+    Realized P&L is accumulated as positions are closed; unrealized P&L
+    is not stored here (it depends on a current mark, which varies).
+    """
+
+    symbol: str
+    quantity: Decimal = Decimal(0)
+    avg_cost: Decimal = Decimal(0)
+    realized_pnl: Decimal = Decimal(0)
+
+
+# ============================================================
+# Equity curve
+# ============================================================
+@dataclass(frozen=True)
+class EquityPoint:
+    """A single mark-to-market snapshot at a bar close."""
+
+    ts: datetime
+    cash: Decimal
+    positions_value: Decimal
+    total_equity: Decimal
+
+
+# ============================================================
+# Aggregate result
+# ============================================================
+@dataclass
+class BacktestResult:
+    """Output of run_backtest().
+
+    `rejected_orders` lists orders the engine declined to fill (insufficient
+    cash, attempting to sell more than held). The reason string explains why.
+
+    `strategy_state_final` is a snapshot of the strategy's `self.state` dict
+    at the end of the run, useful for debugging strategy logic.
+    """
+
+    config: BacktestConfig
+    fills: list[Fill] = field(default_factory=list)
+    equity_curve: list[EquityPoint] = field(default_factory=list)
+    final_cash: Decimal = Decimal(0)
+    final_positions: dict[str, Position] = field(default_factory=dict)
+    rejected_orders: list[tuple[Order, str]] = field(default_factory=list)
+    strategy_state_final: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def final_equity(self) -> Decimal:
+        if not self.equity_curve:
+            return self.final_cash
+        return self.equity_curve[-1].total_equity
+
+    @property
+    def total_return_pct(self) -> Decimal:
+        if self.config.starting_cash == 0:
+            return Decimal(0)
+        return (self.final_equity / self.config.starting_cash - Decimal(1)) * Decimal(100)
+
+    @property
+    def num_trades(self) -> int:
+        return len(self.fills)
+
+    @property
+    def num_rejected(self) -> int:
+        return len(self.rejected_orders)
