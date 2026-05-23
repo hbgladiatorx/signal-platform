@@ -21,7 +21,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE TABLE IF NOT EXISTS backtests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
 
     -- Configuration
     strategy_name TEXT NOT NULL,
@@ -61,7 +61,7 @@ CREATE INDEX IF NOT EXISTS idx_backtests_user_created
     ON backtests (user_id, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_backtests_org_created
-    ON backtests (organization_id, created_at DESC);
+    ON backtests (org_id, created_at DESC);
 
 -- Partial index: pending/running backtests are the only ones the worker cares about.
 CREATE INDEX IF NOT EXISTS idx_backtests_active_status

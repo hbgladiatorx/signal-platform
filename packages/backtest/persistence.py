@@ -43,7 +43,7 @@ async def create_backtest(
     conn: AsyncConnection,
     *,
     user_id: UUID,
-    organization_id: UUID,
+    org_id: UUID,
     strategy_name: str,
     params_json: dict[str, Any],
     symbols: list[str],
@@ -56,11 +56,11 @@ async def create_backtest(
     result = await conn.execute(
         text("""
             INSERT INTO backtests (
-                user_id, organization_id, strategy_name, params_json,
+                user_id, org_id, strategy_name, params_json,
                 symbols, bar_resolution, starting_cash,
                 fee_rate_bps, slippage_bps, status
             ) VALUES (
-                :user_id, :organization_id, :strategy_name,
+                :user_id, :org_id, :strategy_name,
                 CAST(:params_json AS JSONB),
                 :symbols, :bar_resolution, :starting_cash,
                 :fee_rate_bps, :slippage_bps, 'pending'
@@ -68,7 +68,7 @@ async def create_backtest(
         """),
         {
             "user_id": user_id,
-            "organization_id": organization_id,
+            "org_id": org_id,
             "strategy_name": strategy_name,
             "params_json": json.dumps(params_json),
             "symbols": symbols,
