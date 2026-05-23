@@ -199,7 +199,7 @@ async def create_instrument(
                    f"Supported venues: ['BINANCEUS']",
         )
 
-    if body.asset_class != AssetClass.crypto_spot:
+    if body.asset_class != AssetClass.CRYPTO_SPOT:
         raise HTTPException(
             status_code=400,
             detail=f"Asset class '{body.asset_class}' is not supported for Binance.US. "
