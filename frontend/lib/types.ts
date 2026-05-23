@@ -102,3 +102,49 @@ export type WSServerMessage =
         ask_size?: string;
       };
     };
+
+// ----- System Health detail types -----
+
+export interface IngestionInstrumentStatus {
+  canonical_symbol: string;
+  venue: string;
+  last_trade_ts: string | null;
+  last_quote_ts: string | null;
+  last_trade_age_s: number | null;
+  last_quote_age_s: number | null;
+  trades_last_5m: number;
+  quotes_last_5m: number;
+}
+
+export interface StreamGroupSummary {
+  name: string;
+  consumers: number;
+  pending: number;
+  lag: number | null;
+  last_delivered_id: string | null;
+}
+
+export interface StreamStatus {
+  stream: string;
+  length: number;
+  groups: StreamGroupSummary[];
+}
+
+export interface TableStats {
+  name: string;
+  approximate_rows: number;
+  earliest_ts: string | null;
+  latest_ts: string | null;
+}
+
+export interface SystemHealthDetail {
+  ts: string;
+  duration_ms: number;
+  instruments_total: number;
+  instruments_active: number;
+  ingestion: IngestionInstrumentStatus[];
+  streams: StreamStatus[];
+  tables: TableStats[];
+  persistence_pending_total: number;
+  ws_broadcast_pending_total: number;
+}

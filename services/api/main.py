@@ -1,17 +1,7 @@
 """FastAPI application entry point.
 
-Composes the routers, configures middleware (CORS, structured logging),
-starts the Redis subscriber background task, and exposes `app` for
-gunicorn/uvicorn to serve.
-
-Run locally:
-    uvicorn services.api.main:app --host 0.0.0.0 --port 8000 --reload
-
-Run in production (Docker):
-    gunicorn services.api.main:app \\
-        -k uvicorn.workers.UvicornWorker \\
-        --bind 0.0.0.0:8000 \\
-        --workers 2
+Composes the routers, configures middleware, starts the Redis subscriber
+background task, and exposes `app` for gunicorn/uvicorn to serve.
 """
 from __future__ import annotations
 
@@ -29,7 +19,7 @@ from fastapi.responses import JSONResponse
 
 from packages.data.db import dispose_engine, get_engine
 from services.api.redis_subscriber import broadcaster
-from services.api.routers import health, instruments, market, me, ws
+from services.api.routers import health, instruments, market, me, system, ws
 
 
 def _configure_logging() -> None:
@@ -71,7 +61,8 @@ app = FastAPI(
     title="Signal Platform API",
     description=(
         "Multi-asset quantitative research and trading platform.\n\n"
-        "Phase 1: market data ingestion, queryable history, live websocket.\n"
+        "Phase 1: market data ingestion, queryable history, live websocket,\n"
+        "and operations health dashboard.\n"
         "Phase 2+: strategies, backtests, paper trading, live execution."
     ),
     version="0.1.0",
@@ -115,6 +106,7 @@ app.include_router(health.router)
 app.include_router(instruments.router)
 app.include_router(market.router)
 app.include_router(me.router)
+app.include_router(system.router)
 app.include_router(ws.router)
 
 
