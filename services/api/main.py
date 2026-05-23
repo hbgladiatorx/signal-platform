@@ -1,15 +1,16 @@
 """FastAPI application entry point.
 
 Composes the routers, configures middleware (CORS, structured logging),
-and exposes `app` for uvicorn to serve.
+starts the Redis subscriber background task, and exposes `app` for
+gunicorn/uvicorn to serve.
 
 Run locally:
     uvicorn services.api.main:app --host 0.0.0.0 --port 8000 --reload
 
 Run in production (Docker):
-    gunicorn services.api.main:app \
-        -k uvicorn.workers.UvicornWorker \
-        --bind 0.0.0.0:8000 \
+    gunicorn services.api.main:app \\
+        -k uvicorn.workers.UvicornWorker \\
+        --bind 0.0.0.0:8000 \\
         --workers 2
 """
 from __future__ import annotations
@@ -27,12 +28,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from packages.data.db import dispose_engine, get_engine
-from services.api.routers import health, instruments, market, me
-
-
-# ============================================================
-# Logging
-# ============================================================
+from services.api.redis_subscriber import broadcaster
+from services.api.routers import health, instruments, market, me, ws
 
 
 def _configure_logging() -> None:
@@ -54,34 +51,27 @@ _configure_logging()
 log = structlog.get_logger(__name__)
 
 
-# ============================================================
-# Lifespan: warm up DB connection at startup, dispose on shutdown
-# ============================================================
+REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     log.info("api.starting", env=os.environ.get("ENV", "unknown"))
-    # Initialize the DB engine on startup so the first request doesn't
-    # pay the connection-pool warmup cost.
     get_engine()
+    await broadcaster.start(REDIS_URL)
     log.info("api.ready")
     yield
     log.info("api.shutting_down")
+    await broadcaster.stop()
     await dispose_engine()
     log.info("api.stopped")
-
-
-# ============================================================
-# Application
-# ============================================================
 
 
 app = FastAPI(
     title="Signal Platform API",
     description=(
         "Multi-asset quantitative research and trading platform.\n\n"
-        "Phase 1: market data ingestion and queryable history.\n"
+        "Phase 1: market data ingestion, queryable history, live websocket.\n"
         "Phase 2+: strategies, backtests, paper trading, live execution."
     ),
     version="0.1.0",
@@ -90,17 +80,11 @@ app = FastAPI(
 )
 
 
-# ============================================================
-# CORS
-# ============================================================
-
-
-# In production, lock these down to the actual frontend origin.
-# For Step 7 we allow any origin so curl from your Mac works.
-# Step 9 (Caddy) will restrict this.
 _cors_origins_env = os.environ.get("CORS_ORIGINS", "*")
 _cors_origins = (
-    ["*"] if _cors_origins_env == "*" else [o.strip() for o in _cors_origins_env.split(",")]
+    ["*"]
+    if _cors_origins_env == "*"
+    else [o.strip() for o in _cors_origins_env.split(",") if o.strip()]
 )
 
 app.add_middleware(
@@ -110,11 +94,6 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
-
-
-# ============================================================
-# Request logging middleware
-# ============================================================
 
 
 @app.middleware("http")
@@ -132,20 +111,11 @@ async def log_requests(request: Request, call_next):
     return response
 
 
-# ============================================================
-# Routers
-# ============================================================
-
-
 app.include_router(health.router)
 app.include_router(instruments.router)
 app.include_router(market.router)
 app.include_router(me.router)
-
-
-# ============================================================
-# Root
-# ============================================================
+app.include_router(ws.router)
 
 
 @app.get("/")

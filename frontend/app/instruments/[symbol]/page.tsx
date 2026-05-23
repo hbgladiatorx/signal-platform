@@ -2,43 +2,164 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { LiveTrades, type LiveTrade } from "@/components/charts/LiveTrades";
+import { PriceChart } from "@/components/charts/PriceChart";
 import { AppShell } from "@/components/nav/AppShell";
 import { useApi } from "@/lib/useApi";
 import type {
   Instrument,
   LatestQuoteResponse,
+  QuoteChartPoint,
   TradeEvent,
+  WSServerMessage,
 } from "@/lib/types";
+import { useWebSocket } from "@/lib/useWebSocket";
 
 export default function InstrumentDetailPage() {
   const params = useParams<{ symbol: string }>();
   const symbol = decodeURIComponent(params.symbol);
   const api = useApi();
 
+  // ----- Initial data (REST) -----
   const instrumentQuery = useQuery({
     queryKey: ["instrument", symbol],
     queryFn: () =>
       api.get<Instrument>(`/instruments/${encodeURIComponent(symbol)}`),
   });
 
-  const quoteQuery = useQuery({
+  const latestQuoteQuery = useQuery({
     queryKey: ["quote", "latest", symbol],
     queryFn: () =>
       api.get<LatestQuoteResponse>(
         `/market/quote/latest?symbol=${encodeURIComponent(symbol)}`,
       ),
-    refetchInterval: 5_000,
+    // No polling — we get live updates via WS.
   });
 
-  const tradesQuery = useQuery({
-    queryKey: ["trades", symbol],
+  const chartHistoryQuery = useQuery({
+    queryKey: ["chart", "history", symbol],
+    queryFn: () =>
+      api.get<QuoteChartPoint[]>(
+        `/market/quotes/recent?symbol=${encodeURIComponent(symbol)}&minutes=60`,
+      ),
+  });
+
+  const initialTradesQuery = useQuery({
+    queryKey: ["trades", "initial", symbol],
     queryFn: () =>
       api.get<TradeEvent[]>(
         `/market/trades?symbol=${encodeURIComponent(symbol)}&limit=20`,
       ),
-    refetchInterval: 10_000,
   });
+
+  // ----- Live state from WS -----
+  const [liveMid, setLiveMid] = useState<
+    { ts: string; mid: number } | null
+  >(null);
+  const [liveQuote, setLiveQuote] = useState<{
+    ts: string;
+    bid: string | null;
+    ask: string | null;
+  } | null>(null);
+  const [liveTrade, setLiveTrade] = useState<LiveTrade | null>(null);
+
+  const handleMessage = useCallback(
+    (msg: WSServerMessage) => {
+      if (msg.type === "quote" && msg.symbol === symbol) {
+        const bid = msg.data.bid ? Number.parseFloat(msg.data.bid) : null;
+        const ask = msg.data.ask ? Number.parseFloat(msg.data.ask) : null;
+        if (bid !== null && ask !== null && Number.isFinite(bid) && Number.isFinite(ask)) {
+          setLiveMid({
+            ts: msg.data.ts,
+            mid: (bid + ask) / 2,
+          });
+        }
+        setLiveQuote({
+          ts: msg.data.ts,
+          bid: msg.data.bid ?? null,
+          ask: msg.data.ask ?? null,
+        });
+      } else if (msg.type === "trade" && msg.symbol === symbol) {
+        setLiveTrade({
+          ts: msg.data.ts,
+          price: msg.data.price,
+          quantity: msg.data.quantity,
+          side:
+            msg.data.side === "b" || msg.data.side === "s"
+              ? msg.data.side
+              : null,
+          venue_trade_id: msg.data.venue_trade_id,
+        });
+      }
+    },
+    [symbol],
+  );
+
+  // Subscribe on connect; resubscribe on reconnect
+  const sendMessageRef = useRef<((m: WSServerMessage) => void) | null>(null);
+  const handleConnected = useCallback(() => {
+    sendMessageRef.current?.({ type: "subscribe", symbol } as unknown as WSServerMessage);
+  }, [symbol]);
+
+  const { isConnected, isAuthenticated, sendMessage } = useWebSocket({
+    onMessage: handleMessage,
+    onConnected: handleConnected,
+  });
+
+  // Keep the sendMessage ref current
+  useEffect(() => {
+    sendMessageRef.current = sendMessage as unknown as (m: WSServerMessage) => void;
+  }, [sendMessage]);
+
+  // Send subscribe when authenticated AND when symbol changes
+  useEffect(() => {
+    if (isAuthenticated) {
+      sendMessage({ type: "subscribe", symbol });
+    }
+  }, [isAuthenticated, symbol, sendMessage]);
+
+  // ----- Derived display values -----
+  const initialTrades: LiveTrade[] = useMemo(
+    () =>
+      (initialTradesQuery.data ?? []).map((t) => ({
+        ts: t.ts,
+        price: t.price,
+        quantity: t.quantity,
+        side: t.side,
+        venue_trade_id: t.venue_trade_id,
+      })),
+    [initialTradesQuery.data],
+  );
+
+  const chartHistory = useMemo(
+    () =>
+      (chartHistoryQuery.data ?? []).map((p) => ({ ts: p.ts, mid: p.mid })),
+    [chartHistoryQuery.data],
+  );
+
+  // Latest quote: live takes precedence over REST snapshot
+  const displayQuote = liveQuote ?? {
+    ts: latestQuoteQuery.data?.ts ?? "",
+    bid: latestQuoteQuery.data?.bid ?? null,
+    ask: latestQuoteQuery.data?.ask ?? null,
+  };
+  const mid =
+    displayQuote.bid && displayQuote.ask
+      ? (
+          (Number.parseFloat(displayQuote.bid) +
+            Number.parseFloat(displayQuote.ask)) /
+          2
+        ).toFixed(2)
+      : "—";
+  const spread =
+    displayQuote.bid && displayQuote.ask
+      ? (
+          Number.parseFloat(displayQuote.ask) -
+          Number.parseFloat(displayQuote.bid)
+        ).toFixed(4)
+      : "—";
 
   return (
     <AppShell title={symbol}>
@@ -64,71 +185,25 @@ export default function InstrumentDetailPage() {
           <h3 className="text-sm font-medium uppercase tracking-wide text-gray-500">
             Latest quote
           </h3>
-          {quoteQuery.data ? (
-            <div className="mt-3 grid grid-cols-2 gap-4 text-sm md:grid-cols-5">
-              <Field label="Bid" value={quoteQuery.data.bid ?? "—"} />
-              <Field label="Ask" value={quoteQuery.data.ask ?? "—"} />
-              <Field label="Mid" value={quoteQuery.data.mid ?? "—"} />
-              <Field label="Spread" value={quoteQuery.data.spread ?? "—"} />
-              <Field
-                label="Spread (bps)"
-                value={
-                  quoteQuery.data.spread_bps
-                    ? Number(quoteQuery.data.spread_bps).toFixed(2)
-                    : "—"
-                }
-              />
-            </div>
-          ) : (
-            <div className="mt-3 text-sm text-gray-500">
-              {quoteQuery.isLoading ? "Loading…" : "No quote available."}
-            </div>
-          )}
+          <div className="mt-3 grid grid-cols-2 gap-4 text-sm md:grid-cols-5">
+            <Field label="Bid" value={displayQuote.bid ?? "—"} />
+            <Field label="Ask" value={displayQuote.ask ?? "—"} />
+            <Field label="Mid" value={mid} />
+            <Field label="Spread" value={spread} />
+            <Field
+              label="Source"
+              value={liveQuote ? "live" : latestQuoteQuery.data ? "snapshot" : "—"}
+            />
+          </div>
         </div>
 
-        <div className="rounded-lg border border-gray-200 bg-white">
-          <div className="border-b border-gray-200 px-6 py-3">
-            <h3 className="text-sm font-medium uppercase tracking-wide text-gray-500">
-              Recent trades
-            </h3>
-          </div>
-          {tradesQuery.data && tradesQuery.data.length > 0 ? (
-            <table className="w-full text-sm">
-              <thead className="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
-                <tr>
-                  <th className="px-6 py-2 font-medium">Time (UTC)</th>
-                  <th className="px-6 py-2 font-medium">Price</th>
-                  <th className="px-6 py-2 font-medium">Quantity</th>
-                  <th className="px-6 py-2 font-medium">Side</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {tradesQuery.data.map((trade) => (
-                  <tr key={trade.venue_trade_id}>
-                    <td className="px-6 py-2 font-mono text-xs text-gray-600">
-                      {new Date(trade.ts).toISOString().replace("T", " ").slice(0, 19)}
-                    </td>
-                    <td className="px-6 py-2 font-mono">{trade.price}</td>
-                    <td className="px-6 py-2 font-mono">{trade.quantity}</td>
-                    <td className="px-6 py-2">
-                      {trade.side === "b" ? (
-                        <span className="text-green-600">buy</span>
-                      ) : trade.side === "s" ? (
-                        <span className="text-red-600">sell</span>
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="px-6 py-8 text-center text-sm text-gray-500">
-              {tradesQuery.isLoading ? "Loading…" : "No recent trades."}
-            </div>
-          )}
-        </div>
+        <PriceChart
+          history={chartHistory}
+          liveMidPrice={liveMid}
+          isLive={isConnected && isAuthenticated}
+        />
+
+        <LiveTrades initial={initialTrades} incoming={liveTrade} />
       </div>
     </AppShell>
   );
