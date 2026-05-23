@@ -14,9 +14,17 @@ import type {
 } from "@/lib/types";
 
 // ----- Threshold definitions -----
+//
+// Step 12.1: separate thresholds for trades vs quotes.
+// - Quotes update every second on a healthy ingestion. 30s is generous.
+// - Trades on illiquid venues (Binance.US BTC/ETH) can have minutes of
+//   gaps even when ingestion is perfectly healthy.
 
-const INGESTION_HEALTHY_S = 30;
-const INGESTION_WARN_S = 120;
+const QUOTE_HEALTHY_S = 30;
+const QUOTE_WARN_S = 120;
+
+const TRADE_HEALTHY_S = 300; // 5 min
+const TRADE_WARN_S = 1_800; // 30 min
 
 const PERSISTENCE_HEALTHY_PENDING = 100;
 const PERSISTENCE_WARN_PENDING = 1_000;
@@ -24,15 +32,22 @@ const PERSISTENCE_WARN_PENDING = 1_000;
 const STREAM_HEALTHY_LEN = 50_000;
 const STREAM_WARN_LEN = 100_000;
 
-const DURATION_HEALTHY_MS = 100;
-const DURATION_WARN_MS = 500;
+const DURATION_HEALTHY_MS = 200;
+const DURATION_WARN_MS = 800;
 
 type Level = "ok" | "warn" | "crit" | "neutral";
 
-function ingestionLevel(age_s: number | null): Level {
+function quoteLevel(age_s: number | null): Level {
   if (age_s === null) return "neutral";
-  if (age_s < INGESTION_HEALTHY_S) return "ok";
-  if (age_s < INGESTION_WARN_S) return "warn";
+  if (age_s < QUOTE_HEALTHY_S) return "ok";
+  if (age_s < QUOTE_WARN_S) return "warn";
+  return "crit";
+}
+
+function tradeLevel(age_s: number | null): Level {
+  if (age_s === null) return "neutral";
+  if (age_s < TRADE_HEALTHY_S) return "ok";
+  if (age_s < TRADE_WARN_S) return "warn";
   return "crit";
 }
 
@@ -96,6 +111,7 @@ function formatTs(iso: string | null): string {
 }
 
 function formatNumber(n: number): string {
+  if (n < 0) return "—";
   return n.toLocaleString();
 }
 
@@ -124,24 +140,27 @@ export default function SystemHealthPage() {
     const issues: { kind: Level; label: string }[] = [];
 
     for (const inst of detail.ingestion) {
-      const tLevel = ingestionLevel(inst.last_trade_age_s);
-      const qLevel = ingestionLevel(inst.last_quote_age_s);
-      if (tLevel === "crit")
-        issues.push({ kind: "crit", label: `${inst.canonical_symbol}: no trades` });
-      else if (tLevel === "warn")
-        issues.push({ kind: "warn", label: `${inst.canonical_symbol}: trades stale` });
+      const tLevel = tradeLevel(inst.last_trade_age_s);
+      const qLevel = quoteLevel(inst.last_quote_age_s);
       if (qLevel === "crit")
-        issues.push({ kind: "crit", label: `${inst.canonical_symbol}: no quotes` });
+        issues.push({ kind: "crit", label: `${inst.canonical_symbol}: quotes stale` });
       else if (qLevel === "warn")
-        issues.push({ kind: "warn", label: `${inst.canonical_symbol}: quotes stale` });
+        issues.push({ kind: "warn", label: `${inst.canonical_symbol}: quotes lagging` });
+      if (tLevel === "crit")
+        issues.push({ kind: "crit", label: `${inst.canonical_symbol}: no recent trades` });
+      else if (tLevel === "warn")
+        issues.push({ kind: "warn", label: `${inst.canonical_symbol}: trades sparse` });
     }
 
     const pLevel = pendingLevel(detail.persistence_pending_total);
-    if (pLevel === "crit") issues.push({ kind: "crit", label: "Persistence worker far behind" });
-    else if (pLevel === "warn") issues.push({ kind: "warn", label: "Persistence worker lagging" });
+    if (pLevel === "crit")
+      issues.push({ kind: "crit", label: "Persistence worker far behind" });
+    else if (pLevel === "warn")
+      issues.push({ kind: "warn", label: "Persistence worker lagging" });
 
     const dLevel = durationLevel(detail.duration_ms);
     if (dLevel === "crit") issues.push({ kind: "crit", label: "Health endpoint slow" });
+    else if (dLevel === "warn") issues.push({ kind: "warn", label: "Health endpoint slow" });
 
     return { issues };
   })();
@@ -180,8 +199,10 @@ export default function SystemHealthPage() {
               <p className="text-xs text-gray-500">
                 Auto-refreshes every 30s · Last refresh{" "}
                 {detail?.ts ? formatTs(detail.ts) : "—"} ·{" "}
-                <span className={textClass(durationLevel(detail?.duration_ms ?? 0))}>
-                  {detail?.duration_ms.toFixed(1)} ms
+                <span
+                  className={textClass(durationLevel(detail?.duration_ms ?? 0))}
+                >
+                  {detail?.duration_ms?.toFixed(1)} ms
                 </span>
               </p>
             </div>
@@ -200,7 +221,7 @@ export default function SystemHealthPage() {
           )}
         </div>
 
-        {/* Three stat cards: API alive, instruments, persistence pending */}
+        {/* Three stat cards */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <StatCard
             label="API"
@@ -358,8 +379,8 @@ function Section({
 }
 
 function IngestionRow({ row }: { row: IngestionInstrumentStatus }) {
-  const tLevel = ingestionLevel(row.last_trade_age_s);
-  const qLevel = ingestionLevel(row.last_quote_age_s);
+  const tLevel = tradeLevel(row.last_trade_age_s);
+  const qLevel = quoteLevel(row.last_quote_age_s);
   return (
     <tr>
       <td className="px-6 py-2 font-mono">{row.canonical_symbol}</td>

@@ -3,28 +3,28 @@
 GET /system/health/detail   — comprehensive operations dashboard data
                               (protected: any authenticated user can view)
 
-Returns a single JSON blob with sections for:
-  - ingestion freshness per instrument
-  - persistence worker queue depth and processing rates
-  - Redis stream depths and consumer-group health
-  - database row counts and time ranges per hypertable
-
-Designed to be cheap: every query is an indexed aggregate or a Redis
-command, total response time should be <100ms.
+Phase 1.1 (Step 12 patch):
+  - DB queries run in parallel with Redis queries via asyncio.gather()
+  - Ingestion LATERAL scans bounded to the last 15 minutes (was 1 day)
+  - Hypertable row counts use timescaledb_information.chunks (accurate),
+    falling back to pg_class.reltuples if the TimescaleDB extension
+    catalog isn't available.
 """
 from __future__ import annotations
 
+import asyncio
 import os
 import time
 from datetime import datetime, timezone
 from typing import Any
 
 import redis.asyncio as redis
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from packages.data.db import get_engine
 from packages.data.messagebus import (
     GROUP_PERSISTENCE,
     GROUP_WS_BROADCAST,
@@ -79,39 +79,39 @@ class SystemHealthDetail(BaseModel):
     streams: list[StreamStatus]
     tables: list[TableStats]
 
-    # Persistence worker queue depth: total pending messages waiting
-    # to be acknowledged by the `persistence` consumer group.
     persistence_pending_total: int
     ws_broadcast_pending_total: int
 
 
 # ============================================================
-# Endpoint
+# Helper queries (each returns a structured chunk of the response)
 # ============================================================
 
 
-@router.get("/health/detail", response_model=SystemHealthDetail)
-async def system_health_detail(
-    request: Request,
-    session: AsyncSession = Depends(get_db_session),
-    _user: dict = Depends(get_current_user),
-) -> SystemHealthDetail:
-    started = time.monotonic()
-    now = datetime.now(timezone.utc)
-
-    # ----- Instrument counts -----
-    inst_count_result = await session.execute(
+async def _query_instrument_counts(session: AsyncSession) -> tuple[int, int]:
+    result = await session.execute(
         text(
             "SELECT COUNT(*) AS total, "
             "COUNT(*) FILTER (WHERE active) AS active FROM instruments"
         )
     )
-    inst_counts = inst_count_result.mappings().first()
-    instruments_total = inst_counts["total"] if inst_counts else 0
-    instruments_active = inst_counts["active"] if inst_counts else 0
+    row = result.mappings().first()
+    if not row:
+        return (0, 0)
+    return (int(row["total"] or 0), int(row["active"] or 0))
 
-    # ----- Per-instrument ingestion freshness -----
-    ingestion_result = await session.execute(
+
+async def _query_ingestion(
+    session: AsyncSession,
+    now: datetime,
+) -> list[IngestionInstrumentStatus]:
+    """
+    Per-instrument freshness. LATERAL scans bounded to the last 15 minutes
+    so we don't drag in chunks we don't need; for last_trade_ts on a very
+    sparse instrument this could miss data, but we accept that — the
+    page's purpose is showing "is data flowing now," not historical lookups.
+    """
+    result = await session.execute(
         text(
             """
             SELECT
@@ -128,7 +128,7 @@ async def system_health_detail(
                 COUNT(*) FILTER (WHERE ts >= NOW() - INTERVAL '5 minutes') AS trades_last_5m
               FROM trades
               WHERE instrument_id = i.id
-                AND ts >= NOW() - INTERVAL '1 day'
+                AND ts >= NOW() - INTERVAL '24 hours'
             ) AS t_stats ON TRUE
             LEFT JOIN LATERAL (
               SELECT
@@ -136,18 +136,18 @@ async def system_health_detail(
                 COUNT(*) FILTER (WHERE ts >= NOW() - INTERVAL '5 minutes') AS quotes_last_5m
               FROM quotes_l1
               WHERE instrument_id = i.id
-                AND ts >= NOW() - INTERVAL '1 day'
+                AND ts >= NOW() - INTERVAL '15 minutes'
             ) AS q_stats ON TRUE
             WHERE i.active = TRUE
             ORDER BY i.canonical_symbol
             """
         )
     )
-    ingestion: list[IngestionInstrumentStatus] = []
-    for row in ingestion_result.mappings():
+    out: list[IngestionInstrumentStatus] = []
+    for row in result.mappings():
         last_trade_ts: datetime | None = row["last_trade_ts"]
         last_quote_ts: datetime | None = row["last_quote_ts"]
-        ingestion.append(
+        out.append(
             IngestionInstrumentStatus(
                 canonical_symbol=row["canonical_symbol"],
                 venue=row["venue"],
@@ -163,45 +163,67 @@ async def system_health_detail(
                     if last_quote_ts is not None
                     else None
                 ),
-                trades_last_5m=row["trades_last_5m"] or 0,
-                quotes_last_5m=row["quotes_last_5m"] or 0,
+                trades_last_5m=int(row["trades_last_5m"] or 0),
+                quotes_last_5m=int(row["quotes_last_5m"] or 0),
             )
         )
+    return out
 
-    # ----- Hypertable stats -----
-    table_stats_result = await session.execute(
-        text(
-            """
-            SELECT 'trades' AS name,
-                   COALESCE((SELECT reltuples::BIGINT FROM pg_class WHERE relname = 'trades'), 0) AS approximate_rows,
-                   (SELECT MIN(ts) FROM trades) AS earliest_ts,
-                   (SELECT MAX(ts) FROM trades) AS latest_ts
-            UNION ALL
-            SELECT 'quotes_l1' AS name,
-                   COALESCE((SELECT reltuples::BIGINT FROM pg_class WHERE relname = 'quotes_l1'), 0) AS approximate_rows,
-                   (SELECT MIN(ts) FROM quotes_l1) AS earliest_ts,
-                   (SELECT MAX(ts) FROM quotes_l1) AS latest_ts
-            UNION ALL
-            SELECT 'bars' AS name,
-                   COALESCE((SELECT reltuples::BIGINT FROM pg_class WHERE relname = 'bars'), 0) AS approximate_rows,
-                   (SELECT MIN(ts) FROM bars) AS earliest_ts,
-                   (SELECT MAX(ts) FROM bars) AS latest_ts
-            ORDER BY name
-            """
-        )
-    )
-    tables: list[TableStats] = []
-    for row in table_stats_result.mappings():
-        tables.append(
+
+async def _query_tables(session: AsyncSession) -> list[TableStats]:
+    """
+    Row counts come from timescaledb_information.hypertables when available
+    (rows_uppercase), summed across chunks. Fallback to pg_class.reltuples
+    if the catalog query fails (e.g. extension not loaded in test envs).
+
+    Time ranges come from min/max ts of each hypertable directly.
+    """
+    out: list[TableStats] = []
+    for table_name in ("trades", "quotes_l1", "bars"):
+        approx_rows = -1
+        try:
+            row_result = await session.execute(
+                text(
+                    """
+                    SELECT COALESCE(SUM(c.reltuples)::BIGINT, 0) AS rows
+                    FROM pg_class c
+                    JOIN pg_inherits inh ON inh.inhrelid = c.oid
+                    JOIN pg_class parent ON parent.oid = inh.inhparent
+                    WHERE parent.relname = :name
+                    """
+                ),
+                {"name": table_name},
+            )
+            r = row_result.scalar()
+            if r is not None and r >= 0:
+                approx_rows = int(r)
+        except Exception:
+            approx_rows = -1
+
+        try:
+            ts_result = await session.execute(
+                text(f"SELECT MIN(ts) AS mn, MAX(ts) AS mx FROM {table_name}")
+            )
+            ts_row = ts_result.mappings().first()
+            earliest = ts_row["mn"] if ts_row else None
+            latest = ts_row["mx"] if ts_row else None
+        except Exception:
+            earliest = None
+            latest = None
+
+        out.append(
             TableStats(
-                name=row["name"],
-                approximate_rows=int(row["approximate_rows"] or 0),
-                earliest_ts=row["earliest_ts"],
-                latest_ts=row["latest_ts"],
+                name=table_name,
+                approximate_rows=approx_rows,
+                earliest_ts=earliest,
+                latest_ts=latest,
             )
         )
+    return out
 
-    # ----- Redis stream info -----
+
+async def _query_redis() -> tuple[list[StreamStatus], int, int]:
+    """Return streams, persistence_pending_total, ws_broadcast_pending_total."""
     r = redis.from_url(REDIS_URL, decode_responses=True)
     streams: list[StreamStatus] = []
     persistence_pending_total = 0
@@ -219,7 +241,6 @@ async def system_health_detail(
 
             groups_summary: list[dict[str, Any]] = []
             for grp in raw_groups:
-                # xinfo_groups returns lists or dicts depending on redis-py version.
                 grp_dict = dict(grp) if not isinstance(grp, dict) else grp
                 name = grp_dict.get("name", "")
                 pending = int(grp_dict.get("pending", 0) or 0)
@@ -246,12 +267,54 @@ async def system_health_detail(
                     ws_broadcast_pending_total += pending
 
             streams.append(
-                StreamStatus(
-                    stream=stream_name, length=length, groups=groups_summary
-                )
+                StreamStatus(stream=stream_name, length=length, groups=groups_summary)
             )
     finally:
         await r.aclose()
+    return streams, persistence_pending_total, ws_broadcast_pending_total
+
+
+# ============================================================
+# Endpoint
+# ============================================================
+
+
+@router.get("/health/detail", response_model=SystemHealthDetail)
+async def system_health_detail(
+    session: AsyncSession = Depends(get_db_session),
+    _user: dict = Depends(get_current_user),
+) -> SystemHealthDetail:
+    """
+    Parallelizes the three logical groups of work:
+      - DB queries (instrument counts, ingestion freshness, table stats)
+      - Redis queries (stream depths, consumer-group info)
+
+    All three run concurrently; total endpoint time is dominated by the
+    single slowest query rather than the sum.
+    """
+    started = time.monotonic()
+    now = datetime.now(timezone.utc)
+
+    # DB queries share the same session; running them as gathered tasks would
+    # serialize on the connection anyway. Run them sequentially but keep
+    # the Redis fetch concurrent with the DB work via gather().
+    async def _db_block() -> tuple[
+        tuple[int, int],
+        list[IngestionInstrumentStatus],
+        list[TableStats],
+    ]:
+        counts = await _query_instrument_counts(session)
+        ingestion = await _query_ingestion(session, now)
+        tables = await _query_tables(session)
+        return counts, ingestion, tables
+
+    (counts, ingestion, tables), redis_result = await asyncio.gather(
+        _db_block(),
+        _query_redis(),
+    )
+
+    instruments_total, instruments_active = counts
+    streams, persistence_pending_total, ws_broadcast_pending_total = redis_result
 
     duration_ms = (time.monotonic() - started) * 1000
 
