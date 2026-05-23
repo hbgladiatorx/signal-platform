@@ -1,47 +1,54 @@
-# Step 15 — 1-Minute OHLCV Continuous Aggregate
+# Step 16 — Higher-Resolution Bar Aggregates (5m / 15m / 1h / 4h / 1d)
 
-Single file in this archive:
+Single migration in this archive:
 
-- `migrations/versions/0003_bars_1m_continuous_aggregate.sql` — creates `cagg_bars_1m` continuous aggregate, backfills, schedules refresh policy
+- `migrations/versions/0004_higher_resolution_bars.sql`
 
-## Apply
+## Apply (Mac)
 
 ```bash
 cd ~/signal-platform
-unzip -o ~/Downloads/step15-bars-1m.zip
+unzip -o ~/Downloads/step16-higher-res-bars.zip
 git add -A
-git commit -m "Step 15: 1m OHLCV continuous aggregate from trades"
+git commit -m "Step 16: 5m/15m/1h/4h/1d continuous aggregates"
 git push
 ```
 
-## Run the Migration (on the Lightsail box)
+## Run Migration (Box)
 
 ```bash
+cd ~/app
 git pull
 docker exec -i signal_postgres psql -U signal -d signal_platform \
-  < ~/app/migrations/versions/0003_bars_1m_continuous_aggregate.sql
+  < migrations/versions/0004_higher_resolution_bars.sql
 ```
 
-Expected output: `CREATE MATERIALIZED VIEW`, `CALL` (the backfill), the policy ID
-as a return value, `CREATE INDEX`, `CREATE VIEW`. Total runtime: a few seconds.
+Expected output: 5 × (CREATE MATERIALIZED VIEW, CALL, policy ID returned, CREATE INDEX), plus 5 × CREATE VIEW.
 
-## Verify
+## Verify (Box)
 
 ```bash
 docker exec -it signal_postgres psql -U signal -d signal_platform -c "
-SELECT canonical_symbol,
-       count(*) AS bars,
-       min(bucket) AS first_bar,
-       max(bucket) AS last_bar
-FROM bars_1m_view
-GROUP BY canonical_symbol
-ORDER BY canonical_symbol;
+SELECT '1m' AS res, count(*) FROM cagg_bars_1m
+UNION ALL SELECT '5m', count(*) FROM cagg_bars_5m
+UNION ALL SELECT '15m', count(*) FROM cagg_bars_15m
+UNION ALL SELECT '1h', count(*) FROM cagg_bars_1h
+UNION ALL SELECT '4h', count(*) FROM cagg_bars_4h
+UNION ALL SELECT '1d', count(*) FROM cagg_bars_1d;
 "
 ```
 
-Expected: 2-4 rows (depending on how many of your instruments have trades),
-with `bars` count in the thousands, `first_bar` around 2026-05-21, `last_bar`
-within the last few minutes.
+Expected: row counts decreasing as resolution grows coarser.
 
-No app code changes this step — the API and frontend continue as before.
-The aggregate is now ready for Step 17 to expose via a `/market/bars` endpoint.
+Confirm all auto-refresh policies registered:
+
+```bash
+docker exec -it signal_postgres psql -U signal -d signal_platform -c "
+SELECT j.job_id, j.hypertable_name, j.schedule_interval
+FROM timescaledb_information.jobs j
+WHERE j.proc_name = 'policy_refresh_continuous_aggregate'
+ORDER BY j.job_id;
+"
+```
+
+Expected: 6 rows (policy for 1m from Step 15 + 5 new policies).
