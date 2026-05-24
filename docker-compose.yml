@@ -3,7 +3,7 @@
 #
 # Phase 1 services: postgres (TimescaleDB), redis, ingestion_binanceus,
 #                   persistence_worker, api, frontend, caddy
-# Phase 2 additions: bar_builder
+# Phase 2 additions: bar_builder (Step 18), backtest_worker (Step 22)
 #
 # Run:   docker compose up -d
 # Stop:  docker compose down
@@ -138,6 +138,34 @@ services:
           memory: 200M
         reservations:
           memory: 80M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  backtest_worker:
+    build:
+      context: .
+      dockerfile: infra/docker/python.Dockerfile
+    container_name: signal_backtest_worker
+    restart: unless-stopped
+    command: ["python", "-m", "services.backtest_worker.main"]
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - signal_net
+    deploy:
+      resources:
+        limits:
+          memory: 400M
+        reservations:
+          memory: 150M
     logging:
       driver: json-file
       options:

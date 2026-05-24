@@ -151,7 +151,7 @@ STREAM_TRADES_RAW = "trades:raw"
 STREAM_QUOTES_RAW = "quotes:raw"
 STREAM_BARS_RAW = "bars:raw"
 
-# Step 18 additions: bar-builder publishes to these
+# Step 18: bar-builder publishes to these
 STREAM_BARS_LIVE = "bars:live"      # throttled in-progress bar snapshots
 STREAM_BARS_CLOSED = "bars:closed"  # one event per bar at bucket boundary
 
@@ -159,5 +159,11 @@ STREAM_BARS_CLOSED = "bars:closed"  # one event per bar at bucket boundary
 GROUP_PERSISTENCE = "persistence"
 GROUP_WS_BROADCAST = "ws-broadcast"
 
-# Step 18 additions
+# Step 18
 GROUP_BAR_BUILDER = "bar-builder"   # consumes trades:raw, builds bars
+
+# ============================================================
+# Job queues (Redis LIST keys for BRPOP/LPUSH job patterns)
+# ============================================================
+# Step 22b: backtest worker consumes job UUIDs (as strings) from this list
+QUEUE_BACKTEST_JOBS = "backtest:jobs"
