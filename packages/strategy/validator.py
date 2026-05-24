@@ -350,7 +350,7 @@ def _find_strategy_class(
 
 
 def _base_name(base: ast.expr) -> str | None:
-    """Render `Strategy` or `pkg.Strategy` from an AST base expression."""
+    """Render `Strategy`, `pkg.Strategy`, or `Strategy[T]` from an AST base expression."""
     if isinstance(base, ast.Name):
         return base.id
     if isinstance(base, ast.Attribute):
@@ -358,6 +358,9 @@ def _base_name(base: ast.expr) -> str | None:
         if parent is None:
             return None
         return f"{parent}.{base.attr}"
+    if isinstance(base, ast.Subscript):
+        # Handle generics like `Strategy[T]` — extract the base name
+        return _base_name(base.value)
     return None
 
 
