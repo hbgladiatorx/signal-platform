@@ -1,112 +1,139 @@
-# Backtests list — Period column
+# Step 31 MVP — Historical Backfill Script
 
-Adds a "Period" column to the backtests list page showing the testing window in compact form (e.g. `2.6d`, `1.4y`), color-coded by sample size.
+One Python file. Pulls historical bars from Binance.US REST `/api/v3/klines` and INSERTs into the existing `bars` hypertable. Idempotent.
 
-## Files Included
+## What This Ships
 
-| File | Change |
-|------|--------|
-| `services/api/routers/backtests.py` | Added `bars_start`, `bars_end`, `num_bars` to `BacktestSummary` Pydantic model + list endpoint |
-| `frontend/app/backtests/page.tsx` | Added "Period" column with color-coded compact format + tooltip |
+- `packages/backtest/historical_backfill.py` — standalone async script
 
-## Files To Patch In Place
+**Nothing else changes.** No new container, no migration, no API endpoint, no UI. The script reaches the running API container via `docker exec`.
 
-| File | Why a script not a replacement |
-|------|--------------------------------|
-| `frontend/lib/backtest-types.ts` | I only saw the relevant chunk, not the whole file — a surgical patch is safer than guessing at the rest |
-
-## Apply (Mac)
+## Apply / Deploy
 
 ```bash
+# Mac
 cd ~/signal-platform
-
-# 1. Drop in the replacement files
-unzip -o ~/Downloads/step30-list-period.zip
-
-# 2. Surgical patch to backtest-types.ts: add 3 fields to BacktestSummary
-python3 <<'PY'
-import pathlib
-p = pathlib.Path("frontend/lib/backtest-types.ts")
-text = p.read_text()
-
-# Find the BacktestSummary interface and add 3 fields right before its closing brace.
-# Anchor on `win_rate_pct?: number | null;\n}` which is the last field + close.
-old = '  win_rate_pct?: number | null;\n}'
-
-new = """  win_rate_pct?: number | null;
-  // Sample size info — added for the Period column in the list
-  bars_start?: string | null;
-  bars_end?: string | null;
-  num_bars?: number | null;
-}"""
-
-if 'bars_start' in text and 'BacktestSummary' in text.split('bars_start', 1)[0]:
-    # Already patched (heuristic: bars_start appears in the file and before our target)
-    print("Already patched.")
-elif old in text:
-    # Patch only the FIRST occurrence (BacktestSummary), not BacktestDetail's
-    # (BacktestDetail already has bars_start etc.)
-    text = text.replace(old, new, 1)
-    p.write_text(text)
-    print("Patched: added bars_start/bars_end/num_bars to BacktestSummary.")
-else:
-    print("ERROR: didn't find expected anchor in backtest-types.ts.")
-    print("Manually add these 3 fields to the BacktestSummary interface:")
-    print("  bars_start?: string | null;")
-    print("  bars_end?: string | null;")
-    print("  num_bars?: number | null;")
-    raise SystemExit(1)
-PY
-
-# 3. Verify
-grep -A 30 "interface BacktestSummary" frontend/lib/backtest-types.ts | head -35
-
-# 4. Commit + push
+unzip -o ~/Downloads/step31-backfill.zip
 git add -A
-git diff --stat --cached
-git commit -m "Backtests list: Period column showing days tested, color-coded by sample size"
+git commit -m "Step 31 MVP: historical backfill script from Binance.US klines"
 git push
-```
 
-## Deploy (Box)
-
-```bash
+# Box
 cd ~/app
 git pull
-docker compose build api frontend
-docker compose up -d --force-recreate api frontend
-sleep 15
+docker compose build api
+docker compose up -d --force-recreate api
+sleep 10
+
+# Smoke test (should print the script's --help)
+docker exec signal_api python -m packages.backtest.historical_backfill --help
 ```
 
-The api rebuild picks up the new `BacktestSummary` fields; the frontend rebuild picks up the new column.
+If the help text prints, the script is in place.
 
-## Verify
+## Run Your First Backfill
 
-1. Go to `/backtests`. You should see a new **PERIOD** column between RES. and STATUS.
-
-2. Existing rows should show their testing window in compact form:
-   - **Red** for under 7 days (severely insufficient)
-   - **Amber** for 7–30 days (short)
-   - **Gray** for 30–90 days (limited)
-   - **Green** for 90+ days (reasonable)
-   - **—** if `bars_start`/`bars_end` aren't populated
-
-3. Hover any value → tooltip with a sentence explaining the tier.
-
-## If All Rows Show "—"
-
-That means the list endpoint isn't returning `bars_start`/`bars_end` even though the column has been added. Most likely cause: `list_backtests_for_user` in `packages/backtest/persistence.py` has a SELECT statement that only includes specific columns, and the new ones aren't in the list.
-
-To diagnose, paste me:
+Start small — 1 month of 1d bars (fast, low risk):
 
 ```bash
-grep -A 30 "def list_backtests_for_user" packages/backtest/persistence.py
+docker exec -it signal_api python -m packages.backtest.historical_backfill \
+  --symbol BTC-USDT@BINANCEUS \
+  --resolution 1d \
+  --start 2025-01-01 \
+  --end 2026-01-01
 ```
 
-Then I'll write a one-line patch to add the columns to the SELECT.
+You should see:
+```
+Backfill plan:
+  Symbol:          BTC-USDT@BINANCEUS
+  Resolution:      1d
+  Range:           2025-01-01... → 2026-01-01...
+  Estimated bars:  365
+  Estimated calls: 1
+  Estimated time:  ~0s
 
-## Backward Compatibility
+Resolved: instrument_id=1 native_symbol=BTCUSDT
+Existing rows for this instrument/resolution: 0
 
-- `BacktestSummary` Pydantic adds optional fields with defaults → existing clients unaffected
-- TypeScript adds optional fields → existing components unaffected
-- The list page additions are non-breaking; older detail/new-backtest pages don't care
+  [100.0%] fetched=365 inserted=365 ...
+
+============================================================
+DONE
+  Wall time:           1.2s
+  Bars fetched:        365
+  New rows inserted:   365
+  Skipped duplicates:  0
+  Existing before:     0
+  Existing after:      365
+  Net new:             365
+```
+
+## Verify in the DB
+
+```bash
+docker exec signal_postgres psql -U signal -d signal_platform -c "
+  SELECT count(*), min(ts), max(ts)
+  FROM bars
+  WHERE instrument_id = 1 AND resolution = '1d'
+"
+```
+
+Should show 365 rows spanning 2025.
+
+## Now Run a Real Backtest
+
+In the UI:
+1. Go to `/strategies`
+2. Pick SMACrossover
+3. New backtest:
+   - Symbol: BTC-USDT@BINANCEUS
+   - Resolution: 1d
+   - (set start/end if the form asks; otherwise it'll use what's available)
+4. Run
+
+When you open the result, the **Period tested** field should show `1.0 years` or so — **GREEN**. The first time you'll have a backtest worth looking at.
+
+## Scale Up When Comfortable
+
+Once you trust the script:
+
+```bash
+# 1 year of 1m bars (~80 seconds)
+docker exec -it signal_api python -m packages.backtest.historical_backfill \
+  --symbol BTC-USDT@BINANCEUS --resolution 1m \
+  --start 2025-01-01 --end 2026-01-01
+
+# 5 years of 1h bars (~10 seconds)
+docker exec -it signal_api python -m packages.backtest.historical_backfill \
+  --symbol BTC-USDT@BINANCEUS --resolution 1h \
+  --start 2021-01-01 --end 2026-01-01
+
+# Same for ETH
+docker exec -it signal_api python -m packages.backtest.historical_backfill \
+  --symbol ETH-USDT@BINANCEUS --resolution 1m \
+  --start 2025-01-01 --end 2026-01-01
+```
+
+Re-running the same command is a no-op (`Skipped duplicates: N`). Safe.
+
+## Rate-Limit Behavior
+
+Self-limited to 400 calls/min. Binance.US allows 600. Headroom is for real-time ingestion which shares the rate limit budget.
+
+If you get repeated 429s in the script output, lower `SELF_RATE_LIMIT_CALLS_PER_MIN` at the top of the file. You shouldn't see any in normal use.
+
+## Known Limitations
+
+| Limitation | Workaround |
+|------------|-----------|
+| One symbol per invocation | Run the script multiple times |
+| No cancellation / pause / resume | Just kill it; idempotent, restart from scratch |
+| Continuous aggregates (5m/15m/1h etc.) NOT refreshed | If you backfill 1m and your platform has caggs, manually `CALL refresh_continuous_aggregate('cagg_name', ...)` afterwards. OR just backfill the resolution you'll use directly (cheaper at lower resolutions). |
+| Pre-listing windows return empty | Script handles gracefully — prints `[empty]` and advances |
+| Hard-coded Binance.US (not generalizable) | Future step: extract to a per-venue backfill abstraction |
+
+## Cleanup Carryover (Added)
+
+- **Step 31 follow-ups**: Wrap the script in a worker container + API endpoints + UI flow (the full Step 31 spec). Once you have a few hundred MB of historical bars, the platform's UX should expose backfill triggering visually instead of via `docker exec`.
+- **Cagg refresh trigger** if you decide to use the continuous aggregates rather than backfilling each resolution directly.
