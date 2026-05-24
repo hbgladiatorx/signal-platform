@@ -9,13 +9,23 @@ Loop structure per bar in the unified timeline:
      that didn't trade; that's needed because Binance.US sparseness means
      not every bar has every symbol.
 
-  2. FILL PENDING ORDERS — orders queued at PRIOR bars try to fill against
-     THIS bar's OHLC. Market orders fill at open + slippage. Limit orders
-     fill if the bar's range crossed the limit price.
+  2. PROCESS ORDER LIFECYCLE — handle in this strict order:
+     2a) EXPIRATIONS: remove orders whose expires_at_bar_count <= current
+         bar count. Call strategy.on_order_expired() for each.
+     2b) CANCELLATIONS: remove orders the strategy requested cancel for
+         in the PREVIOUS on_bar() call. Call strategy.on_order_cancelled().
+     2c) FILLS: orders queued at PRIOR bars try to fill against THIS bar's
+         OHLC. Market orders fill at open + slippage. Limit orders fill if
+         the bar's range crossed the limit price. With max_pct_of_volume
+         set, fills are capped and remainders are requeued.
+     2d) REJECTIONS: portfolio-level rejections (insufficient cash for buy,
+         insufficient position for sell) call strategy.on_order_rejected().
 
   3. CALL STRATEGY — build a BarContext with history up to and including
-     this bar's close, current positions, current cash. Call strategy.on_bar().
-     Any orders the strategy submits are queued for the NEXT bar.
+     this bar's close, current positions, current cash, and a snapshot of
+     pending orders. Call strategy.on_bar(). Any orders the strategy submits
+     are queued for the NEXT bar. Any cancellations are recorded for the
+     NEXT bar's 2b phase.
 
   4. MARK TO MARKET — record an EquityPoint with cash + position MTM at
      this bar's close. Equity curve has one point per timeline bar.
@@ -29,20 +39,20 @@ Inputs:
   strategy  — an already-instantiated Strategy (caller controls construction)
   bars      — dict canonical_symbol -> pd.DataFrame with columns
               [open, high, low, close, volume] and a DatetimeIndex
-  config    — BacktestConfig (starting cash, fees, slippage)
+  config    — BacktestConfig (starting cash, fees, slippage, volume cap)
 
 Returns:
-  BacktestResult with fills, equity_curve, final positions, etc.
+  BacktestResult with fills, equity_curve, final positions,
+  rejected/cancelled/expired order records.
 
 Limitations (Phase 2):
   - Long-only
   - No margin
-  - No order cancellation (limit orders persist until filled)
-  - No partial fills
   - Sequential / single-threaded
 """
 from __future__ import annotations
 
+import dataclasses
 import logging
 from datetime import datetime
 from decimal import Decimal
@@ -91,6 +101,23 @@ def _validate_inputs(
             )
 
 
+def _safe_callback(callback: Any, *args: Any, **kwargs: Any) -> None:
+    """Invoke a strategy callback, swallowing exceptions with a log entry.
+
+    A buggy strategy callback shouldn't crash the backtest. The error is
+    logged so the strategy author can diagnose it.
+    """
+    try:
+        callback(*args, **kwargs)
+    except Exception as e:
+        log.error(
+            "backtest.strategy_callback_error fn=%s err=%s",
+            getattr(callback, "__name__", "<unknown>"),
+            e,
+            exc_info=True,
+        )
+
+
 def run_backtest(
     strategy: Strategy,
     bars: dict[str, pd.DataFrame],
@@ -122,18 +149,51 @@ def run_backtest(
     fills: list[Fill] = []
     equity_curve: list[EquityPoint] = []
     rejected_orders: list[tuple[Order, str]] = []
+    cancelled_orders: list[Order] = []
+    expired_orders: list[Order] = []
     pending_orders: list[Order] = []
     last_marks: dict[str, Decimal] = {}
 
+    # Cancellation requests collected during the PREVIOUS on_bar(), to be
+    # processed at the start of THIS bar's Phase 2.
+    pending_cancellations: set[str] = set()
+
     # ----- Walk timeline -----
-    for ts in timeline:
+    for bar_count, ts in enumerate(timeline):
         # --- (1) UPDATE MARKS ---
         for sym in strategy.symbols:
             this_bar = bar_by_ts.get(sym, {}).get(ts)
             if this_bar is not None:
                 last_marks[sym] = Decimal(str(this_bar["close"]))
 
-        # --- (2) FILL PENDING ORDERS ---
+        # --- (2a) EXPIRATIONS ---
+        # Remove orders whose expiry has been reached.
+        surviving_after_expiry: list[Order] = []
+        for order in pending_orders:
+            if (
+                order.expires_at_bar_count is not None
+                and bar_count >= order.expires_at_bar_count
+            ):
+                expired_orders.append(order)
+                _safe_callback(strategy.on_order_expired, order)
+            else:
+                surviving_after_expiry.append(order)
+        pending_orders = surviving_after_expiry
+
+        # --- (2b) CANCELLATIONS ---
+        # Process cancel requests from the previous on_bar() call.
+        if pending_cancellations:
+            surviving_after_cancel: list[Order] = []
+            for order in pending_orders:
+                if order.client_order_id in pending_cancellations:
+                    cancelled_orders.append(order)
+                    _safe_callback(strategy.on_order_cancelled, order)
+                else:
+                    surviving_after_cancel.append(order)
+            pending_orders = surviving_after_cancel
+            pending_cancellations = set()  # consumed
+
+        # --- (2c) FILL REMAINING PENDING ORDERS ---
         next_pending: list[Order] = []
         for order in pending_orders:
             sym_bars = bar_by_ts.get(order.symbol, {})
@@ -144,24 +204,27 @@ def run_backtest(
                 continue
 
             if order.order_type == OrderType.MARKET:
-                fill = simulate_market_fill(order, this_bar, config)
+                fill_result = simulate_market_fill(order, this_bar, config)
             else:
-                fill = try_fill_limit_order(order, this_bar, config)
-                if fill is None:
-                    next_pending.append(order)
-                    continue
+                fill_result = try_fill_limit_order(order, this_bar, config)
 
-            # Apply the fill against the portfolio
+            if fill_result is None:
+                # No fill this bar (limit not crossed, or zero volume)
+                next_pending.append(order)
+                continue
+
+            fill, remainder_qty = fill_result
+
+            # --- (2d) Apply fill against portfolio; REJECT if insufficient ---
             if fill.side == OrderSide.BUY:
                 cost = fill.price * fill.quantity + fill.fee
                 if cost > portfolio.cash:
-                    rejected_orders.append(
-                        (
-                            order,
-                            f"insufficient cash: need {cost:.2f}, "
-                            f"have {portfolio.cash:.2f}",
-                        )
+                    reason = (
+                        f"insufficient cash: need {cost:.2f}, "
+                        f"have {portfolio.cash:.2f}"
                     )
+                    rejected_orders.append((order, reason))
+                    _safe_callback(strategy.on_order_rejected, order, reason)
                     continue
                 portfolio.apply_buy(
                     order.symbol, fill.quantity, fill.price, fill.fee
@@ -169,19 +232,26 @@ def run_backtest(
             else:  # SELL
                 pos = portfolio.get_position(order.symbol)
                 if fill.quantity > pos.quantity:
-                    rejected_orders.append(
-                        (
-                            order,
-                            f"insufficient position: trying to sell "
-                            f"{fill.quantity}, have {pos.quantity}",
-                        )
+                    reason = (
+                        f"insufficient position: trying to sell "
+                        f"{fill.quantity}, have {pos.quantity}"
                     )
+                    rejected_orders.append((order, reason))
+                    _safe_callback(strategy.on_order_rejected, order, reason)
                     continue
                 portfolio.apply_sell(
                     order.symbol, fill.quantity, fill.price, fill.fee
                 )
 
             fills.append(fill)
+
+            # If only partially filled, requeue the remainder with the SAME
+            # client_order_id so strategy can track total filled vs original.
+            if remainder_qty > 0:
+                remainder_order = dataclasses.replace(
+                    order, quantity=remainder_qty
+                )
+                next_pending.append(remainder_order)
 
         pending_orders = next_pending
 
@@ -198,6 +268,8 @@ def run_backtest(
             history=history,
             positions=portfolio.positions_for_context(),
             cash=portfolio.cash,
+            pending_orders=pending_orders,
+            bar_count=bar_count,
         )
 
         try:
@@ -212,6 +284,8 @@ def run_backtest(
 
         # Queue submitted orders for next bar
         pending_orders.extend(ctx.collected_orders())
+        # Carry cancellation requests to next bar's Phase 2b
+        pending_cancellations = ctx.collected_cancellations()
 
         # --- (4) MARK TO MARKET ---
         positions_value = portfolio.mark_to_market(last_marks)
@@ -232,5 +306,7 @@ def run_backtest(
         final_cash=portfolio.cash,
         final_positions=dict(portfolio.positions),
         rejected_orders=rejected_orders,
+        cancelled_orders=cancelled_orders,
+        expired_orders=expired_orders,
         strategy_state_final=dict(strategy.state),
     )

@@ -7,6 +7,9 @@ Contract:
   - Subclass declares PARAMS_MODEL: type[P]
   - Subclass implements on_bar(ctx: BarContext) -> None
   - Subclass MAY override on_init() -> None for one-time setup
+  - Subclass MAY override on_order_rejected, on_order_cancelled,
+    on_order_expired to react to order lifecycle events. These default
+    to no-ops so strategies that don't care can ignore them.
   - Strategy.state is a free-form dict the strategy uses for persistent state
     between on_bar calls
   - Strategy.symbols is the list of canonical symbols the strategy operates on,
@@ -19,6 +22,9 @@ The engine guarantees:
   - The history accessible via ctx.bars() never includes future bars
   - Orders submitted via ctx.submit_*() are queued for fill simulation at the
     NEXT bar's open price (not the current bar — this prevents look-ahead bias)
+  - Order lifecycle callbacks fire BEFORE on_bar() for the bar in which the
+    event was determined. So if an order expires going into bar N, the
+    strategy sees on_order_expired() before its on_bar(N) is invoked.
 """
 from __future__ import annotations
 
@@ -48,6 +54,9 @@ class Order:
 
     Strategies don't construct Order directly; they call ctx.submit_market()
     or ctx.submit_limit(). The engine consumes these via ctx.collected_orders().
+
+    `expires_at_bar_count` is the engine's bar index AT WHICH the order
+    expires (i.e., before that bar's fill phase). None means GTC.
     """
 
     symbol: str
@@ -57,6 +66,7 @@ class Order:
     limit_price: Decimal | None  # None for market orders; required for limit
     submitted_ts: datetime  # the bar close time at which the strategy decided
     client_order_id: str  # auto-generated; unique per strategy run
+    expires_at_bar_count: int | None = None  # None = GTC (no expiry)
 
     def __post_init__(self) -> None:
         if self.order_type == OrderType.LIMIT and self.limit_price is None:
@@ -79,6 +89,9 @@ class Strategy(Generic[P], ABC):
 
     Subclasses may override:
       on_init()             — called once before the first bar
+      on_order_rejected()   — engine couldn't fill (insufficient cash/position)
+      on_order_cancelled()  — strategy-requested cancellation took effect
+      on_order_expired()    — order reached expires_at_bar_count without filling
       name()                — defaults to class __name__
       description()         — defaults to class docstring
     """
@@ -117,10 +130,37 @@ class Strategy(Generic[P], ABC):
         """Required: process a closed-bar boundary, optionally submit orders.
 
         Called once per bar across all symbols. The context provides typed
-        access to history, indicators, current positions, cash, and order
-        submission.
+        access to history, indicators, current positions, cash, pending
+        orders, and order submission.
         """
         ...
+
+    # --- Order lifecycle hooks (defaults are no-ops) ---
+
+    def on_order_rejected(self, order: Order, reason: str) -> None:
+        """Optional: react when the engine declined to fill an order.
+
+        Reasons include insufficient cash for a buy, or attempting to sell
+        more than the current position. Default is a no-op; override to
+        log, retry-with-smaller-size, or update strategy state.
+        """
+        return None
+
+    def on_order_cancelled(self, order: Order) -> None:
+        """Optional: react when a strategy-requested cancellation completes.
+
+        Fires when an order the strategy cancelled via ctx.cancel_order()
+        is removed from the pending queue by the engine. Default is a no-op.
+        """
+        return None
+
+    def on_order_expired(self, order: Order) -> None:
+        """Optional: react when an order expires without filling.
+
+        Fires when an order's expires_at_bar_count is reached before it
+        fills. Default is a no-op.
+        """
+        return None
 
     # --- Discovery / metadata ---
 

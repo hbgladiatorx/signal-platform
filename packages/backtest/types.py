@@ -28,11 +28,17 @@ class BacktestConfig:
       - 10 bps (0.10%) fee per fill (Binance.US taker after volume tiers)
       - 5 bps (0.05%) slippage on market orders
       - $10,000 starting cash
+      - No volume cap (full fills regardless of bar volume)
+
+    Setting `max_pct_of_volume` to e.g. 0.05 caps any single fill at 5%
+    of the bar's traded volume. Remainders are automatically requeued
+    for the next bar with the same client_order_id.
     """
 
     starting_cash: Decimal = Decimal("10000")
     fee_rate_bps: int = 10
     slippage_bps: int = 5
+    max_pct_of_volume: Decimal | None = None
 
     @property
     def fee_rate(self) -> Decimal:
@@ -56,6 +62,11 @@ class Fill:
     absolute amount paid in fees on this fill (in quote currency).
     `filled_ts` is the timestamp of the BAR at which the fill occurred,
     which is one bar after `order_submitted_ts` for market orders.
+
+    `is_partial` indicates whether this fill is a partial — i.e. the
+    engine capped the fill quantity (typically because of the volume
+    cap), and a remainder order with the same client_order_id is now
+    queued for further fills on subsequent bars.
     """
 
     client_order_id: str
@@ -67,6 +78,7 @@ class Fill:
     fee: Decimal
     filled_ts: datetime
     order_submitted_ts: datetime
+    is_partial: bool = False
 
 
 # ============================================================
@@ -110,6 +122,10 @@ class BacktestResult:
     `rejected_orders` lists orders the engine declined to fill (insufficient
     cash, attempting to sell more than held). The reason string explains why.
 
+    `cancelled_orders` and `expired_orders` track lifecycle events for
+    diagnostic / reporting purposes; the strategy was already notified
+    via its on_order_* callbacks.
+
     `strategy_state_final` is a snapshot of the strategy's `self.state` dict
     at the end of the run, useful for debugging strategy logic.
     """
@@ -120,6 +136,8 @@ class BacktestResult:
     final_cash: Decimal = Decimal(0)
     final_positions: dict[str, Position] = field(default_factory=dict)
     rejected_orders: list[tuple[Order, str]] = field(default_factory=list)
+    cancelled_orders: list[Order] = field(default_factory=list)
+    expired_orders: list[Order] = field(default_factory=list)
     strategy_state_final: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -141,3 +159,11 @@ class BacktestResult:
     @property
     def num_rejected(self) -> int:
         return len(self.rejected_orders)
+
+    @property
+    def num_cancelled(self) -> int:
+        return len(self.cancelled_orders)
+
+    @property
+    def num_expired(self) -> int:
+        return len(self.expired_orders)

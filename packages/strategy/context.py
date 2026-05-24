@@ -6,10 +6,15 @@ Built fresh by the engine for each on_bar call. Provides:
       sma(), ema(), rsi(), atr()
   - Position and cash inspection: position(), cash
   - Order submission: submit_market(), submit_limit(), and convenience helpers
+  - Order management: cancel_order(), pending_orders()
 
 The context is immutable from the engine's perspective after handing it to
-the strategy, except for the orders collection — the strategy mutates that
-by submitting orders.
+the strategy, except for the orders/cancellations collections — the strategy
+mutates those by submitting orders and requesting cancellations.
+
+Cancellations and new orders are queued during on_bar(); the engine processes
+them at the start of the NEXT bar's fill phase. This keeps the engine's
+processing order deterministic and prevents same-bar cancel-after-fill races.
 """
 from __future__ import annotations
 
@@ -50,13 +55,23 @@ class BarContext:
         history: dict[str, pd.DataFrame],
         positions: dict[str, Decimal],
         cash: Decimal,
+        pending_orders: list[Order] | None = None,
+        bar_count: int = 0,
     ) -> None:
         self.ts = ts
         self.symbols = list(symbols)
+        self.bar_count = bar_count  # engine-maintained bar index, 0-based
         self._history = history
         self._positions = positions
         self._cash = cash
+        # Snapshot of orders currently pending fill in the engine
+        self._pending_orders: list[Order] = (
+            list(pending_orders) if pending_orders else []
+        )
+        # New orders the strategy submits this bar
         self._orders: list[Order] = []
+        # Cancellation requests the strategy makes this bar
+        self._cancellation_requests: set[str] = set()
         # Cache key: (symbol, indicator_name, *params) -> pd.Series
         self._cache: dict[tuple, pd.Series] = {}
 
@@ -188,11 +203,23 @@ class BarContext:
         # 8 chars of UUID is plenty for uniqueness within a backtest run
         return uuid.uuid4().hex[:8]
 
+    def _compute_expiry(self, expires_after_bars: int | None) -> int | None:
+        """Translate strategy-provided 'expires after N bars' into the absolute
+        engine bar index at which the order expires."""
+        if expires_after_bars is None:
+            return None
+        if expires_after_bars <= 0:
+            raise ValueError(
+                f"expires_after_bars must be positive, got {expires_after_bars}"
+            )
+        return self.bar_count + expires_after_bars
+
     def submit_market(
         self,
         symbol: str,
         side: OrderSide,
         quantity: Numeric,
+        expires_after_bars: int | None = None,
     ) -> str:
         """Queue a market order. Fills at next bar's open in the simulator."""
         order = Order(
@@ -203,6 +230,7 @@ class BarContext:
             limit_price=None,
             submitted_ts=self.ts,
             client_order_id=self._new_order_id(),
+            expires_at_bar_count=self._compute_expiry(expires_after_bars),
         )
         self._orders.append(order)
         return order.client_order_id
@@ -213,8 +241,14 @@ class BarContext:
         side: OrderSide,
         quantity: Numeric,
         price: Numeric,
+        expires_after_bars: int | None = None,
     ) -> str:
-        """Queue a limit order. Fills in the simulator when price is crossed."""
+        """Queue a limit order. Fills in the simulator when price is crossed.
+
+        If `expires_after_bars` is provided, the order expires after that many
+        bars without filling and on_order_expired() is called. Without an
+        expiry, the order is GTC and persists until filled or cancelled.
+        """
         order = Order(
             symbol=symbol,
             side=side,
@@ -223,23 +257,85 @@ class BarContext:
             limit_price=_to_decimal(price),
             submitted_ts=self.ts,
             client_order_id=self._new_order_id(),
+            expires_at_bar_count=self._compute_expiry(expires_after_bars),
         )
         self._orders.append(order)
         return order.client_order_id
 
     # ----- Convenience helpers -----
 
-    def submit_buy_market(self, symbol: str, quantity: Numeric) -> str:
-        return self.submit_market(symbol, OrderSide.BUY, quantity)
+    def submit_buy_market(
+        self,
+        symbol: str,
+        quantity: Numeric,
+        expires_after_bars: int | None = None,
+    ) -> str:
+        return self.submit_market(
+            symbol, OrderSide.BUY, quantity, expires_after_bars
+        )
 
-    def submit_sell_market(self, symbol: str, quantity: Numeric) -> str:
-        return self.submit_market(symbol, OrderSide.SELL, quantity)
+    def submit_sell_market(
+        self,
+        symbol: str,
+        quantity: Numeric,
+        expires_after_bars: int | None = None,
+    ) -> str:
+        return self.submit_market(
+            symbol, OrderSide.SELL, quantity, expires_after_bars
+        )
 
-    def submit_buy_limit(self, symbol: str, quantity: Numeric, price: Numeric) -> str:
-        return self.submit_limit(symbol, OrderSide.BUY, quantity, price)
+    def submit_buy_limit(
+        self,
+        symbol: str,
+        quantity: Numeric,
+        price: Numeric,
+        expires_after_bars: int | None = None,
+    ) -> str:
+        return self.submit_limit(
+            symbol, OrderSide.BUY, quantity, price, expires_after_bars
+        )
 
-    def submit_sell_limit(self, symbol: str, quantity: Numeric, price: Numeric) -> str:
-        return self.submit_limit(symbol, OrderSide.SELL, quantity, price)
+    def submit_sell_limit(
+        self,
+        symbol: str,
+        quantity: Numeric,
+        price: Numeric,
+        expires_after_bars: int | None = None,
+    ) -> str:
+        return self.submit_limit(
+            symbol, OrderSide.SELL, quantity, price, expires_after_bars
+        )
+
+    # ============================================================
+    # Order management
+    # ============================================================
+    def cancel_order(self, client_order_id: str) -> bool:
+        """Request cancellation of a pending order.
+
+        Returns True if the id matches an order currently pending or
+        newly submitted in this bar; False otherwise (no-op).
+
+        Cancellation takes effect at the START of the next bar, BEFORE
+        the engine attempts to fill orders. So an order cancelled in
+        bar N's on_bar will not be filled in bar N+1's fill phase.
+        """
+        self._cancellation_requests.add(client_order_id)
+        in_pending = any(
+            o.client_order_id == client_order_id for o in self._pending_orders
+        )
+        in_new = any(
+            o.client_order_id == client_order_id for o in self._orders
+        )
+        return in_pending or in_new
+
+    def pending_orders(self) -> list[Order]:
+        """Snapshot of orders currently pending in the engine.
+
+        Does NOT include orders the strategy submitted this bar (those
+        are in flight but not yet in the engine's queue). Use this to
+        introspect what's outstanding before submitting more.
+        """
+        return list(self._pending_orders)
 
     # ============================================================
     # Engine interface
@@ -247,3 +343,7 @@ class BarContext:
     def collected_orders(self) -> list[Order]:
         """Return the orders the strategy submitted in this on_bar() call."""
         return list(self._orders)
+
+    def collected_cancellations(self) -> set[str]:
+        """Return the cancellation requests collected this on_bar() call."""
+        return set(self._cancellation_requests)
