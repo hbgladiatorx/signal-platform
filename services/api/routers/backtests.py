@@ -260,9 +260,13 @@ async def create_new_backtest(
     try:
         validated_params = strategy_cls.PARAMS_MODEL(**req.params)
     except ValidationError as e:
+        # Use e.json() (always JSON-safe) rather than e.errors() (which can
+        # contain raw ValueError instances in `ctx` when a model_validator
+        # raises one — those aren't JSON-serializable).
+        import json as _json
         raise HTTPException(
             status_code=422,
-            detail={"msg": "Invalid params", "errors": e.errors()},
+            detail={"msg": "Invalid params", "errors": _json.loads(e.json())},
         )
 
     # Validate symbols exist
