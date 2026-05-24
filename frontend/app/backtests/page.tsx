@@ -81,66 +81,68 @@ export default function BacktestsListPage() {
           )}
 
           {data && data.length > 0 && (
-            <table className="w-full text-sm">
-              <thead className="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
-                <tr>
-                  <th className="px-6 py-2 font-medium">Strategy</th>
-                  <th className="px-6 py-2 font-medium">Symbols</th>
-                  <th className="px-6 py-2 font-medium">Res.</th>
-                  <th className="px-6 py-2 font-medium">Status</th>
-                  <th className="px-6 py-2 text-right font-medium">Return</th>
-                  <th className="px-6 py-2 text-right font-medium">Sharpe</th>
-                  <th className="px-6 py-2 text-right font-medium">Max DD</th>
-                  <th className="px-6 py-2 text-right font-medium">Trades</th>
-                  <th className="px-6 py-2 text-right font-medium">Win %</th>
-                  <th className="px-6 py-2 font-medium">Created</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {data.map((bt) => (
-                  <tr key={bt.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-3">
-                      <Link
-                        href={`/backtests/${bt.id}`}
-                        className="font-mono text-xs text-navy-600 hover:underline"
-                      >
-                        {bt.strategy_name}
-                      </Link>
-                    </td>
-                    <td className="px-6 py-3 font-mono text-xs text-gray-600">
-                      {bt.symbols.join(", ")}
-                    </td>
-                    <td className="px-6 py-3 text-gray-600">
-                      {bt.bar_resolution}
-                    </td>
-                    <td className="px-6 py-3">
-                      <StatusBadge status={bt.status} />
-                    </td>
-                    <td
-                      className={`px-6 py-3 text-right font-mono ${returnColor(bt.total_return_pct)}`}
-                    >
-                      {fmtPct(bt.total_return_pct)}
-                    </td>
-                    <td className="px-6 py-3 text-right font-mono text-gray-700">
-                      {fmtNum(bt.sharpe_ratio, 2)}
-                    </td>
-                    <td className="px-6 py-3 text-right font-mono text-gray-700">
-                      {fmtPct(bt.max_drawdown_pct)}
-                    </td>
-                    <td className="px-6 py-3 text-right font-mono text-gray-700">
-                      {bt.num_closed_trades ?? "—"}
-                    </td>
-                    <td className="px-6 py-3 text-right font-mono text-gray-700">
-                      {fmtNum(bt.win_rate_pct, 1)}
-                      {bt.win_rate_pct != null && "%"}
-                    </td>
-                    <td className="px-6 py-3 text-xs text-gray-500">
-                      {fmtTime(bt.created_at)}
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">Strategy</th>
+                    <th className="px-3 py-2 font-medium">Symbols</th>
+                    <th className="px-3 py-2 font-medium">Res.</th>
+                    <th className="px-3 py-2 font-medium">Status</th>
+                    <th className="px-3 py-2 text-right font-medium">Return</th>
+                    <th className="px-3 py-2 text-right font-medium">Sharpe</th>
+                    <th className="px-3 py-2 text-right font-medium">Max DD</th>
+                    <th className="px-3 py-2 text-right font-medium">Trades</th>
+                    <th className="px-3 py-2 text-right font-medium">Win %</th>
+                    <th className="px-3 py-2 font-medium whitespace-nowrap">Created</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {data.map((bt) => (
+                    <tr key={bt.id} className="hover:bg-gray-50">
+                      <td className="px-3 py-3">
+                        <Link
+                          href={`/backtests/${bt.id}`}
+                          className="font-mono text-xs text-navy-600 hover:underline"
+                        >
+                          {bt.strategy_name}
+                        </Link>
+                      </td>
+                      <td className="px-3 py-3 font-mono text-xs text-gray-600 whitespace-nowrap">
+                        {bt.symbols.join(", ")}
+                      </td>
+                      <td className="px-3 py-3 text-gray-600">
+                        {bt.bar_resolution}
+                      </td>
+                      <td className="px-3 py-3">
+                        <StatusBadge status={bt.status} />
+                      </td>
+                      <td
+                        className={`px-3 py-3 text-right font-mono whitespace-nowrap ${returnColor(bt.total_return_pct)}`}
+                      >
+                        {fmtPct(bt.total_return_pct)}
+                      </td>
+                      <td className="px-3 py-3 text-right font-mono text-gray-700 whitespace-nowrap">
+                        {fmtNum(bt.sharpe_ratio, 2)}
+                      </td>
+                      <td className="px-3 py-3 text-right font-mono text-gray-700 whitespace-nowrap">
+                        {fmtPct(bt.max_drawdown_pct)}
+                      </td>
+                      <td className="px-3 py-3 text-right font-mono text-gray-700">
+                        {bt.num_closed_trades ?? "—"}
+                      </td>
+                      <td className="px-3 py-3 text-right font-mono text-gray-700 whitespace-nowrap">
+                        {fmtNum(bt.win_rate_pct, 1)}
+                        {bt.win_rate_pct != null && "%"}
+                      </td>
+                      <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">
+                        {fmtTime(bt.created_at)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>
