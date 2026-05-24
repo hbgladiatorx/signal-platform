@@ -19,11 +19,13 @@ from fastapi.responses import JSONResponse
 from packages.data.db import dispose_engine, get_engine
 from services.api.redis_subscriber import broadcaster
 from services.api.routers import (
+    backtests,
     health,
     instruments,
     market,
     me,
     settings as settings_router,
+    strategies,
     system,
     ws,
 )
@@ -115,6 +117,8 @@ app.include_router(market.router)
 app.include_router(me.router)
 app.include_router(system.router)
 app.include_router(settings_router.router)
+app.include_router(strategies.router)
+app.include_router(backtests.router)
 app.include_router(ws.router)
 
 

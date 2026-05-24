@@ -1,19 +1,34 @@
-# Step 22b — Backtest Worker Service
+# Step 23 — Backtest API Endpoints
 
 Files in this archive:
 
-- `services/backtest_worker/__init__.py` — NEW: package marker
-- `services/backtest_worker/main.py` — NEW: the worker
-- `packages/data/messagebus.py` — UPDATED: adds `QUEUE_BACKTEST_JOBS` constant
-- `docker-compose.yml` — UPDATED: adds `backtest_worker` service
+- `services/api/routers/strategies.py` — NEW: GET /strategies, GET /strategies/{name}
+- `services/api/routers/backtests.py` — NEW: POST/GET endpoints under /backtests
+- `services/api/main.py` — UPDATED: includes the two new routers
+
+## Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | /strategies | List available strategies + JSON schemas |
+| GET | /strategies/{name} | One strategy's info |
+| POST | /backtests | Create + enqueue a new backtest |
+| GET | /backtests | List my backtests (paginated) |
+| GET | /backtests/{id} | Full backtest header + summary metrics |
+| GET | /backtests/{id}/trades | Closed round trips |
+| GET | /backtests/{id}/equity | Equity curve |
+
+All require auth. `POST /backtests` and `GET /backtests*` require a user
+record (look up by JWT sub); M2M tokens won't work unless you pre-provision
+a `users` row for them.
 
 ## Apply (Mac)
 
 ```bash
 cd ~/signal-platform
-unzip -o ~/Downloads/step22b-worker.zip
+unzip -o ~/Downloads/step23-backtest-api.zip
 git add -A
-git commit -m "Step 22b: backtest_worker service (Redis LIST queue)"
+git commit -m "Step 23: backtest + strategies API endpoints"
 git push
 ```
 
@@ -22,112 +37,90 @@ git push
 ```bash
 cd ~/app
 git pull
-docker compose build backtest_worker
-docker compose up -d backtest_worker
+docker compose build api
+docker compose up -d --force-recreate api
 ```
 
-Then verify the service is running and idle (queue is empty, so it should be blocking on BRPOP):
+## Verify with the M2M Token
+
+Quick check that the routes are registered and authenticated:
 
 ```bash
-docker compose ps backtest_worker
-docker compose logs --tail=10 backtest_worker
+# Get a JWT (already memorized in earlier sessions)
+JWT=$(curl -s -X POST https://cimcha-signal.us.auth0.com/oauth/token \
+  -H "Content-Type: application/json" \
+  -d '{
+    "client_id": "GebwZSFIIUVwcq9zhy2Ev7EBmQ9Pbnyw",
+    "client_secret": "LsDhK10Kpg4uM70FcjHv8lFCoAsJnUDiDW9WFaQAqjMSXBs70LNzF5un5hGT5m8Q",
+    "audience": "https://signal.cimcha.com/api",
+    "grant_type": "client_credentials"
+  }' | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+
+# Public endpoint (no user record needed)
+echo "=== GET /strategies ==="
+curl -s -H "Authorization: Bearer $JWT" \
+  "https://signal.cimcha.com/api/strategies" | python3 -m json.tool
+
+# User-scoped endpoint — should 404 because M2M tokens don't have a users row
+echo "=== GET /backtests (expect 404: no user record for M2M) ==="
+curl -s -w "\nHTTP %{http_code}\n" -H "Authorization: Bearer $JWT" \
+  "https://signal.cimcha.com/api/backtests"
 ```
 
-Expected log line: `backtest_worker.starting` showing `queue=backtest:jobs` and `strategies=['SMACrossover']`.
+`GET /strategies` should return a JSON array with one entry (`SMACrossover`)
+including its params schema.
 
-## End-to-End Verification
+`GET /backtests` will return 404 with a message explaining that M2M tokens
+don't have a user record. That confirms auth flows and user lookup work.
 
-We need to: create a pending backtest, push its UUID onto the Redis queue, watch the worker pick it up and complete it.
+## Verify via Real User Path (Optional)
 
-### Step 1: Create a pending backtest
+To exercise the user-scoped endpoints end-to-end, sign in through the
+frontend (which uses the Auth0 PKCE flow → user-scoped JWT → maps to your
+users row). Then:
+
+1. Open `https://signal.cimcha.com` and log in
+2. Open browser DevTools → Network tab
+3. Refresh — find the JWT in any `/api/me` call's Authorization header
+4. Copy the JWT, then:
 
 ```bash
-docker exec -i signal_api python3 << 'EOF'
-import asyncio
-from decimal import Decimal
-from pathlib import Path
+USER_JWT="<paste-here>"
 
-from sqlalchemy import text
-
-from packages.backtest.persistence import create_backtest
-from packages.data.db import get_engine
-from packages.strategy.registry import discover_strategies
-
-
-async def main():
-    engine = get_engine()
-    async with engine.connect() as conn:
-        row = (await conn.execute(
-            text("SELECT id, org_id FROM users LIMIT 1")
-        )).mappings().first()
-        user_id, org_id = row["id"], row["org_id"]
-
-    SMACrossover = discover_strategies(Path("/app/strategies"))["SMACrossover"]
-    params = SMACrossover.PARAMS_MODEL(fast_period=5, slow_period=20, position_size=0.001)
-
-    async with engine.begin() as conn:
-        bt_id = await create_backtest(
-            conn,
-            user_id=user_id, org_id=org_id,
-            strategy_name=SMACrossover.name(),
-            params_json=params.model_dump(),
-            symbols=["BTC-USDT@BINANCEUS"],
-            bar_resolution="1h",
-            starting_cash=Decimal("10000"),
-        )
-    print(f"BACKTEST_ID={bt_id}")
-
-
-asyncio.run(main())
-EOF
+curl -s -H "Authorization: Bearer $USER_JWT" \
+  "https://signal.cimcha.com/api/backtests" | python3 -m json.tool
 ```
 
-Note the printed `BACKTEST_ID=...` UUID. We'll push that.
+This should return the list of backtests we created in Steps 22a and 22b
+(2 completed runs).
 
-### Step 2: Enqueue the job
+## Verify POST Workflow with M2M Shim
 
-Copy the UUID from above into:
+If you want to exercise the POST flow without UI, you can temporarily
+insert a `users` row mapped to the M2M client_id, then POST. Cleanup
+is your responsibility:
+
+```sql
+-- One-time: provision a users row for the M2M client (only for testing!)
+INSERT INTO users (auth0_sub, email, role)
+VALUES ('GebwZSFIIUVwcq9zhy2Ev7EBmQ9Pbnyw@clients', 'm2m-test@signal', 'admin')
+ON CONFLICT (auth0_sub) DO NOTHING;
+```
+
+Then:
 
 ```bash
-BT_ID=<paste-uuid-here>
-docker exec signal_redis redis-cli LPUSH backtest:jobs "$BT_ID"
+curl -s -X POST -H "Authorization: Bearer $JWT" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "strategy_name": "SMACrossover",
+    "params": {"fast_period": 5, "slow_period": 20, "position_size": 0.001},
+    "symbols": ["BTC-USDT@BINANCEUS"],
+    "bar_resolution": "1h"
+  }' \
+  "https://signal.cimcha.com/api/backtests" | python3 -m json.tool
 ```
 
-Expected output: `(integer) 1` — one item now in the queue.
-
-### Step 3: Watch the worker process it
-
-```bash
-sleep 3
-docker compose logs --tail=20 backtest_worker
-```
-
-Expected: log lines `backtest_worker.job.start` → `backtest_worker.job.bars_loaded` → `backtest_worker.job.computed` → `backtest_worker.job.completed`.
-
-### Step 4: Confirm the backtest is in the DB as 'completed'
-
-```bash
-docker exec -i signal_postgres psql -U signal -d signal_platform -c "
-  SELECT id, status, total_return_pct, num_closed_trades, num_open_trades,
-         duration_seconds, completed_at
-  FROM backtests
-  ORDER BY created_at DESC
-  LIMIT 3;
-"
-```
-
-Expected: the new row has `status='completed'`, populated metrics, populated `completed_at`.
-
-### Step 5 (optional): inspect trades and equity
-
-```bash
-docker exec -i signal_postgres psql -U signal -d signal_platform -c "
-  SELECT COUNT(*) AS trades_in_db FROM backtest_trades WHERE backtest_id = '$BT_ID';
-"
-
-docker exec -i signal_postgres psql -U signal -d signal_platform -c "
-  SELECT COUNT(*) AS equity_in_db FROM backtest_equity_points WHERE backtest_id = '$BT_ID';
-"
-```
-
-Expected: 1 trade, 57 equity points (matching prior in-process test results).
+Note: Auth0's M2M `sub` claim format is typically `<client_id>@clients`.
+If the example above 404s on user lookup, get the M2M token's `sub` value
+by decoding the JWT first (e.g., paste into jwt.io) and use that.
