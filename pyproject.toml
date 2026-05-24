@@ -7,9 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     # Web framework
     "fastapi>=0.115.0",
-    "uvicorn[standard,
-    "anthropic>=0.40.0",
-]>=0.30.0",
+    "uvicorn[standard]>=0.30.0",
     "gunicorn>=23.0.0",
 
     # Data validation and settings
@@ -46,6 +44,7 @@ dependencies = [
 
     # Config
     "python-dotenv>=1.0.1",
+    "anthropic>=0.40.0",
 ]
 
 [dependency-groups]
