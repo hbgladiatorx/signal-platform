@@ -70,6 +70,9 @@ export interface BacktestSummary {
   max_drawdown_pct?: number | null;
   num_closed_trades?: number | null;
   win_rate_pct?: number | null;
+  bars_start?: string | null;
+  bars_end?: string | null;
+  num_bars?: number | null;
 }
 
 export interface BacktestDetail {

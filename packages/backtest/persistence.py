@@ -277,6 +277,7 @@ async def list_backtests_for_user(
             SELECT
                 id, strategy_name, symbols, bar_resolution, status,
                 created_at, completed_at, duration_seconds,
+                bars_start, bars_end, num_bars,
                 total_return_pct, sharpe_ratio, max_drawdown_pct,
                 num_closed_trades, win_rate_pct
             FROM backtests
