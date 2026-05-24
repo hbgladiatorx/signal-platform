@@ -30,6 +30,10 @@ from packages.data.user_strategies import (
     soft_delete_user_strategy,
     update_user_strategy,
 )
+from packages.strategy.llm_translator import (
+    TranslationResult,
+    translate_nl_to_strategy,
+)
 from packages.strategy.validator import (
     StrategyValidationResult,
     validate_strategy_source,
@@ -288,6 +292,104 @@ async def delete_endpoint(
     )
     if not deleted:
         raise HTTPException(status_code=404, detail="Strategy not found")
+
+
+# ============================================================
+# Translate endpoint (Step 28)
+# ============================================================
+
+class TranslateRequest(BaseModel):
+    nl_description: str = Field(
+        ..., min_length=10, max_length=4000,
+        description="Natural language description of the strategy.",
+    )
+    previous_source: Optional[str] = Field(
+        None, max_length=64_000,
+        description="Previous attempt's source code (for refinement turns).",
+    )
+    feedback: Optional[str] = Field(
+        None, max_length=2000,
+        description="What to change about the previous attempt (required if previous_source provided).",
+    )
+
+
+class TranslateResponse(BaseModel):
+    """LLM-generated source plus the validator's verdict.
+
+    `ok` reflects validation. If the LLM produced code but validation
+    rejected it, `ok=False` and validation_errors contains the failures —
+    the frontend can show them as 'try refining' hints.
+
+    If the LLM itself failed (timeout, no API key, no tool_use), `ok=False`
+    and llm_error is set with no source_code.
+    """
+    ok: bool
+    source_code: Optional[str] = None
+    class_name: Optional[str] = None
+    params_class_name: Optional[str] = None
+    suggested_strategy_name: Optional[str] = None
+    params_schema: Optional[dict[str, Any]] = None
+    explanation: Optional[str] = None
+    validation_errors: list[dict[str, Any]] = []
+    llm_error: Optional[str] = None
+    input_tokens: int = 0
+    output_tokens: int = 0
+
+
+@router.post("/translate", response_model=TranslateResponse)
+async def translate_endpoint(
+    req: TranslateRequest,
+    user=Depends(get_current_user_record),
+) -> TranslateResponse:
+    """Generate strategy Python source from a natural-language description.
+
+    The flow:
+      1. Call Claude with our system prompt + the user's NL description
+      2. The LLM responds via the emit_strategy_code tool (structured)
+      3. We run the generated source through the same validator used for
+         hand-written strategies (AST + restricted exec)
+      4. We return both the source and the validation verdict
+
+    This endpoint does NOT save the strategy. The frontend can show the
+    code to the user, who can then POST it to /user-strategies if happy.
+    """
+    if req.previous_source and not req.feedback:
+        raise HTTPException(
+            status_code=422,
+            detail={"msg": "feedback is required when previous_source is provided"},
+        )
+
+    # Call the LLM
+    llm_result: TranslationResult = translate_nl_to_strategy(
+        nl_description=req.nl_description,
+        previous_source=req.previous_source,
+        feedback=req.feedback,
+    )
+
+    if not llm_result.ok:
+        return TranslateResponse(
+            ok=False,
+            llm_error=llm_result.error,
+        )
+
+    # Run the generated code through the validator (same path as direct submit)
+    assert llm_result.source_code is not None
+    validation: StrategyValidationResult = validate_strategy_source(
+        llm_result.source_code
+    )
+
+    return TranslateResponse(
+        ok=validation.ok,
+        source_code=llm_result.source_code,
+        class_name=validation.class_name or llm_result.class_name,
+        params_class_name=validation.params_class_name or llm_result.params_class_name,
+        suggested_strategy_name=llm_result.suggested_strategy_name,
+        params_schema=validation.params_schema,
+        explanation=llm_result.explanation,
+        validation_errors=[e.as_dict() for e in validation.errors],
+        input_tokens=llm_result.input_tokens,
+        output_tokens=llm_result.output_tokens,
+    )
 
 
 # ============================================================

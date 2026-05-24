@@ -1,76 +1,61 @@
-# Step 27 — Worker Dynamic Loader + Merged Strategies Endpoint
+# Step 28 — LLM Translation Endpoint
+
+Generates strategy Python source code from a natural-language description, using
+the Claude API. Output is run through the same validator used for hand-written
+code.
 
 ## What This Ships
 
-Three new files, two replaced files, and a Python patch script:
-
 | File | Status | Purpose |
 |------|--------|---------|
-| `packages/strategy/validator.py` | REPLACES Step 26 version | Renames `_build_safe_builtins` → `build_safe_builtins` and `_safe_import` → `safe_import` (public) so the loader can reuse them |
-| `packages/strategy/loader.py` | NEW | Compiles user source in restricted env and returns the Strategy class |
-| `packages/strategy/resolver.py` | NEW | Async resolution: built-in registry first, then user_strategies DB |
-| `services/api/routers/strategies.py` | REPLACES | `/strategies` returns built-ins + the user's own strategies, with a `source: "built-in" \| "user"` field |
-| `services/api/routers/user_strategies.py` | REPLACES Step 26 version | Adds collision check: reject names that match a built-in strategy |
-| `apply_step27_patches.py` | NEW (run once, then delete) | Surgically patches `backtests.py` (POST handler uses resolver) and `backtest_worker/main.py` (job processing uses resolver) |
-
+| `packages/strategy/llm_translator.py` | NEW | Claude API client + system prompt + tool-use enforcement |
+| `services/api/routers/user_strategies.py` | REPLACES Step 27 | Adds `POST /user-strategies/translate` endpoint |
+| `apply_step28_patches.py` | NEW (run once) | Patches `pyproject.toml` (adds anthropic dep) + `docker-compose.yml` (adds env var) |
 
 ## Apply (Mac)
 
 ```bash
 cd ~/signal-platform
-unzip -o ~/Downloads/step27-worker-resolver.zip
+unzip -o ~/Downloads/step28-llm-translate.zip
 
-# Apply the in-place patches to backtests.py and the worker
-python3 apply_step27_patches.py
+# Apply patches to pyproject.toml + docker-compose.yml
+python3 apply_step28_patches.py
 
-# Expected output:
-#   Patching services/api/routers/backtests.py …
-#     [backtests.py imports] OK — applied
-#     [backtests.py POST lookup] OK — applied
-#   Patching services/backtest_worker/main.py …
-#     [worker imports] OK — applied
-#     [worker lookup] OK — applied
-#   Done. 4 change(s) applied.
+# Verify the two patches landed
+git diff pyproject.toml docker-compose.yml
 
-# Verify the changes look right
-git diff services/api/routers/backtests.py services/backtest_worker/main.py
-
-# Sanity: at least a handful of lines added in each
-git diff --stat
-
-# Clean up the patch script (it's idempotent, but no need to keep it)
-rm apply_step27_patches.py
-
+# Clean up the patch script and commit
+rm apply_step28_patches.py
 git status
 git add -A
-git commit -m "Step 27: worker dynamic loader + merged strategies endpoint"
+git commit -m "Step 28: LLM translation endpoint (NL → strategy Python)"
 git push
 ```
 
 ## Deploy (Box)
 
-```bash
-cd ~/app
-git pull
+Two things have to happen on the box:
 
-# Rebuild the API AND the worker — both got new imports
-docker compose build api backtest_worker
-docker compose up -d --force-recreate api backtest_worker
+1. **Export the Anthropic API key** in the shell that runs docker compose:
+   ```bash
+   echo 'export ANTHROPIC_API_KEY=sk-ant-your-key-here' >> ~/.bashrc
+   source ~/.bashrc
+   # Verify
+   echo "Key set: ${ANTHROPIC_API_KEY:+yes}"
+   ```
 
-# Verify clean startup
-sleep 5
-docker compose logs --tail=20 api | grep -v health | tail -15
-echo "---"
-docker compose logs --tail=20 backtest_worker | tail -15
-```
+2. **Rebuild and redeploy** — this will take ~60-90s because pyproject.toml
+   changed and the pip install layer needs to re-run:
+   ```bash
+   cd ~/app
+   git pull
+   docker compose build api
+   docker compose up -d --force-recreate api
+   sleep 5
+   docker compose logs --tail=20 api | grep -v "/health"
+   ```
 
-Look for:
-- API startup with `api.ready` and no traceback
-- Worker startup with `backtest_worker.starting` listing the built-in strategies
-
-If either crashes on import, the patch script may have misfired — paste me the traceback.
-
-## Verify End-to-End
+## Verify
 
 ```bash
 JWT=$(curl -s -X POST https://cimcha-signal.us.auth0.com/oauth/token \
@@ -82,66 +67,84 @@ JWT=$(curl -s -X POST https://cimcha-signal.us.auth0.com/oauth/token \
     "grant_type": "client_credentials"
   }' | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
 
-# Test 1: GET /strategies now includes the TestStrategy you created in Step 26
-echo "=== /strategies should show TWO entries: SMACrossover + TestStrategy ==="
-curl -s -H "Authorization: Bearer $JWT" \
-  "https://signal.cimcha.com/api/strategies" | python3 -m json.tool
-
-# Test 2: try to name a user_strategy after a built-in — should 409
-echo ""
-echo "=== Create with colliding name (expect 409) ==="
-curl -s -w "\nHTTP %{http_code}\n" -X POST -H "Authorization: Bearer $JWT" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"SMACrossover","source_code":"x = 1"}' \
-  "https://signal.cimcha.com/api/user-strategies"
-
-# Test 3: actually RUN the TestStrategy via /backtests
-echo ""
-echo "=== Run backtest with the TestStrategy (user-authored) ==="
-NEW_BT=$(curl -s -X POST -H "Authorization: Bearer $JWT" \
+# Test 1: Translate "RSI mean reversion" — should generate valid code
+echo "=== Test 1: RSI mean reversion ==="
+curl -s -X POST -H "Authorization: Bearer $JWT" \
   -H "Content-Type: application/json" \
   -d '{
-    "strategy_name": "TestStrategy",
-    "params": {"period": 14},
-    "symbols": ["BTC-USDT@BINANCEUS"],
-    "bar_resolution": "1h"
+    "nl_description": "Buy BTC when RSI (14-period) drops below 30, sell when RSI goes above 70. Use a small position size."
   }' \
-  "https://signal.cimcha.com/api/backtests")
-echo "POST response: $NEW_BT"
-NEW_ID=$(echo "$NEW_BT" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+  "https://signal.cimcha.com/api/user-strategies/translate" | python3 -m json.tool
 
-sleep 5
-
+# Test 2: Translate "Bollinger Band reversion"
 echo ""
-echo "=== Check status of the user-strategy backtest ==="
-curl -s -H "Authorization: Bearer $JWT" \
-  "https://signal.cimcha.com/api/backtests/$NEW_ID" | python3 -m json.tool | head -25
-
-# Test 4: run a backtest with an unknown strategy — expect 422
-echo ""
-echo "=== Backtest with unknown strategy (expect 422) ==="
-curl -s -w "\nHTTP %{http_code}\n" -X POST -H "Authorization: Bearer $JWT" \
+echo "=== Test 2: Bollinger reversion (note: BB indicator is NOT in our framework — see how LLM handles) ==="
+curl -s -X POST -H "Authorization: Bearer $JWT" \
   -H "Content-Type: application/json" \
   -d '{
-    "strategy_name": "DefinitelyNotAStrategy",
-    "params": {},
-    "symbols": ["BTC-USDT@BINANCEUS"],
-    "bar_resolution": "1h"
+    "nl_description": "When ETH price drops 2 standard deviations below its 20-period mean, buy. Close when price returns to the mean."
   }' \
-  "https://signal.cimcha.com/api/backtests"
+  "https://signal.cimcha.com/api/user-strategies/translate" | python3 -m json.tool
+
+# Test 3: End-to-end — translate, save, run backtest
+echo ""
+echo "=== Test 3: Translate → save → run backtest ==="
+TRANSLATION=$(curl -s -X POST -H "Authorization: Bearer $JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"nl_description": "Simple momentum: buy BTC when current close is 5% above its 50-period SMA, sell when below."}' \
+  "https://signal.cimcha.com/api/user-strategies/translate")
+SOURCE=$(echo "$TRANSLATION" | python3 -c "import sys,json; print(json.load(sys.stdin).get('source_code') or '')")
+echo "Translation OK? $(echo $TRANSLATION | python3 -c 'import sys,json; print(json.load(sys.stdin)["ok"])')"
+
+if [ -n "$SOURCE" ]; then
+  # Save it
+  SAVE_PAYLOAD=$(python3 -c "
+import json
+src = '''$SOURCE'''
+print(json.dumps({
+    'name': 'MomentumLLM',
+    'description': 'Generated from English description',
+    'nl_description': 'Simple momentum: buy BTC when current close is 5% above its 50-period SMA, sell when below.',
+    'source_code': src,
+}))
+")
+  echo ""
+  echo "Saving the generated strategy:"
+  curl -s -X POST -H "Authorization: Bearer $JWT" \
+    -H "Content-Type: application/json" \
+    -d "$SAVE_PAYLOAD" \
+    "https://signal.cimcha.com/api/user-strategies" | python3 -m json.tool
+fi
 ```
 
-## What's Tested
+## What Test Output Should Look Like
 
-| Test | What it proves |
-|------|----------------|
-| `GET /strategies` returns user's TestStrategy alongside built-ins | Merged listing works |
-| 409 on colliding name | Collision check at create works |
-| POST /backtests with user-authored strategy succeeds | API resolver works |
-| Backtest completes with status=completed | Worker resolver + loader work |
-| 422 on unknown strategy | Error path works |
+For Test 1 (RSI mean reversion), `ok` should be `true`, with `source_code` containing
+a complete Python module that:
+- Imports from `packages.strategy.base` and `packages.strategy.context`
+- Defines a Pydantic params class (with rsi_period, oversold, overbought thresholds)
+- Defines a Strategy subclass with `on_init` and `on_bar`
+- Uses `ctx.rsi(self.symbol, period)` and checks for None
+- Has buy/sell logic at the thresholds
 
-## Notes
+The `params_schema` field should be populated with a JSON Schema. Cost is logged
+at the end: input_tokens + output_tokens (typically 200-400 tokens out).
 
-- The TestStrategy created in Step 26 doesn't actually do anything meaningful (its `on_bar` is `pass`), so the backtest will complete with zero trades and zero return. The point is that it RUNS without raising NameError or some other module-not-loaded error.
-- The Strategy class's `on_bar` is abstract on the base class but the TestStrategy's `pass` implementation satisfies the abstract requirement.
+## Cost Awareness
+
+Each translation costs approximately:
+- ~2000-3000 input tokens (the system prompt is large)
+- ~400-800 output tokens (the generated code)
+- ~$0.005-0.015 per call at current Anthropic pricing
+
+The system prompt is sent every call. We could cache it with prompt caching
+later — that's a polish step.
+
+## Known Limitations
+
+- Single-shot generation; refinement is supported via `previous_source` + `feedback`
+  but no frontend exposure yet (Step 29)
+- LLM may use indicators we don't have (e.g., Bollinger Bands) → validator catches it
+  but the user gets a "forbidden_import" or similar error
+- No streaming — the whole response is returned at once (5-15s latency)
+- The system prompt isn't cached on Anthropic's side yet
