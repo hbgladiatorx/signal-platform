@@ -7,12 +7,18 @@ import { AppShell } from "@/components/nav/AppShell";
 import type { Strategy } from "@/lib/backtest-types";
 import { useApi } from "@/lib/useApi";
 
+// Strategy type extended with the source field from Step 27's merged endpoint
+interface StrategyWithSource extends Strategy {
+  source: "built-in" | "user";
+  user_strategy_id?: string | null;
+}
+
 export default function StrategiesPage() {
   const api = useApi();
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["strategies"],
-    queryFn: () => api.get<Strategy[]>("/strategies"),
+    queryFn: () => api.get<StrategyWithSource[]>("/strategies"),
   });
 
   return (
@@ -24,8 +30,8 @@ export default function StrategiesPage() {
               Available strategies
             </h2>
             <p className="mt-1 text-xs text-gray-500">
-              Strategies discovered from the platform&rsquo;s registry.
-              Submit a backtest from the{" "}
+              Built-in strategies plus the ones you&rsquo;ve authored.
+              Create new strategies in plain English; run backtests from the{" "}
               <Link
                 href="/backtests/new"
                 className="text-navy-600 hover:underline"
@@ -35,12 +41,20 @@ export default function StrategiesPage() {
               page.
             </p>
           </div>
-          <Link
-            href="/backtests/new"
-            className="rounded-md bg-navy-600 px-4 py-2 text-sm font-medium text-white hover:bg-navy-700"
-          >
-            New backtest
-          </Link>
+          <div className="flex gap-2">
+            <Link
+              href="/strategies/new"
+              className="rounded-md border border-navy-600 bg-white px-4 py-2 text-sm font-medium text-navy-700 hover:bg-navy-50"
+            >
+              + New strategy
+            </Link>
+            <Link
+              href="/backtests/new"
+              className="rounded-md bg-navy-600 px-4 py-2 text-sm font-medium text-white hover:bg-navy-700"
+            >
+              New backtest
+            </Link>
+          </div>
         </div>
 
         {isLoading && (
@@ -57,16 +71,24 @@ export default function StrategiesPage() {
 
         {data && data.length === 0 && (
           <div className="rounded-lg border border-gray-200 bg-white px-6 py-12 text-center text-sm text-gray-500">
-            No strategies are registered. Add a strategy class under{" "}
-            <code className="rounded bg-gray-100 px-1">strategies/</code>{" "}
-            on the server.
+            No strategies yet.{" "}
+            <Link
+              href="/strategies/new"
+              className="text-navy-600 hover:underline"
+            >
+              Create your first strategy
+            </Link>
+            .
           </div>
         )}
 
         {data && data.length > 0 && (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {data.map((strategy) => (
-              <StrategyCard key={strategy.name} strategy={strategy} />
+              <StrategyCard
+                key={`${strategy.source}-${strategy.name}`}
+                strategy={strategy}
+              />
             ))}
           </div>
         )}
@@ -75,15 +97,18 @@ export default function StrategiesPage() {
   );
 }
 
-function StrategyCard({ strategy }: { strategy: Strategy }) {
+function StrategyCard({ strategy }: { strategy: StrategyWithSource }) {
   const paramKeys = Object.keys(strategy.params_schema.properties ?? {});
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white">
       <div className="border-b border-gray-200 px-6 py-4">
-        <h3 className="font-mono text-sm font-semibold text-navy-700">
-          {strategy.name}
-        </h3>
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="font-mono text-sm font-semibold text-navy-700">
+            {strategy.name}
+          </h3>
+          <SourceBadge source={strategy.source} />
+        </div>
         {strategy.description && (
           <p className="mt-1 text-sm text-gray-600">{strategy.description}</p>
         )}
@@ -148,5 +173,18 @@ function StrategyCard({ strategy }: { strategy: Strategy }) {
         </Link>
       </div>
     </div>
+  );
+}
+
+function SourceBadge({ source }: { source: "built-in" | "user" }) {
+  const styles =
+    source === "built-in"
+      ? "bg-gray-100 text-gray-700"
+      : "bg-blue-50 text-blue-700";
+  const label = source === "built-in" ? "built-in" : "yours";
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-xs ${styles}`}>
+      {label}
+    </span>
   );
 }

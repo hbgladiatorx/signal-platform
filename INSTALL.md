@@ -1,150 +1,81 @@
-# Step 28 — LLM Translation Endpoint
+# Step 29 — Frontend NL → Python → Save UX
 
-Generates strategy Python source code from a natural-language description, using
-the Claude API. Output is run through the same validator used for hand-written
-code.
+Adds an in-browser strategy authoring page that lets users describe a strategy
+in plain English, see the generated Python, edit it, and save it.
 
 ## What This Ships
 
 | File | Status | Purpose |
 |------|--------|---------|
-| `packages/strategy/llm_translator.py` | NEW | Claude API client + system prompt + tool-use enforcement |
-| `services/api/routers/user_strategies.py` | REPLACES Step 27 | Adds `POST /user-strategies/translate` endpoint |
-| `apply_step28_patches.py` | NEW (run once) | Patches `pyproject.toml` (adds anthropic dep) + `docker-compose.yml` (adds env var) |
+| `frontend/app/strategies/new/page.tsx` | NEW | The NL input → code review → save flow |
+| `frontend/app/strategies/page.tsx` | REPLACES Step 24 version | Adds "+ New strategy" button; shows source badge (built-in vs yours) on each card |
+
+No backend changes. No new dependencies. No migration. Just frontend.
 
 ## Apply (Mac)
 
 ```bash
 cd ~/signal-platform
-unzip -o ~/Downloads/step28-llm-translate.zip
-
-# Apply patches to pyproject.toml + docker-compose.yml
-python3 apply_step28_patches.py
-
-# Verify the two patches landed
-git diff pyproject.toml docker-compose.yml
-
-# Clean up the patch script and commit
-rm apply_step28_patches.py
+unzip -o ~/Downloads/step29-nl-frontend.zip
 git status
 git add -A
-git commit -m "Step 28: LLM translation endpoint (NL → strategy Python)"
+git commit -m "Step 29: frontend NL → Python → save UX for user strategies"
 git push
 ```
 
 ## Deploy (Box)
 
-Two things have to happen on the box:
-
-1. **Export the Anthropic API key** in the shell that runs docker compose:
-   ```bash
-   echo 'export ANTHROPIC_API_KEY=sk-ant-your-key-here' >> ~/.bashrc
-   source ~/.bashrc
-   # Verify
-   echo "Key set: ${ANTHROPIC_API_KEY:+yes}"
-   ```
-
-2. **Rebuild and redeploy** — this will take ~60-90s because pyproject.toml
-   changed and the pip install layer needs to re-run:
-   ```bash
-   cd ~/app
-   git pull
-   docker compose build api
-   docker compose up -d --force-recreate api
-   sleep 5
-   docker compose logs --tail=20 api | grep -v "/health"
-   ```
-
-## Verify
-
 ```bash
-JWT=$(curl -s -X POST https://cimcha-signal.us.auth0.com/oauth/token \
-  -H "Content-Type: application/json" \
-  -d '{
-    "client_id": "GebwZSFIIUVwcq9zhy2Ev7EBmQ9Pbnyw",
-    "client_secret": "LsDhK10Kpg4uM70FcjHv8lFCoAsJnUDiDW9WFaQAqjMSXBs70LNzF5un5hGT5m8Q",
-    "audience": "https://signal.cimcha.com/api",
-    "grant_type": "client_credentials"
-  }' | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
-
-# Test 1: Translate "RSI mean reversion" — should generate valid code
-echo "=== Test 1: RSI mean reversion ==="
-curl -s -X POST -H "Authorization: Bearer $JWT" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "nl_description": "Buy BTC when RSI (14-period) drops below 30, sell when RSI goes above 70. Use a small position size."
-  }' \
-  "https://signal.cimcha.com/api/user-strategies/translate" | python3 -m json.tool
-
-# Test 2: Translate "Bollinger Band reversion"
-echo ""
-echo "=== Test 2: Bollinger reversion (note: BB indicator is NOT in our framework — see how LLM handles) ==="
-curl -s -X POST -H "Authorization: Bearer $JWT" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "nl_description": "When ETH price drops 2 standard deviations below its 20-period mean, buy. Close when price returns to the mean."
-  }' \
-  "https://signal.cimcha.com/api/user-strategies/translate" | python3 -m json.tool
-
-# Test 3: End-to-end — translate, save, run backtest
-echo ""
-echo "=== Test 3: Translate → save → run backtest ==="
-TRANSLATION=$(curl -s -X POST -H "Authorization: Bearer $JWT" \
-  -H "Content-Type: application/json" \
-  -d '{"nl_description": "Simple momentum: buy BTC when current close is 5% above its 50-period SMA, sell when below."}' \
-  "https://signal.cimcha.com/api/user-strategies/translate")
-SOURCE=$(echo "$TRANSLATION" | python3 -c "import sys,json; print(json.load(sys.stdin).get('source_code') or '')")
-echo "Translation OK? $(echo $TRANSLATION | python3 -c 'import sys,json; print(json.load(sys.stdin)["ok"])')"
-
-if [ -n "$SOURCE" ]; then
-  # Save it
-  SAVE_PAYLOAD=$(python3 -c "
-import json
-src = '''$SOURCE'''
-print(json.dumps({
-    'name': 'MomentumLLM',
-    'description': 'Generated from English description',
-    'nl_description': 'Simple momentum: buy BTC when current close is 5% above its 50-period SMA, sell when below.',
-    'source_code': src,
-}))
-")
-  echo ""
-  echo "Saving the generated strategy:"
-  curl -s -X POST -H "Authorization: Bearer $JWT" \
-    -H "Content-Type: application/json" \
-    -d "$SAVE_PAYLOAD" \
-    "https://signal.cimcha.com/api/user-strategies" | python3 -m json.tool
-fi
+cd ~/app
+git pull
+docker compose build frontend
+docker compose up -d --force-recreate frontend
+# Frontend build takes ~60-90s (Next.js bundling)
 ```
 
-## What Test Output Should Look Like
+Once it's up, the new pages will be live.
 
-For Test 1 (RSI mean reversion), `ok` should be `true`, with `source_code` containing
-a complete Python module that:
-- Imports from `packages.strategy.base` and `packages.strategy.context`
-- Defines a Pydantic params class (with rsi_period, oversold, overbought thresholds)
-- Defines a Strategy subclass with `on_init` and `on_bar`
-- Uses `ctx.rsi(self.symbol, period)` and checks for None
-- Has buy/sell logic at the thresholds
+## Verify in Browser
 
-The `params_schema` field should be populated with a JSON Schema. Cost is logged
-at the end: input_tokens + output_tokens (typically 200-400 tokens out).
+1. **`https://signal.cimcha.com/strategies`** — should now show two buttons at top right:
+   - "+ New strategy" (outlined, navy)
+   - "New backtest" (filled, navy)
+   - Each strategy card has a badge: "built-in" (gray) or "yours" (blue)
 
-## Cost Awareness
+2. **Click "+ New strategy"** → goes to `/strategies/new` with:
+   - Card 1: Big NL textarea + "Generate Python" button
+   - (Cards 2 and 3 hidden until you generate)
 
-Each translation costs approximately:
-- ~2000-3000 input tokens (the system prompt is large)
-- ~400-800 output tokens (the generated code)
-- ~$0.005-0.015 per call at current Anthropic pricing
+3. **Type a description** like:
+   > Buy BTC when 14-period RSI drops below 30, sell when above 70. Small position size.
+   
+   Click **Generate Python**. ~12 seconds, then:
+   - Card 2 appears with explanation banner (blue) and editable code area
+   - Card 3 appears with name pre-filled (e.g., "RsiMeanReversion") and a Save button
 
-The system prompt is sent every call. We could cache it with prompt caching
-later — that's a polish step.
+4. **Click "Save strategy"** — redirects to `/strategies`, new card appears with "yours" badge.
 
-## Known Limitations
+5. **Test the round-trip**: from the new strategy card, click "Backtest this →", configure, submit. Should run and complete just like a built-in.
 
-- Single-shot generation; refinement is supported via `previous_source` + `feedback`
-  but no frontend exposure yet (Step 29)
-- LLM may use indicators we don't have (e.g., Bollinger Bands) → validator catches it
-  but the user gets a "forbidden_import" or similar error
-- No streaming — the whole response is returned at once (5-15s latency)
-- The system prompt isn't cached on Anthropic's side yet
+## Known Limitations (Future Polish)
+
+- Plain `<textarea>` instead of Monaco — no syntax highlighting or line numbers. (Monaco integration is ~2MB lazy-loaded chunk; left for a polish step.)
+- No client-side re-validation as the user edits. Server validates on save.
+- No multi-turn refinement UI ("make the entry stricter"). The translate endpoint supports it (`previous_source` + `feedback`) but the frontend doesn't expose it yet.
+- No cost display on the page (just in token counts after generation). A cumulative cost tracker is future work.
+- Single-shot only — clicking "Regenerate" loses the edited code without warning. Consider a confirmation modal.
+
+## What This Completes
+
+Phase 2 Milestone C goal: in-browser strategy authoring works end-to-end.
+
+A user can now:
+1. Sign in
+2. Describe a strategy in English
+3. Watch Claude generate Python
+4. Review, edit if needed
+5. Save it
+6. Run a backtest against it
+7. View results — same UX as a built-in strategy
+
+All without ever opening a terminal.
