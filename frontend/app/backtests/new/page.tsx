@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, Suspense, type FormEvent } from "react";
 
 import { AppShell } from "@/components/nav/AppShell";
 import { ApiError } from "@/lib/api";
@@ -19,6 +19,25 @@ import type { Instrument } from "@/lib/types";
 import { useApi } from "@/lib/useApi";
 
 export default function NewBacktestPage() {
+  // Next.js 14 requires useSearchParams to be wrapped in Suspense
+  // because static prerendering can't know the search params ahead
+  // of time. The inner component does the actual work.
+  return (
+    <Suspense
+      fallback={
+        <AppShell title="New backtest">
+          <div className="rounded-lg border border-gray-200 bg-white px-6 py-12 text-center text-sm text-gray-500">
+            Loading…
+          </div>
+        </AppShell>
+      }
+    >
+      <NewBacktestForm />
+    </Suspense>
+  );
+}
+
+function NewBacktestForm() {
   const api = useApi();
   const router = useRouter();
   const queryClient = useQueryClient();
