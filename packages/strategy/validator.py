@@ -50,7 +50,7 @@ ALLOWED_IMPORT_PREFIXES: tuple[str, ...] = (
 
 # Builtins that user code is explicitly NOT allowed to call.
 # Note: __import__ is replaced by a controlled version in the exec
-# namespace (see _safe_import below); the validator also rejects
+# namespace (see safe_import below); the validator also rejects
 # direct __import__(...) calls at the AST level.
 FORBIDDEN_BUILTIN_CALLS: frozenset[str] = frozenset({
     "eval",
@@ -376,7 +376,7 @@ def _find_params_model(cls: ast.ClassDef) -> str | None:
 # Phase 4: Restricted exec to extract params JSON Schema
 # ============================================================
 
-def _safe_import(
+def safe_import(
     name: str,
     globals_dict: dict[str, Any] | None = None,
     locals_dict: dict[str, Any] | None = None,
@@ -394,7 +394,7 @@ def _safe_import(
     return builtins.__import__(name, globals_dict, locals_dict, fromlist, level)
 
 
-def _build_safe_builtins() -> dict[str, Any]:
+def build_safe_builtins() -> dict[str, Any]:
     """Construct a minimal __builtins__ dict for restricted exec."""
     allowed_names = {
         # constructors / coercion
@@ -424,7 +424,7 @@ def _build_safe_builtins() -> dict[str, Any]:
         "NotImplemented",
     }
     safe = {name: getattr(builtins, name) for name in allowed_names}
-    safe["__import__"] = _safe_import
+    safe["__import__"] = safe_import
     return safe
 
 
@@ -449,7 +449,7 @@ def _extract_params_schema(
             col=e.offset,
         )]
 
-    safe_namespace: dict[str, Any] = {"__builtins__": _build_safe_builtins()}
+    safe_namespace: dict[str, Any] = {"__builtins__": build_safe_builtins()}
 
     try:
         # Pass a single namespace so class bodies can resolve names that

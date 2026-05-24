@@ -40,6 +40,8 @@ from services.api.deps import (
     get_current_user_record,
     get_db_session,
 )
+# For built-in name collision check
+from services.api.routers.strategies import get_strategy_registry
 
 
 router = APIRouter(prefix="/user-strategies", tags=["user-strategies"])
@@ -146,6 +148,20 @@ async def create_endpoint(
     user=Depends(get_current_user_record),
 ) -> CreateUserStrategyResponse:
     """Validate + save a strategy from raw Python source."""
+    # Reject names that collide with built-in strategies (so users can't
+    # shadow them — the resolver looks in the built-in registry first).
+    builtin_registry = get_strategy_registry()
+    if req.name in builtin_registry:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "msg": (
+                    f"Name {req.name!r} collides with a built-in strategy. "
+                    "Pick a different name."
+                ),
+            },
+        )
+
     # Reject duplicate name early for a friendly error
     existing = await get_user_strategy_by_name(
         session, user_id=user.id, name=req.name,
@@ -218,8 +234,19 @@ async def update_endpoint(
         class_name = result.class_name
         params_schema = result.params_schema
 
-    # If renaming, check no name collision
+    # If renaming, check no name collision (with built-ins or other user strategies)
     if req.name is not None and req.name != existing["name"]:
+        builtin_registry = get_strategy_registry()
+        if req.name in builtin_registry:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "msg": (
+                        f"Name {req.name!r} collides with a built-in strategy. "
+                        "Pick a different name."
+                    ),
+                },
+            )
         clash = await get_user_strategy_by_name(
             session, user_id=user.id, name=req.name,
         )

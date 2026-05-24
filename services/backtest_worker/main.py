@@ -58,6 +58,9 @@ from packages.data.db import get_engine
 from packages.data.messagebus import QUEUE_BACKTEST_JOBS
 from packages.strategy.base import Strategy
 from packages.strategy.registry import discover_strategies
+from packages.data.db import session_scope
+from packages.strategy.loader import StrategyLoadError
+from packages.strategy.resolver import StrategyNotFoundError, resolve_strategy
 
 
 # ============================================================
@@ -180,13 +183,25 @@ async def _process_job(
         resolution = header["bar_resolution"]
         params_dict = header["params_json"] or {}
 
-        # 3a) Discover strategy
-        strategy_cls = strategies_cache.get(strategy_name)
-        if strategy_cls is None:
-            raise RuntimeError(
-                f"Strategy {strategy_name!r} not found in registry. "
-                f"Known: {sorted(strategies_cache.keys())}"
-            )
+        # 3a) Resolve strategy (built-in or user-authored)
+        async with session_scope() as session:
+            try:
+                resolved = await resolve_strategy(
+                    session,
+                    user_id=header["user_id"],
+                    strategy_name=strategy_name,
+                    builtin_registry=strategies_cache,
+                )
+            except StrategyNotFoundError:
+                raise RuntimeError(
+                    f"Strategy {strategy_name!r} not found in built-ins or "
+                    f"the owner's user_strategies."
+                )
+            except StrategyLoadError as e:
+                raise RuntimeError(
+                    f"Strategy {strategy_name!r} failed to compile: {e}"
+                )
+        strategy_cls = resolved.cls
 
         # 3b) Validate params
         params = strategy_cls.PARAMS_MODEL(**params_dict)

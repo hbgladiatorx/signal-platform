@@ -51,6 +51,8 @@ from packages.data.messagebus import QUEUE_BACKTEST_JOBS
 from services.api.auth import get_current_user
 from services.api.deps import get_db_session
 from services.api.routers.strategies import get_strategy_registry
+from packages.strategy.loader import StrategyLoadError
+from packages.strategy.resolver import StrategyNotFoundError, resolve_strategy
 
 
 log = logging.getLogger(__name__)
@@ -245,16 +247,31 @@ async def create_new_backtest(
     user: CurrentUserRecord = Depends(get_current_user_record),
 ) -> CreateBacktestResponse:
     """Create + enqueue a new backtest."""
-    registry = get_strategy_registry()
-    strategy_cls = registry.get(req.strategy_name)
-    if strategy_cls is None:
+    # Resolve strategy: registry first, then this user's user_strategies
+    try:
+        resolved = await resolve_strategy(
+            session,
+            user_id=user.id,
+            strategy_name=req.strategy_name,
+            builtin_registry=get_strategy_registry(),
+        )
+    except StrategyNotFoundError:
         raise HTTPException(
             status_code=422,
             detail={
                 "msg": f"Unknown strategy: {req.strategy_name!r}",
-                "available": sorted(registry.keys()),
+                "available": sorted(get_strategy_registry().keys()),
             },
         )
+    except StrategyLoadError as e:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "msg": f"Strategy {req.strategy_name!r} failed to compile",
+                "error": str(e),
+            },
+        )
+    strategy_cls = resolved.cls
 
     # Validate params against the strategy's PARAMS_MODEL
     try:
