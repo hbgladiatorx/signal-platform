@@ -146,6 +146,11 @@ class BacktestSummary(BaseModel):
     created_at: datetime
     completed_at: datetime | None = None
     duration_seconds: float | None = None
+    # Sample-size info for showing "Period tested" in the list
+    bars_start: datetime | None = None
+    bars_end: datetime | None = None
+    num_bars: int | None = None
+    # Performance metrics
     total_return_pct: float | None = None
     sharpe_ratio: float | None = None
     max_drawdown_pct: float | None = None
@@ -341,6 +346,11 @@ async def list_my_backtests(
             created_at=r["created_at"],
             completed_at=r.get("completed_at"),
             duration_seconds=float(r["duration_seconds"]) if r.get("duration_seconds") is not None else None,
+            # Sample-size info — uses .get() so this works whether or not
+            # the persistence layer's SELECT includes these columns.
+            bars_start=r.get("bars_start"),
+            bars_end=r.get("bars_end"),
+            num_bars=r.get("num_bars"),
             total_return_pct=float(r["total_return_pct"]) if r.get("total_return_pct") is not None else None,
             sharpe_ratio=float(r["sharpe_ratio"]) if r.get("sharpe_ratio") is not None else None,
             max_drawdown_pct=float(r["max_drawdown_pct"]) if r.get("max_drawdown_pct") is not None else None,

@@ -91,6 +91,7 @@ export default function BacktestsListPage() {
                     <th className="px-3 py-2 font-medium">Strategy</th>
                     <th className="px-3 py-2 font-medium">Symbols</th>
                     <th className="px-3 py-2 font-medium">Res.</th>
+                    <th className="px-3 py-2 font-medium">Period</th>
                     <th className="px-3 py-2 font-medium">Status</th>
                     <th className="px-3 py-2 text-right font-medium">Return</th>
                     <th className="px-3 py-2 text-right font-medium">Sharpe</th>
@@ -101,61 +102,74 @@ export default function BacktestsListPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {data.map((bt) => (
-                    <tr
-                      key={bt.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => router.push(`/backtests/${bt.id}`)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          router.push(`/backtests/${bt.id}`);
-                        }
-                      }}
-                      className="cursor-pointer transition-colors hover:bg-navy-50/40 focus:bg-navy-50/40 focus:outline-none"
-                    >
-                      <td className="px-3 py-3">
-                        <Link
-                          href={`/backtests/${bt.id}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="font-mono text-xs text-navy-600 hover:underline"
-                        >
-                          {bt.strategy_name}
-                        </Link>
-                      </td>
-                      <td className="px-3 py-3 font-mono text-xs text-gray-600 whitespace-nowrap">
-                        {bt.symbols.join(", ")}
-                      </td>
-                      <td className="px-3 py-3 text-gray-600">
-                        {bt.bar_resolution}
-                      </td>
-                      <td className="px-3 py-3">
-                        <StatusBadge status={bt.status} />
-                      </td>
-                      <td
-                        className={`px-3 py-3 text-right font-mono whitespace-nowrap ${returnColor(bt.total_return_pct)}`}
+                  {data.map((bt) => {
+                    const days = calcDaysTested(bt);
+                    return (
+                      <tr
+                        key={bt.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => router.push(`/backtests/${bt.id}`)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            router.push(`/backtests/${bt.id}`);
+                          }
+                        }}
+                        className="cursor-pointer transition-colors hover:bg-navy-50/40 focus:bg-navy-50/40 focus:outline-none"
                       >
-                        {fmtPct(bt.total_return_pct)}
-                      </td>
-                      <td className="px-3 py-3 text-right font-mono text-gray-700 whitespace-nowrap">
-                        {fmtNum(bt.sharpe_ratio, 2)}
-                      </td>
-                      <td className="px-3 py-3 text-right font-mono text-gray-700 whitespace-nowrap">
-                        {fmtPct(bt.max_drawdown_pct)}
-                      </td>
-                      <td className="px-3 py-3 text-right font-mono text-gray-700">
-                        {bt.num_closed_trades ?? "—"}
-                      </td>
-                      <td className="px-3 py-3 text-right font-mono text-gray-700 whitespace-nowrap">
-                        {fmtNum(bt.win_rate_pct, 1)}
-                        {bt.win_rate_pct != null && "%"}
-                      </td>
-                      <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">
-                        {fmtTime(bt.created_at)}
-                      </td>
-                    </tr>
-                  ))}
+                        <td className="px-3 py-3">
+                          <Link
+                            href={`/backtests/${bt.id}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="font-mono text-xs text-navy-600 hover:underline"
+                          >
+                            {bt.strategy_name}
+                          </Link>
+                        </td>
+                        <td className="px-3 py-3 font-mono text-xs text-gray-600 whitespace-nowrap">
+                          {bt.symbols.join(", ")}
+                        </td>
+                        <td className="px-3 py-3 text-gray-600">
+                          {bt.bar_resolution}
+                        </td>
+                        <td
+                          className={`px-3 py-3 font-mono text-xs whitespace-nowrap ${sampleSizeColor(days)}`}
+                          title={
+                            days != null
+                              ? sampleSizeTooltip(days)
+                              : undefined
+                          }
+                        >
+                          {days != null ? fmtDaysCompact(days) : "—"}
+                        </td>
+                        <td className="px-3 py-3">
+                          <StatusBadge status={bt.status} />
+                        </td>
+                        <td
+                          className={`px-3 py-3 text-right font-mono whitespace-nowrap ${returnColor(bt.total_return_pct)}`}
+                        >
+                          {fmtPct(bt.total_return_pct)}
+                        </td>
+                        <td className="px-3 py-3 text-right font-mono text-gray-700 whitespace-nowrap">
+                          {fmtNum(bt.sharpe_ratio, 2)}
+                        </td>
+                        <td className="px-3 py-3 text-right font-mono text-gray-700 whitespace-nowrap">
+                          {fmtPct(bt.max_drawdown_pct)}
+                        </td>
+                        <td className="px-3 py-3 text-right font-mono text-gray-700">
+                          {bt.num_closed_trades ?? "—"}
+                        </td>
+                        <td className="px-3 py-3 text-right font-mono text-gray-700 whitespace-nowrap">
+                          {fmtNum(bt.win_rate_pct, 1)}
+                          {bt.win_rate_pct != null && "%"}
+                        </td>
+                        <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">
+                          {fmtTime(bt.created_at)}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -202,4 +216,44 @@ function fmtPct(v: number | null | undefined): string {
 function fmtTime(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleString();
+}
+
+// ----- Sample-size helpers -----
+
+function calcDaysTested(bt: BacktestSummary): number | null {
+  if (!bt.bars_start || !bt.bars_end) return null;
+  const start = new Date(bt.bars_start).getTime();
+  const end = new Date(bt.bars_end).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+    return null;
+  }
+  return (end - start) / (1000 * 60 * 60 * 24);
+}
+
+function fmtDaysCompact(d: number): string {
+  if (d < 1) return `${(d * 24).toFixed(1)}h`;
+  if (d < 60) return `${d.toFixed(1)}d`;
+  if (d < 365) return `${(d / 30).toFixed(1)}mo`;
+  return `${(d / 365).toFixed(1)}y`;
+}
+
+function sampleSizeColor(days: number | null): string {
+  if (days == null) return "text-gray-400";
+  if (days < 7) return "text-red-700 font-semibold";
+  if (days < 30) return "text-amber-700 font-semibold";
+  if (days < 90) return "text-gray-700";
+  return "text-green-700";
+}
+
+function sampleSizeTooltip(days: number): string {
+  if (days < 7) {
+    return `Only ${days.toFixed(1)} days of data — severely insufficient sample.`;
+  }
+  if (days < 30) {
+    return `${days.toFixed(1)} days — short window, results likely noise.`;
+  }
+  if (days < 90) {
+    return `${days.toFixed(1)} days — limited window, sanity check only.`;
+  }
+  return `${days.toFixed(1)} days — reasonable backtest window.`;
 }
