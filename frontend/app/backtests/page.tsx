@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { AppShell } from "@/components/nav/AppShell";
 import type { BacktestStatus, BacktestSummary } from "@/lib/backtest-types";
@@ -9,6 +10,7 @@ import { useApi } from "@/lib/useApi";
 
 export default function BacktestsListPage() {
   const api = useApi();
+  const router = useRouter();
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["backtests"],
@@ -33,8 +35,9 @@ export default function BacktestsListPage() {
               Your backtests
             </h2>
             <p className="mt-1 text-xs text-gray-500">
-              Strategies run against historical data. Auto-refreshes every
-              3 seconds while runs are active.
+              Strategies run against historical data. Click a row to see
+              detailed results. Auto-refreshes every 3 seconds while runs
+              are active.
             </p>
           </div>
           <div className="flex gap-2">
@@ -99,10 +102,23 @@ export default function BacktestsListPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {data.map((bt) => (
-                    <tr key={bt.id} className="hover:bg-gray-50">
+                    <tr
+                      key={bt.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => router.push(`/backtests/${bt.id}`)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          router.push(`/backtests/${bt.id}`);
+                        }
+                      }}
+                      className="cursor-pointer transition-colors hover:bg-navy-50/40 focus:bg-navy-50/40 focus:outline-none"
+                    >
                       <td className="px-3 py-3">
                         <Link
                           href={`/backtests/${bt.id}`}
+                          onClick={(e) => e.stopPropagation()}
                           className="font-mono text-xs text-navy-600 hover:underline"
                         >
                           {bt.strategy_name}
