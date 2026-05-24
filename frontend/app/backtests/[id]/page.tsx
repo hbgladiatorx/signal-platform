@@ -44,7 +44,6 @@ export default function BacktestDetailPage() {
   });
 
   const status = detailQuery.data?.status;
-  const isDone = status === "completed" || status === "failed";
 
   // Only fetch trades + equity once the run has finished
   const tradesQuery = useQuery({
@@ -83,6 +82,8 @@ export default function BacktestDetailPage() {
   const detail = detailQuery.data;
   if (!detail) return null;
 
+  const daysTested = calcDaysTested(detail);
+
   return (
     <AppShell title={`Backtest ${detail.strategy_name}`}>
       <div className="space-y-4">
@@ -97,7 +98,12 @@ export default function BacktestDetailPage() {
         </div>
 
         {/* ---------- HEADER CARD ---------- */}
-        <HeaderCard detail={detail} />
+        <HeaderCard detail={detail} daysTested={daysTested} />
+
+        {/* ---------- SAMPLE SIZE WARNING ---------- */}
+        {status === "completed" && daysTested !== null && (
+          <SampleSizeWarning daysTested={daysTested} />
+        )}
 
         {/* ---------- STATUS-DEPENDENT BODY ---------- */}
         {status === "failed" && <FailedCard detail={detail} />}
@@ -139,7 +145,13 @@ export default function BacktestDetailPage() {
 // ============================================================
 // Header card
 // ============================================================
-function HeaderCard({ detail }: { detail: BacktestDetail }) {
+function HeaderCard({
+  detail,
+  daysTested,
+}: {
+  detail: BacktestDetail;
+  daysTested: number | null;
+}) {
   return (
     <div className="rounded-lg border border-gray-200 bg-white">
       <div className="border-b border-gray-200 px-6 py-4">
@@ -159,7 +171,20 @@ function HeaderCard({ detail }: { detail: BacktestDetail }) {
         <Field label="Symbols" value={detail.symbols.join(", ")} mono />
         <Field label="Resolution" value={detail.bar_resolution} />
         <Field
-          label="Bars window"
+          label="Period tested"
+          value={daysTested !== null ? fmtDays(daysTested) : "—"}
+          tone={daysTested !== null ? sampleSizeTone(daysTested) : undefined}
+        />
+        <Field
+          label="Bars"
+          value={
+            detail.num_bars != null
+              ? detail.num_bars.toLocaleString()
+              : "—"
+          }
+        />
+        <Field
+          label="Window"
           value={
             detail.bars_start && detail.bars_end
               ? `${fmtDate(detail.bars_start)} → ${fmtDate(detail.bars_end)}`
@@ -167,14 +192,10 @@ function HeaderCard({ detail }: { detail: BacktestDetail }) {
           }
         />
         <Field
-          label="Bars"
-          value={detail.num_bars != null ? String(detail.num_bars) : "—"}
+          label="Starting cash"
+          value={`$${Number(detail.starting_cash).toLocaleString()}`}
         />
         <Field label="Created" value={fmtTime(detail.created_at)} />
-        <Field
-          label="Completed"
-          value={detail.completed_at ? fmtTime(detail.completed_at) : "—"}
-        />
         <Field
           label="Duration"
           value={
@@ -183,11 +204,60 @@ function HeaderCard({ detail }: { detail: BacktestDetail }) {
               : "—"
           }
         />
-        <Field
-          label="Starting cash"
-          value={`$${Number(detail.starting_cash).toLocaleString()}`}
-        />
       </div>
+    </div>
+  );
+}
+
+
+// ============================================================
+// Sample size warning
+// ============================================================
+function SampleSizeWarning({ daysTested }: { daysTested: number }) {
+  // Three tiers of warning intensity, plus silence above 90 days.
+  let tone: "red" | "amber" | "gray" | null = null;
+  let title = "";
+  let body = "";
+
+  if (daysTested < 7) {
+    tone = "red";
+    title = "Severely insufficient sample size";
+    body =
+      "This backtest covers less than a week of data. Results are dominated by noise " +
+      "and tell you essentially nothing about the strategy's true performance. " +
+      "Strongly consider backfilling more historical data before drawing conclusions.";
+  } else if (daysTested < 30) {
+    tone = "amber";
+    title = "Short backtest period";
+    body =
+      "Less than 30 days of data captures only one market regime and is too small to " +
+      "validate a strategy. Sharpe, drawdown, and win rate estimates from this window " +
+      "have very wide confidence intervals.";
+  } else if (daysTested < 90) {
+    tone = "gray";
+    title = "Limited backtest period";
+    body =
+      "Under 90 days of data is workable for a sanity check but doesn't span enough " +
+      "regime changes to be predictive. Consider backfilling at least 1-2 years of " +
+      "history for a meaningful evaluation.";
+  } else {
+    return null;
+  }
+
+  const palette =
+    tone === "red"
+      ? "border-red-200 bg-red-50 text-red-800"
+      : tone === "amber"
+        ? "border-amber-200 bg-amber-50 text-amber-900"
+        : "border-gray-200 bg-gray-50 text-gray-700";
+
+  return (
+    <div
+      className={`rounded-lg border px-6 py-3 ${palette}`}
+      role="note"
+    >
+      <p className="text-sm font-semibold">{title}</p>
+      <p className="mt-1 text-xs leading-relaxed">{body}</p>
     </div>
   );
 }
@@ -594,15 +664,27 @@ function Field({
   label,
   value,
   mono,
+  tone,
 }: {
   label: string;
   value: string;
   mono?: boolean;
+  tone?: "red" | "amber" | "gray" | "neutral";
 }) {
+  const valueClass =
+    tone === "red"
+      ? "text-red-700"
+      : tone === "amber"
+        ? "text-amber-700"
+        : tone === "gray"
+          ? "text-gray-700"
+          : "text-gray-800";
   return (
     <div>
       <p className="text-xs uppercase tracking-wide text-gray-500">{label}</p>
-      <p className={`mt-0.5 text-sm text-gray-800 ${mono ? "font-mono" : ""}`}>
+      <p
+        className={`mt-0.5 text-sm font-semibold ${valueClass} ${mono ? "font-mono" : ""}`}
+      >
         {value}
       </p>
     </div>
@@ -672,4 +754,37 @@ function fmtDuration(seconds: number): string {
   if (seconds < 3600) return `${(seconds / 60).toFixed(1)}m`;
   if (seconds < 86400) return `${(seconds / 3600).toFixed(1)}h`;
   return `${(seconds / 86400).toFixed(1)}d`;
+}
+
+// ----- Sample-size helpers -----
+
+function calcDaysTested(detail: BacktestDetail): number | null {
+  if (!detail.bars_start || !detail.bars_end) return null;
+  const start = new Date(detail.bars_start).getTime();
+  const end = new Date(detail.bars_end).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+    return null;
+  }
+  return (end - start) / (1000 * 60 * 60 * 24);
+}
+
+function fmtDays(d: number): string {
+  if (d < 1) {
+    const h = d * 24;
+    return `${h.toFixed(1)} hours`;
+  }
+  if (d < 60) {
+    return `${d.toFixed(1)} days`;
+  }
+  if (d < 365) {
+    return `${(d / 30).toFixed(1)} months`;
+  }
+  return `${(d / 365).toFixed(1)} years`;
+}
+
+function sampleSizeTone(daysTested: number): "red" | "amber" | "gray" | "neutral" {
+  if (daysTested < 7) return "red";
+  if (daysTested < 30) return "amber";
+  if (daysTested < 90) return "gray";
+  return "neutral";
 }
