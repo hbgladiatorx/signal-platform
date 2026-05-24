@@ -46,6 +46,7 @@ ALLOWED_IMPORT_PREFIXES: tuple[str, ...] = (
     "dataclasses",              # @dataclass for helper types
     "math",                     # safe stdlib math
     "enum",                     # Enum for typed choices
+    "decimal",                  # precise arithmetic for finance code
 )
 
 # Builtins that user code is explicitly NOT allowed to call.
