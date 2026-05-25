@@ -254,14 +254,18 @@ _INSERT_TRADES_SQL = text(
 
 
 async def bulk_insert_trades(engine, batch: list[dict[str, Any]]) -> int:
-    """Bulk insert one batch of trades. Returns rows affected (new inserts)."""
+    """Bulk insert one batch of trades.
+
+    Returns batch size (rows attempted). asyncpg executemany returns
+    rowcount=-1, so we can't reliably distinguish actual inserts from
+    ON CONFLICT skips. The verification via cagg_bars_1d count is
+    the source of truth.
+    """
     if not batch:
         return 0
     async with engine.begin() as conn:
-        # Use executemany via SQLAlchemy
-        result = await conn.execute(_INSERT_TRADES_SQL, batch)
-        # rowcount is total rows affected; ON CONFLICT skipped rows don't count
-        return result.rowcount or 0
+        await conn.execute(_INSERT_TRADES_SQL, batch)
+    return len(batch)
 
 
 async def refresh_caggs(
@@ -279,12 +283,14 @@ async def refresh_caggs(
     for cagg_name in CAGG_REFRESH_ORDER:
         t0 = time.monotonic()
         print(f"  [{cagg_name}] refreshing {start.date()} → {end.date()} ...", end=" ", flush=True)
+        # Inline as TIMESTAMPTZ literals — asyncpg cannot infer types for the
+        # overloaded refresh_continuous_aggregate CALL via prepared statement.
+        start_lit = "TIMESTAMPTZ '" + start.isoformat() + "'"
+        end_lit = "TIMESTAMPTZ '" + end.isoformat() + "'"
+        sql_str = f"CALL refresh_continuous_aggregate('{cagg_name}', {start_lit}, {end_lit})"
         async with engine.connect() as conn:
             conn_with_autocommit = await conn.execution_options(isolation_level="AUTOCOMMIT")
-            await conn_with_autocommit.execute(
-                text(f"CALL refresh_continuous_aggregate('{cagg_name}', :start, :end)"),
-                {"start": start, "end": end},
-            )
+            await conn_with_autocommit.execute(text(sql_str))
         elapsed = time.monotonic() - t0
         print(f"done in {elapsed:.1f}s")
 
