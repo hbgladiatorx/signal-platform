@@ -1,53 +1,63 @@
-"""Historical backfill of OHLCV bars from Binance.US klines REST API.
+"""Historical backfill — CORRECTED.
 
-Pulls historical bars and INSERTs into the existing `bars` hypertable.
-Idempotent: ON CONFLICT DO NOTHING means safe to re-run, will skip
-existing rows and only fetch what's missing.
+Pulls historical 1-minute OHLCV bars from Binance.US klines REST API and
+writes them as synthetic trades into the `trades` table, then refreshes
+the continuous aggregate chain so the data is visible to backtests.
 
-Usage (run inside the api container):
+THE PRIOR VERSION OF THIS SCRIPT WAS WRONG.
+  Earlier code wrote rows directly into the `bars` table at the requested
+  resolution. But backtests query `cagg_bars_*` views which aggregate FROM
+  `trades`, NOT from `bars`. The bars table is a separate denormalized
+  cache used elsewhere; writing into it produced dead data.
 
-    docker exec -i signal_api python -m packages.backtest.historical_backfill \\
-        --symbol BTC-USDT@BINANCEUS \\
-        --resolution 1m \\
-        --start 2024-01-01 \\
-        --end 2025-01-01
+WHY SYNTHETIC TRADES:
+  The cagg's aggregation semantics are:
+      first(price, ts)     AS open
+      last(price, ts)      AS close
+      max(price)           AS high
+      min(price)           AS low
+      sum(quantity)        AS volume
+      count(*)             AS trade_count
+      sum(price*quantity)  AS price_volume_sum   (used for VWAP)
 
-Resolutions accepted: 1m, 5m, 15m, 1h, 4h, 1d.
+  Given a Binance.US kline (open, high, low, close, volume), we can
+  reconstruct the cagg's output exactly for OHLC and volume by inserting
+  four synthetic trades in a specific time order:
 
-Rate limit:
-  Binance.US allows 1200 weight/min on /klines. With limit=1000 each call
-  costs 2 weight = 600 calls/min hard ceiling. We self-limit to 400/min to
-  leave headroom for real-time ingestion.
+      t=00s   price=open    quantity=volume/4   (first → cagg open)
+      t=20s   price=high    quantity=volume/4   (max  → cagg high)
+      t=40s   price=low     quantity=volume/4   (min  → cagg low)
+      t=59s   price=close   quantity=volume/4   (last → cagg close)
 
-Throughput at 400 calls/min × 1000 bars/call = ~400k bars/min:
-  - 1 year of 1m bars (525,600 bars):   ~80s
-  - 5 years of 1m bars (2,628,000 bars): ~7 min
-  - 1 year of 5m bars (105,120 bars):   ~16s
-  - 1 year of 1h bars (8,760 bars):     ~2s
+  This works because for any valid kline: high >= max(open, close, low)
+  and low <= min(open, close, high), so max/min pick the right values.
 
-Notes:
-  - VWAP is computed as quote_volume / base_volume from Binance's response
-    (which is the true VWAP within each bar).
-  - Empty responses (e.g., requesting before pair listing) are handled
-    gracefully — script advances and continues.
-  - Pre-existing rows are skipped via ON CONFLICT — re-running gives a
-    "skipped duplicates: N" line in the summary.
+  trade_count comes out to 4 per bar (vs the real Binance count). VWAP
+  becomes (open+high+low+close)/4 — the "typical price" approximation,
+  within a few bps of true VWAP. Acceptable for backtest research.
 
-Limitations of this MVP:
-  - One symbol per invocation (run multiple times for multiple pairs)
-  - No cancellation / pause / resume (just kill and restart; idempotency
-    means no harm done)
-  - No cagg refresh — if you backfill 1m data and have continuous
-    aggregates for 5m/15m/etc., you'll need to manually CALL
-    refresh_continuous_aggregate(...) on each.
-  - Writes directly to bars table; TimescaleDB rewrites the INSERT to
-    the appropriate chunk via the insert_blocker trigger.
+USAGE:
+  docker exec -it signal_api python -m packages.backtest.historical_backfill \\
+      --symbol BTC-USDT@BINANCEUS \\
+      --start 2024-01-01 \\
+      --end 2025-01-01
+
+  Always backfills at 1-minute granularity (the source of the cagg chain).
+  Higher resolutions (5m, 15m, 1h, 4h, 1d) are produced by refreshing the
+  cagg chain at the end of this script. No need to invoke per-resolution.
+
+SAFETY:
+  - The script REFUSES to insert trades for any time range that overlaps
+    existing trades (avoids double-counting against real-time ingestion).
+  - venue_trade_id is deterministic: "backfill-{kline_ms}-{idx}". This
+    makes inserts idempotent under ON CONFLICT DO NOTHING.
+  - Cagg refresh is scoped to [start, end] only — does not disturb
+    existing materializations outside this window.
 """
 from __future__ import annotations
 
 import argparse
 import asyncio
-import logging
 import os
 import sys
 import time
@@ -65,51 +75,37 @@ from sqlalchemy.ext.asyncio import create_async_engine
 # ============================================================
 
 BINANCE_US_KLINES_URL = "https://api.binance.us/api/v3/klines"
-MAX_LIMIT_PER_CALL = 1000
+MAX_LIMIT_PER_CALL = 1000        # bars per Binance call (max allowed)
 SELF_RATE_LIMIT_CALLS_PER_MIN = 400
 MAX_RETRIES_PER_CALL = 5
 HTTP_TIMEOUT_S = 30
+DB_INSERT_BATCH = 5000           # trades per INSERT — 4 trades × 1250 klines
 
-# Our resolution names → Binance interval strings (they happen to match)
-RESOLUTION_TO_BINANCE: dict[str, str] = {
-    "1m": "1m",
-    "5m": "5m",
-    "15m": "15m",
-    "1h": "1h",
-    "4h": "4h",
-    "1d": "1d",
-}
-
-# Seconds per resolution unit (for chunking math)
-RESOLUTION_SECONDS: dict[str, int] = {
-    "1m": 60,
-    "5m": 300,
-    "15m": 900,
-    "1h": 3600,
-    "4h": 14400,
-    "1d": 86400,
-}
-
-
-log = logging.getLogger("historical_backfill")
+# The cagg refresh chain, in dependency order.
+CAGG_REFRESH_ORDER = [
+    "cagg_bars_1m",   # reads from trades
+    "cagg_bars_5m",   # reads from cagg_bars_1m
+    "cagg_bars_15m",
+    "cagg_bars_1h",
+    "cagg_bars_4h",
+    "cagg_bars_1d",
+]
 
 
 # ============================================================
-# HTTP / Binance.US
+# Binance.US fetch
 # ============================================================
 async def fetch_klines(
     session: aiohttp.ClientSession,
     native_symbol: str,
-    interval: str,
     start_ms: int,
     end_ms: int,
     limit: int = MAX_LIMIT_PER_CALL,
 ) -> list[list[Any]]:
-    """Fetch one batch of klines. Retries with exponential backoff on
-    rate-limit (429) and transient server errors (5xx)."""
+    """Fetch one batch of 1m klines from Binance.US."""
     params = {
         "symbol": native_symbol,
-        "interval": interval,
+        "interval": "1m",
         "startTime": start_ms,
         "endTime": end_ms,
         "limit": limit,
@@ -140,44 +136,60 @@ async def fetch_klines(
             print(f"    [network error: {e}] retrying in {wait_s}s", file=sys.stderr)
             await asyncio.sleep(wait_s)
     raise RuntimeError(
-        f"Failed to fetch klines after {MAX_RETRIES_PER_CALL} retries; last error: {last_err}"
+        f"Failed to fetch klines after {MAX_RETRIES_PER_CALL} retries; last={last_err}"
     )
 
 
-def parse_kline(row: list[Any]) -> dict[str, Any]:
-    """Convert a Binance.US kline array to a dict matching the bars schema.
+# ============================================================
+# Kline → 4 synthetic trades
+# ============================================================
+# Seconds-within-minute for each of the 4 synthetic trades.
+# Order matters: open first, close last (cagg uses first/last by ts).
+# High and low in middle, in either order (max/min don't care).
+_SYNTH_OFFSETS = (0, 20, 40, 59)
 
-    Binance kline format (positions):
-       0: open_time (ms)
-       1: open  2: high  3: low  4: close  5: volume
-       6: close_time (ms)
-       7: quote_asset_volume
-       8: number_of_trades
-       9-10: taker buys (unused)
-       11: ignore
+
+def synth_trades_from_kline(
+    instrument_id: int,
+    kline: list[Any],
+) -> list[dict[str, Any]] | None:
+    """Convert one Binance.US 1m kline into 4 synthetic trades.
+
+    Returns None if the kline has zero volume (no trade activity to model).
     """
-    open_ms = int(row[0])
-    open_ = Decimal(str(row[1]))
-    high = Decimal(str(row[2]))
-    low = Decimal(str(row[3]))
-    close = Decimal(str(row[4]))
-    volume = Decimal(str(row[5]))
-    quote_volume = Decimal(str(row[7]))
-    trade_count = int(row[8]) if row[8] is not None else None
+    open_ms = int(kline[0])
+    open_p = Decimal(str(kline[1]))
+    high_p = Decimal(str(kline[2]))
+    low_p = Decimal(str(kline[3]))
+    close_p = Decimal(str(kline[4]))
+    volume = Decimal(str(kline[5]))
 
-    # VWAP = quote_volume / base_volume
-    vwap: Decimal | None = (quote_volume / volume) if volume > 0 else None
+    if volume <= 0:
+        # Zero-volume bar: skip. Either the asset wasn't trading, or this
+        # is a pre-listing window. No trades to synthesize.
+        return None
 
-    return {
-        "ts": datetime.fromtimestamp(open_ms / 1000, tz=timezone.utc),
-        "open": open_,
-        "high": high,
-        "low": low,
-        "close": close,
-        "volume": volume,
-        "trade_count": trade_count,
-        "vwap": vwap,
-    }
+    qty_each = volume / Decimal(4)
+    base_ts = datetime.fromtimestamp(open_ms / 1000, tz=timezone.utc)
+
+    # Map the 4 prices in cagg-correct order:
+    # [0] open  → t=0s  → first(price, ts) picks this
+    # [1] high  → t=20s → max picks this
+    # [2] low   → t=40s → min picks this
+    # [3] close → t=59s → last(price, ts) picks this
+    prices = (open_p, high_p, low_p, close_p)
+
+    trades = []
+    for idx, (offset_s, price) in enumerate(zip(_SYNTH_OFFSETS, prices)):
+        trades.append({
+            "instrument_id": instrument_id,
+            "ts": base_ts + timedelta(seconds=offset_s),
+            "price": price,
+            "quantity": qty_each,
+            "side": None,  # historical, side unknown
+            "venue_trade_id": f"backfill-{open_ms}-{idx}",
+        })
+    return trades
 
 
 # ============================================================
@@ -185,16 +197,14 @@ def parse_kline(row: list[Any]) -> dict[str, Any]:
 # ============================================================
 
 def _build_db_url() -> str:
-    """Reconstruct an async DATABASE_URL from env vars used by the platform."""
+    """Build an async DATABASE_URL from env vars."""
     explicit = os.environ.get("DATABASE_URL")
     if explicit:
-        # Normalize to asyncpg driver
         if "+psycopg2" in explicit:
             return explicit.replace("+psycopg2", "+asyncpg")
         if explicit.startswith("postgresql://") and "+" not in explicit.split("://", 1)[0]:
             return explicit.replace("postgresql://", "postgresql+asyncpg://", 1)
         return explicit
-
     host = os.environ.get("POSTGRES_HOST", "postgres")
     port = os.environ.get("POSTGRES_PORT", "5432")
     user = os.environ.get("POSTGRES_USER", "signal")
@@ -204,7 +214,6 @@ def _build_db_url() -> str:
 
 
 async def lookup_instrument(engine, canonical_symbol: str) -> tuple[int, str]:
-    """Resolve canonical_symbol → (instrument_id, native_symbol)."""
     async with engine.connect() as conn:
         result = await conn.execute(
             text(
@@ -216,169 +225,142 @@ async def lookup_instrument(engine, canonical_symbol: str) -> tuple[int, str]:
         row = result.first()
         if row is None:
             raise ValueError(
-                f"No instrument with canonical_symbol={canonical_symbol!r}. "
-                f"Check the symbol spelling or run on the right database."
+                f"No instrument with canonical_symbol={canonical_symbol!r}"
             )
-        instrument_id = int(row[0])
-        native_symbol = str(row[1])
-        venue = str(row[2])
-        active = bool(row[3])
-        if venue.upper() != "BINANCEUS":
+        if str(row[2]).upper() != "BINANCEUS":
             raise ValueError(
-                f"Instrument {canonical_symbol} is venue={venue}, not BINANCEUS. "
-                f"This script only supports Binance.US."
+                f"Instrument is venue={row[2]}, not BINANCEUS"
             )
-        if not active:
-            print(
-                f"[warning] instrument {canonical_symbol} is marked active=false; "
-                f"continuing anyway.",
-                file=sys.stderr,
-            )
-        return instrument_id, native_symbol
+        return int(row[0]), str(row[1])
 
 
-async def count_existing(engine, instrument_id: int, resolution: str) -> int:
+async def earliest_real_trade(engine, instrument_id: int) -> datetime | None:
+    """Return the earliest ts in trades for this instrument, or None if no rows."""
     async with engine.connect() as conn:
         result = await conn.execute(
-            text(
-                "SELECT count(*) FROM bars "
-                "WHERE instrument_id = :iid AND resolution = :res"
-            ),
-            {"iid": instrument_id, "res": resolution},
+            text("SELECT MIN(ts) FROM trades WHERE instrument_id = :iid"),
+            {"iid": instrument_id},
         )
-        return int(result.scalar() or 0)
+        return result.scalar()
 
 
-_INSERT_BARS_SQL = text(
+_INSERT_TRADES_SQL = text(
     """
-    INSERT INTO bars (
-        instrument_id, resolution, ts,
-        open, high, low, close, volume, trade_count, vwap
-    )
-    VALUES (
-        :instrument_id, :resolution, :ts,
-        :open, :high, :low, :close, :volume, :trade_count, :vwap
-    )
-    ON CONFLICT (instrument_id, resolution, ts) DO NOTHING
+    INSERT INTO trades (instrument_id, ts, price, quantity, side, venue_trade_id)
+    VALUES (:instrument_id, :ts, :price, :quantity, :side, :venue_trade_id)
+    ON CONFLICT (instrument_id, ts, venue_trade_id) DO NOTHING
     """
 )
 
 
-async def insert_bars(
-    engine,
-    instrument_id: int,
-    resolution: str,
-    bars: list[dict[str, Any]],
-) -> int:
-    """Bulk insert. Returns the number of NEW rows (post-ON-CONFLICT)."""
-    if not bars:
+async def bulk_insert_trades(engine, batch: list[dict[str, Any]]) -> int:
+    """Bulk insert one batch of trades. Returns rows affected (new inserts)."""
+    if not batch:
         return 0
-    rows = [
-        {
-            "instrument_id": instrument_id,
-            "resolution": resolution,
-            "ts": bar["ts"],
-            "open": bar["open"],
-            "high": bar["high"],
-            "low": bar["low"],
-            "close": bar["close"],
-            "volume": bar["volume"],
-            "trade_count": bar["trade_count"],
-            "vwap": bar["vwap"],
-        }
-        for bar in bars
-    ]
     async with engine.begin() as conn:
-        before = (await conn.execute(
-            text(
-                "SELECT count(*) FROM bars "
-                "WHERE instrument_id = :iid AND resolution = :res "
-                "AND ts >= :ts_min AND ts <= :ts_max"
-            ),
-            {
-                "iid": instrument_id,
-                "res": resolution,
-                "ts_min": bars[0]["ts"],
-                "ts_max": bars[-1]["ts"],
-            },
-        )).scalar() or 0
+        # Use executemany via SQLAlchemy
+        result = await conn.execute(_INSERT_TRADES_SQL, batch)
+        # rowcount is total rows affected; ON CONFLICT skipped rows don't count
+        return result.rowcount or 0
 
-        await conn.execute(_INSERT_BARS_SQL, rows)
 
-        after = (await conn.execute(
-            text(
-                "SELECT count(*) FROM bars "
-                "WHERE instrument_id = :iid AND resolution = :res "
-                "AND ts >= :ts_min AND ts <= :ts_max"
-            ),
-            {
-                "iid": instrument_id,
-                "res": resolution,
-                "ts_min": bars[0]["ts"],
-                "ts_max": bars[-1]["ts"],
-            },
-        )).scalar() or 0
-
-    return int(after - before)
+async def refresh_caggs(
+    engine,
+    start: datetime,
+    end: datetime,
+) -> None:
+    """Refresh the cagg chain for the backfilled window, in dependency order."""
+    print()
+    print("Refreshing continuous aggregates (this may take a few minutes):")
+    # CALL refresh_continuous_aggregate must run outside a transaction.
+    # SQLAlchemy's AUTOCOMMIT isolation level achieves this.
+    from sqlalchemy.ext.asyncio import create_async_engine as _engine_factory
+    # We use the existing engine but with autocommit
+    for cagg_name in CAGG_REFRESH_ORDER:
+        t0 = time.monotonic()
+        print(f"  [{cagg_name}] refreshing {start.date()} → {end.date()} ...", end=" ", flush=True)
+        async with engine.connect() as conn:
+            conn_with_autocommit = await conn.execution_options(isolation_level="AUTOCOMMIT")
+            await conn_with_autocommit.execute(
+                text(f"CALL refresh_continuous_aggregate('{cagg_name}', :start, :end)"),
+                {"start": start, "end": end},
+            )
+        elapsed = time.monotonic() - t0
+        print(f"done in {elapsed:.1f}s")
 
 
 # ============================================================
-# Main loop
+# Main
 # ============================================================
 async def main_async(args: argparse.Namespace) -> int:
     # Parse date range
-    if args.start.lower() == "earliest":
-        # Binance.US launched 2019-09; data only exists from then on
-        start = datetime(2019, 9, 1, tzinfo=timezone.utc)
-    else:
-        start = datetime.strptime(args.start, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    start = datetime.strptime(args.start, "%Y-%m-%d").replace(tzinfo=timezone.utc)
     end = datetime.strptime(args.end, "%Y-%m-%d").replace(tzinfo=timezone.utc)
     if end <= start:
         raise ValueError(f"--end ({args.end}) must be after --start ({args.start})")
 
-    interval = RESOLUTION_TO_BINANCE[args.resolution]
-    res_seconds = RESOLUTION_SECONDS[args.resolution]
-    chunk_seconds = MAX_LIMIT_PER_CALL * res_seconds  # wall-time covered per call
+    res_seconds = 60  # 1m bars
+    chunk_seconds = MAX_LIMIT_PER_CALL * res_seconds
 
     total_seconds = (end - start).total_seconds()
-    estimated_bars = int(total_seconds / res_seconds)
-    estimated_calls = (estimated_bars // MAX_LIMIT_PER_CALL) + 1
-
-    # Estimated wall-clock time (assuming rate limit is the bottleneck)
+    estimated_klines = int(total_seconds / res_seconds)
+    estimated_trades = estimated_klines * 4
+    estimated_calls = (estimated_klines // MAX_LIMIT_PER_CALL) + 1
     min_call_interval_s = 60.0 / SELF_RATE_LIMIT_CALLS_PER_MIN
     estimated_runtime_s = estimated_calls * min_call_interval_s
 
     print(f"Backfill plan:")
-    print(f"  Symbol:          {args.symbol}")
-    print(f"  Resolution:      {args.resolution}")
-    print(f"  Range:           {start.isoformat()} → {end.isoformat()}")
-    print(f"  Estimated bars:  {estimated_bars:,}")
-    print(f"  Estimated calls: {estimated_calls:,}")
-    print(f"  Estimated time:  ~{estimated_runtime_s:.0f}s ({estimated_runtime_s / 60:.1f} min)")
+    print(f"  Symbol:             {args.symbol}")
+    print(f"  Range:              {start.isoformat()} → {end.isoformat()}")
+    print(f"  Granularity:        1m (4 synthetic trades per kline)")
+    print(f"  Estimated klines:   {estimated_klines:,}")
+    print(f"  Estimated trades:   {estimated_trades:,}")
+    print(f"  Estimated calls:    {estimated_calls:,}")
+    print(f"  Estimated runtime:  ~{estimated_runtime_s:.0f}s ({estimated_runtime_s / 60:.1f} min)")
+    print(f"                      (+ cagg refresh time)")
     print()
 
     engine = create_async_engine(_build_db_url(), pool_pre_ping=True)
 
     try:
-        # Resolve instrument
         instrument_id, native_symbol = await lookup_instrument(engine, args.symbol)
         print(f"Resolved: instrument_id={instrument_id} native_symbol={native_symbol}")
 
-        existing_before = await count_existing(engine, instrument_id, args.resolution)
-        print(f"Existing rows for this instrument/resolution: {existing_before:,}")
+        # Safety: cap end at the start of real trade data
+        earliest_real = await earliest_real_trade(engine, instrument_id)
+        if earliest_real is not None:
+            print(f"Earliest existing trade for this instrument: {earliest_real.isoformat()}")
+            if earliest_real <= start:
+                print(
+                    f"ERROR: backfill range [{start}, {end}] entirely overlaps real "
+                    f"trades (earliest {earliest_real}). Refusing to insert."
+                )
+                return 1
+            if earliest_real < end:
+                # Cap end to one minute before real data starts
+                safe_end = earliest_real.replace(second=0, microsecond=0) - timedelta(minutes=1)
+                print(
+                    f"Capping --end from {end.isoformat()} to {safe_end.isoformat()} "
+                    f"to avoid overlap with real trades."
+                )
+                end = safe_end
+                if end <= start:
+                    print("ERROR: nothing to backfill after applying safety cap.")
+                    return 1
         print()
 
-        # Main fetch loop
-        total_fetched = 0
-        total_inserted = 0
-        last_call_at = 0.0
+        # Main loop
         wall_start = time.monotonic()
+        last_call_at = 0.0
+        total_klines = 0
+        total_trades_synthesized = 0
+        total_trades_inserted = 0
+        accumulator: list[dict[str, Any]] = []
 
         async with aiohttp.ClientSession() as session:
             current_start = start
             while current_start < end:
                 chunk_end = min(current_start + timedelta(seconds=chunk_seconds), end)
-
                 start_ms = int(current_start.timestamp() * 1000)
                 end_ms = int(chunk_end.timestamp() * 1000)
 
@@ -389,103 +371,97 @@ async def main_async(args: argparse.Namespace) -> int:
                     await asyncio.sleep(wait)
                 last_call_at = time.monotonic()
 
-                raw = await fetch_klines(
-                    session, native_symbol, interval, start_ms, end_ms
-                )
-
+                raw = await fetch_klines(session, native_symbol, start_ms, end_ms)
                 if not raw:
-                    # No data for this window (probably before pair listing).
-                    # Advance and continue.
+                    print(f"  [empty] {current_start.date()} — advancing")
                     current_start = chunk_end
-                    print(
-                        f"  [empty] {current_start.date()} — advancing"
-                    )
                     continue
 
-                bars = [parse_kline(row) for row in raw]
-                inserted = await insert_bars(
-                    engine, instrument_id, args.resolution, bars
-                )
-                total_fetched += len(bars)
-                total_inserted += inserted
+                # Convert klines → synthetic trades
+                for kline in raw:
+                    synth = synth_trades_from_kline(instrument_id, kline)
+                    if synth is not None:
+                        accumulator.extend(synth)
+                        total_trades_synthesized += len(synth)
+                    total_klines += 1
 
-                # Advance: start the next window AFTER the last bar we got
-                last_ts = bars[-1]["ts"]
+                # Flush accumulator in batches
+                while len(accumulator) >= DB_INSERT_BATCH:
+                    batch = accumulator[:DB_INSERT_BATCH]
+                    accumulator = accumulator[DB_INSERT_BATCH:]
+                    inserted = await bulk_insert_trades(engine, batch)
+                    total_trades_inserted += inserted
+
+                # Advance
+                last_ts = datetime.fromtimestamp(int(raw[-1][0]) / 1000, tz=timezone.utc)
                 next_start = last_ts + timedelta(seconds=res_seconds)
                 if next_start <= current_start:
-                    # Defensive: shouldn't happen, but don't infinite-loop
                     next_start = chunk_end
                 current_start = next_start
 
-                pct = min(100.0, 100.0 * total_fetched / max(1, estimated_bars))
+                pct = min(100.0, 100.0 * total_klines / max(1, estimated_klines))
                 elapsed = time.monotonic() - wall_start
                 print(
-                    f"  [{pct:5.1f}%] fetched={total_fetched:,} "
-                    f"inserted={total_inserted:,} ({len(bars)} this call) "
+                    f"  [{pct:5.1f}%] klines={total_klines:,} "
+                    f"synth={total_trades_synthesized:,} "
+                    f"inserted={total_trades_inserted:,} "
                     f"→ {last_ts.isoformat()} (elapsed {elapsed:.1f}s)"
                 )
 
-        existing_after = await count_existing(engine, instrument_id, args.resolution)
+        # Flush remainder
+        if accumulator:
+            inserted = await bulk_insert_trades(engine, accumulator)
+            total_trades_inserted += inserted
+
+        fetch_elapsed = time.monotonic() - wall_start
+        print()
+        print(f"Fetch + insert: {fetch_elapsed:.1f}s")
+        print(f"  Klines fetched:      {total_klines:,}")
+        print(f"  Trades synthesized:  {total_trades_synthesized:,}")
+        print(f"  Trades inserted:     {total_trades_inserted:,}")
+        skipped = total_trades_synthesized - total_trades_inserted
+        if skipped > 0:
+            print(f"  Skipped duplicates:  {skipped:,}")
+
+        if total_trades_inserted == 0:
+            print()
+            print("No new trades inserted — skipping cagg refresh.")
+            return 0
+
+        # Refresh caggs
+        await refresh_caggs(engine, start, end)
+
+        # Verify
+        print()
+        async with engine.connect() as conn:
+            res = await conn.execute(
+                text(
+                    "SELECT count(*), min(bucket)::date, max(bucket)::date "
+                    "FROM cagg_bars_1d WHERE instrument_id = :iid "
+                    "AND bucket >= :start AND bucket < :end"
+                ),
+                {"iid": instrument_id, "start": start, "end": end},
+            )
+            row = res.first()
+            n, mn, mx = row[0], row[1], row[2]
+            print(f"VERIFY cagg_bars_1d in range: {n} buckets, {mn} → {mx}")
 
         print()
         print("=" * 60)
-        print(f"DONE")
-        print(f"  Wall time:           {time.monotonic() - wall_start:.1f}s")
-        print(f"  Bars fetched:        {total_fetched:,}")
-        print(f"  New rows inserted:   {total_inserted:,}")
-        print(f"  Skipped duplicates:  {total_fetched - total_inserted:,}")
-        print(f"  Existing before:     {existing_before:,}")
-        print(f"  Existing after:      {existing_after:,}")
-        print(f"  Net new:             {existing_after - existing_before:,}")
+        print(f"DONE. Total wall time: {time.monotonic() - wall_start:.1f}s")
         return 0
-
     finally:
         await engine.dispose()
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Backfill historical OHLCV bars from Binance.US.",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  Backfill 1 year of BTC-USDT 1m bars:
-    python -m packages.backtest.historical_backfill \\
-        --symbol BTC-USDT@BINANCEUS --resolution 1m \\
-        --start 2024-01-01 --end 2025-01-01
-
-  Backfill 5 years of ETH-USDT 1h bars:
-    python -m packages.backtest.historical_backfill \\
-        --symbol ETH-USDT@BINANCEUS --resolution 1h \\
-        --start 2021-01-01 --end 2026-01-01
-
-  Backfill from listing date (no-op for pre-listing windows):
-    python -m packages.backtest.historical_backfill \\
-        --symbol BTC-USDT@BINANCEUS --resolution 1d \\
-        --start earliest --end 2026-01-01
-""",
+        description="Backfill historical bars as synthetic trades.",
     )
-    parser.add_argument(
-        "--symbol",
-        required=True,
-        help="Canonical symbol, e.g. 'BTC-USDT@BINANCEUS'",
-    )
-    parser.add_argument(
-        "--resolution",
-        required=True,
-        choices=sorted(RESOLUTION_TO_BINANCE.keys()),
-        help="Bar resolution",
-    )
-    parser.add_argument(
-        "--start",
-        required=True,
-        help="Start date YYYY-MM-DD (or 'earliest' for 2019-09-01)",
-    )
-    parser.add_argument(
-        "--end",
-        required=True,
-        help="End date YYYY-MM-DD (exclusive)",
-    )
+    parser.add_argument("--symbol", required=True,
+                        help="Canonical symbol e.g. 'BTC-USDT@BINANCEUS'")
+    parser.add_argument("--start", required=True, help="YYYY-MM-DD")
+    parser.add_argument("--end", required=True, help="YYYY-MM-DD (exclusive)")
     args = parser.parse_args()
     rc = asyncio.run(main_async(args))
     sys.exit(rc)

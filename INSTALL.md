@@ -1,21 +1,19 @@
-# Step 31 MVP — Historical Backfill Script
+# Step 31 v2 — Corrected Historical Backfill
 
-One Python file. Pulls historical bars from Binance.US REST `/api/v3/klines` and INSERTs into the existing `bars` hypertable. Idempotent.
+The prior backfill wrote to the wrong place. This one synthesizes trades that round-trip through the cagg's aggregation semantics correctly.
 
-## What This Ships
+## What This Replaces
 
-- `packages/backtest/historical_backfill.py` — standalone async script
+`packages/backtest/historical_backfill.py` — completely rewritten.
 
-**Nothing else changes.** No new container, no migration, no API endpoint, no UI. The script reaches the running API container via `docker exec`.
-
-## Apply / Deploy
+## Apply
 
 ```bash
 # Mac
 cd ~/signal-platform
-unzip -o ~/Downloads/step31-backfill.zip
+unzip -o ~/Downloads/step31-backfill-v2.zip
 git add -A
-git commit -m "Step 31 MVP: historical backfill script from Binance.US klines"
+git commit -m "Step 31 v2: synthetic-trades backfill (replaces broken v1)"
 git push
 
 # Box
@@ -24,116 +22,134 @@ git pull
 docker compose build api
 docker compose up -d --force-recreate api
 sleep 10
-
-# Smoke test (should print the script's --help)
-docker exec signal_api python -m packages.backtest.historical_backfill --help
 ```
 
-If the help text prints, the script is in place.
+## Step 0 — Clean Up The Dead 1d Bars From v1
 
-## Run Your First Backfill
+The 1827 rows we inserted into `bars` table are dead. Delete them:
 
-Start small — 1 month of 1d bars (fast, low risk):
+```bash
+docker exec signal_postgres psql -U signal -d signal_platform -c "
+  DELETE FROM bars
+  WHERE resolution = '1d'
+    AND ts < '2026-05-01';
+"
+```
+
+Should show `DELETE 1827`. The `< 2026-05-01` clause makes this surgical — only deletes pre-real-time rows, leaves any live-ingested data alone (there shouldn't be any 1d rows from real-time, but defensive).
+
+## Step 1 — Tiny Smoke Test (1 day, 1 symbol)
+
+Single day of BTC-USDT, ~1440 klines → 5760 synthetic trades. Should take ~5 seconds plus the cagg refresh chain.
 
 ```bash
 docker exec -it signal_api python -m packages.backtest.historical_backfill \
   --symbol BTC-USDT@BINANCEUS \
-  --resolution 1d \
-  --start 2025-01-01 \
-  --end 2026-01-01
+  --start 2025-05-01 \
+  --end 2025-05-02
 ```
 
-You should see:
+Expect output like:
 ```
 Backfill plan:
-  Symbol:          BTC-USDT@BINANCEUS
-  Resolution:      1d
-  Range:           2025-01-01... → 2026-01-01...
-  Estimated bars:  365
-  Estimated calls: 1
-  Estimated time:  ~0s
+  Symbol: BTC-USDT@BINANCEUS
+  Range: 2025-05-01... → 2025-05-02...
+  Estimated klines: 1,440
+  ...
+Fetch + insert: 1.2s
+  Klines fetched: 1,440
+  Trades synthesized: 5,760
+  Trades inserted: 5,760
 
-Resolved: instrument_id=1 native_symbol=BTCUSDT
-Existing rows for this instrument/resolution: 0
+Refreshing continuous aggregates...
+  [cagg_bars_1m] refreshing 2025-05-01 → 2025-05-02 ... done in 0.4s
+  [cagg_bars_5m] refreshing ...
+  [cagg_bars_15m] refreshing ...
+  [cagg_bars_1h] refreshing ...
+  [cagg_bars_4h] refreshing ...
+  [cagg_bars_1d] refreshing ...
 
-  [100.0%] fetched=365 inserted=365 ...
+VERIFY cagg_bars_1d in range: 1 buckets, 2025-05-01 → 2025-05-01
 
-============================================================
-DONE
-  Wall time:           1.2s
-  Bars fetched:        365
-  New rows inserted:   365
-  Skipped duplicates:  0
-  Existing before:     0
-  Existing after:      365
-  Net new:             365
+DONE. Total wall time: ~5s
 ```
 
-## Verify in the DB
+## Step 2 — Verify The Synthesis Math
+
+Compare a single day's OHLCV in the cagg with the source kline from Binance.US directly:
 
 ```bash
 docker exec signal_postgres psql -U signal -d signal_platform -c "
-  SELECT count(*), min(ts), max(ts)
-  FROM bars
-  WHERE instrument_id = 1 AND resolution = '1d'
+  SELECT bucket, open, high, low, close, volume, trade_count
+  FROM cagg_bars_1d
+  WHERE instrument_id = 1 AND bucket = '2025-05-01'
 "
+
+# Compare to Binance.US source for that day:
+curl -s 'https://api.binance.us/api/v3/klines?symbol=BTCUSDT&interval=1d&startTime=1746057600000&endTime=1746144000000' | python3 -m json.tool
 ```
 
-Should show 365 rows spanning 2025.
+Open, high, low, close should **match exactly** between cagg and Binance.
+Volume should match exactly.
+Trade count from cagg will be `4 × number_of_minutes_with_volume` instead of the real trade count — expected difference.
 
-## Now Run a Real Backtest
+## Step 3 — Run A Real Backtest
 
-In the UI:
-1. Go to `/strategies`
-2. Pick SMACrossover
-3. New backtest:
-   - Symbol: BTC-USDT@BINANCEUS
-   - Resolution: 1d
-   - (set start/end if the form asks; otherwise it'll use what's available)
-4. Run
+Now your SMACrossover backtest on BTC-USDT at 1d resolution will see real data for 2025-05-01. The Period column should show **1.0d** but **with verified real data underneath**.
 
-When you open the result, the **Period tested** field should show `1.0 years` or so — **GREEN**. The first time you'll have a backtest worth looking at.
-
-## Scale Up When Comfortable
-
-Once you trust the script:
+If the smoke test verifies cleanly, scale up:
 
 ```bash
-# 1 year of 1m bars (~80 seconds)
+# 1 month
 docker exec -it signal_api python -m packages.backtest.historical_backfill \
-  --symbol BTC-USDT@BINANCEUS --resolution 1m \
+  --symbol BTC-USDT@BINANCEUS \
+  --start 2025-04-01 --end 2025-05-01
+
+# 1 year (~80s fetch, plus cagg refresh)
+docker exec -it signal_api python -m packages.backtest.historical_backfill \
+  --symbol BTC-USDT@BINANCEUS \
   --start 2025-01-01 --end 2026-01-01
 
-# 5 years of 1h bars (~10 seconds)
+# Multiple symbols
 docker exec -it signal_api python -m packages.backtest.historical_backfill \
-  --symbol BTC-USDT@BINANCEUS --resolution 1h \
-  --start 2021-01-01 --end 2026-01-01
-
-# Same for ETH
-docker exec -it signal_api python -m packages.backtest.historical_backfill \
-  --symbol ETH-USDT@BINANCEUS --resolution 1m \
+  --symbol ETH-USDT@BINANCEUS \
   --start 2025-01-01 --end 2026-01-01
 ```
 
-Re-running the same command is a no-op (`Skipped duplicates: N`). Safe.
+## Safety Built In
 
-## Rate-Limit Behavior
-
-Self-limited to 400 calls/min. Binance.US allows 600. Headroom is for real-time ingestion which shares the rate limit budget.
-
-If you get repeated 429s in the script output, lower `SELF_RATE_LIMIT_CALLS_PER_MIN` at the top of the file. You shouldn't see any in normal use.
+- **Overlap guard**: refuses to insert if range overlaps existing real trades. Caps `--end` to safely precede earliest real data.
+- **Idempotent**: `venue_trade_id` is deterministic. Re-running same range is a no-op.
+- **Scoped cagg refresh**: refresh only covers the backfilled window; existing materializations outside the window are not touched.
+- **Zero-volume bars skipped**: pre-listing windows don't generate fake trades.
 
 ## Known Limitations
 
-| Limitation | Workaround |
-|------------|-----------|
-| One symbol per invocation | Run the script multiple times |
-| No cancellation / pause / resume | Just kill it; idempotent, restart from scratch |
-| Continuous aggregates (5m/15m/1h etc.) NOT refreshed | If you backfill 1m and your platform has caggs, manually `CALL refresh_continuous_aggregate('cagg_name', ...)` afterwards. OR just backfill the resolution you'll use directly (cheaper at lower resolutions). |
-| Pre-listing windows return empty | Script handles gracefully — prints `[empty]` and advances |
-| Hard-coded Binance.US (not generalizable) | Future step: extract to a per-venue backfill abstraction |
+- **trade_count is 4× per minute** (always), not the real Binance count
+- **VWAP is approximate**: (O+H+L+C)/4 typical price approximation rather than true VWAP from individual trades. Within a few bps of real for normal markets.
+- **Side is NULL**: synthetic trades don't have buyer/seller-initiated information
+- **One symbol per invocation**
 
-## Cleanup Carryover (Added)
+## If Something Goes Wrong
 
-- **Step 31 follow-ups**: Wrap the script in a worker container + API endpoints + UI flow (the full Step 31 spec). Once you have a few hundred MB of historical bars, the platform's UX should expose backfill triggering visually instead of via `docker exec`.
-- **Cagg refresh trigger** if you decide to use the continuous aggregates rather than backfilling each resolution directly.
+Roll back the backfill for a specific range:
+
+```bash
+docker exec signal_postgres psql -U signal -d signal_platform -c "
+  DELETE FROM trades
+  WHERE venue_trade_id LIKE 'backfill-%'
+    AND ts >= '2025-05-01'
+    AND ts < '2025-05-02';
+"
+# Then refresh caggs for the same range to deduplicate
+docker exec signal_postgres psql -U signal -d signal_platform -c "
+  CALL refresh_continuous_aggregate('cagg_bars_1m', '2025-05-01', '2025-05-02');
+  CALL refresh_continuous_aggregate('cagg_bars_5m', '2025-05-01', '2025-05-02');
+  CALL refresh_continuous_aggregate('cagg_bars_15m', '2025-05-01', '2025-05-02');
+  CALL refresh_continuous_aggregate('cagg_bars_1h', '2025-05-01', '2025-05-02');
+  CALL refresh_continuous_aggregate('cagg_bars_4h', '2025-05-01', '2025-05-02');
+  CALL refresh_continuous_aggregate('cagg_bars_1d', '2025-05-01', '2025-05-02');
+"
+```
+
+The `venue_trade_id LIKE 'backfill-%'` filter means this only removes synthesized trades — real trades from live ingestion are untouched.
