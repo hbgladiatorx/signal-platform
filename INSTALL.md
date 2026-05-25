@@ -1,155 +1,88 @@
-# Step 31 v2 — Corrected Historical Backfill
+# Step 32 — Strategy Parameter Sweep UI
 
-The prior backfill wrote to the wrong place. This one synthesizes trades that round-trip through the cagg's aggregation semantics correctly.
+A new page at **`/backtests/sweep`** that runs one strategy across a grid of parameter values, displays results inline sorted by Sharpe.
 
-## What This Replaces
+## What This Ships
 
-`packages/backtest/historical_backfill.py` — completely rewritten.
+- **`frontend/app/backtests/sweep/page.tsx`** (NEW, ~400 lines)
+
+That's it. Pure frontend. Reuses the existing `POST /backtests` API (which already accepts a `params: dict[str, Any]` field per its schema). No backend changes, no migrations.
 
 ## Apply
 
 ```bash
 # Mac
 cd ~/signal-platform
-unzip -o ~/Downloads/step31-backfill-v2.zip
+unzip -o ~/Downloads/step32-sweep.zip
 git add -A
-git commit -m "Step 31 v2: synthetic-trades backfill (replaces broken v1)"
+git commit -m "Step 32: strategy parameter sweep UI"
 git push
 
-# Box
+# Box (after the BTC backfill finishes — frontend can rebuild while DB is busy)
 cd ~/app
 git pull
-docker compose build api
-docker compose up -d --force-recreate api
-sleep 10
+docker compose build frontend
+docker compose up -d --force-recreate frontend
 ```
 
-## Step 0 — Clean Up The Dead 1d Bars From v1
+## How To Use
 
-The 1827 rows we inserted into `bars` table are dead. Delete them:
+Navigate to **`https://signal.cimcha.com/backtests/sweep`** directly (no nav link yet — that's a polish item).
 
-```bash
-docker exec signal_postgres psql -U signal -d signal_platform -c "
-  DELETE FROM bars
-  WHERE resolution = '1d'
-    AND ts < '2026-05-01';
-"
+The form has two sections:
+
+**1. Sweep configuration:** strategy, symbol, resolution, starting cash, fee bps, slippage bps. Standard backtest fields.
+
+**2. Parameter grid:** a textarea with one parameter per line:
+
+```
+fast_window: 5, 10, 20
+slow_window: 50, 100, 200
 ```
 
-Should show `DELETE 1827`. The `< 2026-05-01` clause makes this surgical — only deletes pre-real-time rows, leaves any live-ingested data alone (there shouldn't be any 1d rows from real-time, but defensive).
+Live preview at the bottom shows the combo count (here, 9 = 3 × 3).
 
-## Step 1 — Tiny Smoke Test (1 day, 1 symbol)
+Submit → page switches to "results mode" with a sortable table:
 
-Single day of BTC-USDT, ~1440 klines → 5760 synthetic trades. Should take ~5 seconds plus the cagg refresh chain.
+| fast_window | slow_window | Status | Return | Sharpe | Max DD | Trades | Win % |
+|-------------|-------------|--------|--------|--------|--------|--------|-------|
+| 10 | 50 | completed | +2.1% | 0.42 | -1.8% | 14 | 64% |
+| 5 | 200 | completed | -0.8% | -0.31 | -3.2% | 8 | 25% |
+| ... | ... | ... | ... | ... | ... | ... | ... |
 
-```bash
-docker exec -it signal_api python -m packages.backtest.historical_backfill \
-  --symbol BTC-USDT@BINANCEUS \
-  --start 2025-05-01 \
-  --end 2025-05-02
+Sorted by Sharpe descending — best strategy on top.
+
+Each row has a `detail →` link to the full backtest result page.
+
+## Critical First Test — Verify Params Are Actually Used
+
+Before running a big sweep, do a 2-combo sanity check to confirm the backend uses the params field rather than the strategy's hardcoded defaults:
+
+```
+fast_window: 5
+slow_window: 50, 200
 ```
 
-Expect output like:
-```
-Backfill plan:
-  Symbol: BTC-USDT@BINANCEUS
-  Range: 2025-05-01... → 2025-05-02...
-  Estimated klines: 1,440
-  ...
-Fetch + insert: 1.2s
-  Klines fetched: 1,440
-  Trades synthesized: 5,760
-  Trades inserted: 5,760
+That's 2 backtests. If they return **identical** numbers, the worker is ignoring `params` and using internal defaults — bug we'd need to fix in `services/backtest_worker/main.py`. If they return **different** numbers, params flow end-to-end and you can sweep with confidence.
 
-Refreshing continuous aggregates...
-  [cagg_bars_1m] refreshing 2025-05-01 → 2025-05-02 ... done in 0.4s
-  [cagg_bars_5m] refreshing ...
-  [cagg_bars_15m] refreshing ...
-  [cagg_bars_1h] refreshing ...
-  [cagg_bars_4h] refreshing ...
-  [cagg_bars_1d] refreshing ...
+## Guardrails
 
-VERIFY cagg_bars_1d in range: 1 buckets, 2025-05-01 → 2025-05-01
-
-DONE. Total wall time: ~5s
-```
-
-## Step 2 — Verify The Synthesis Math
-
-Compare a single day's OHLCV in the cagg with the source kline from Binance.US directly:
-
-```bash
-docker exec signal_postgres psql -U signal -d signal_platform -c "
-  SELECT bucket, open, high, low, close, volume, trade_count
-  FROM cagg_bars_1d
-  WHERE instrument_id = 1 AND bucket = '2025-05-01'
-"
-
-# Compare to Binance.US source for that day:
-curl -s 'https://api.binance.us/api/v3/klines?symbol=BTCUSDT&interval=1d&startTime=1746057600000&endTime=1746144000000' | python3 -m json.tool
-```
-
-Open, high, low, close should **match exactly** between cagg and Binance.
-Volume should match exactly.
-Trade count from cagg will be `4 × number_of_minutes_with_volume` instead of the real trade count — expected difference.
-
-## Step 3 — Run A Real Backtest
-
-Now your SMACrossover backtest on BTC-USDT at 1d resolution will see real data for 2025-05-01. The Period column should show **1.0d** but **with verified real data underneath**.
-
-If the smoke test verifies cleanly, scale up:
-
-```bash
-# 1 month
-docker exec -it signal_api python -m packages.backtest.historical_backfill \
-  --symbol BTC-USDT@BINANCEUS \
-  --start 2025-04-01 --end 2025-05-01
-
-# 1 year (~80s fetch, plus cagg refresh)
-docker exec -it signal_api python -m packages.backtest.historical_backfill \
-  --symbol BTC-USDT@BINANCEUS \
-  --start 2025-01-01 --end 2026-01-01
-
-# Multiple symbols
-docker exec -it signal_api python -m packages.backtest.historical_backfill \
-  --symbol ETH-USDT@BINANCEUS \
-  --start 2025-01-01 --end 2026-01-01
-```
-
-## Safety Built In
-
-- **Overlap guard**: refuses to insert if range overlaps existing real trades. Caps `--end` to safely precede earliest real data.
-- **Idempotent**: `venue_trade_id` is deterministic. Re-running same range is a no-op.
-- **Scoped cagg refresh**: refresh only covers the backfilled window; existing materializations outside the window are not touched.
-- **Zero-volume bars skipped**: pre-listing windows don't generate fake trades.
+- **MAX_COMBOS = 50** — refuses to submit more than 50 backtests in one sweep
+- **Parse errors shown inline** — won't submit with bad grid syntax
+- **Polling** — refreshes every 3s while any sweep run is pending/running, then stops
 
 ## Known Limitations
 
-- **trade_count is 4× per minute** (always), not the real Binance count
-- **VWAP is approximate**: (O+H+L+C)/4 typical price approximation rather than true VWAP from individual trades. Within a few bps of real for normal markets.
-- **Side is NULL**: synthetic trades don't have buyer/seller-initiated information
-- **One symbol per invocation**
+- **No nav link** — must type `/backtests/sweep` URL directly. Can add to sidebar later.
+- **Sweep state is in-memory only** — reload the page = lose the sweep view. The individual backtests are still in the database and viewable in the main list, but you lose the "which ones are part of this sweep" grouping. A future improvement would add a `sweep_id` column and persist this.
+- **Cartesian product only** — no random sampling, latin hypercube, Bayesian optimization. Pure grid.
+- **Numeric params only** — string params (e.g., `signal_type: "ema"`) not supported by the parser. Can extend if needed.
+- **Single symbol per sweep** — multi-symbol sweeps not yet supported.
 
-## If Something Goes Wrong
+## What's Next After Tonight
 
-Roll back the backfill for a specific range:
-
-```bash
-docker exec signal_postgres psql -U signal -d signal_platform -c "
-  DELETE FROM trades
-  WHERE venue_trade_id LIKE 'backfill-%'
-    AND ts >= '2025-05-01'
-    AND ts < '2025-05-02';
-"
-# Then refresh caggs for the same range to deduplicate
-docker exec signal_postgres psql -U signal -d signal_platform -c "
-  CALL refresh_continuous_aggregate('cagg_bars_1m', '2025-05-01', '2025-05-02');
-  CALL refresh_continuous_aggregate('cagg_bars_5m', '2025-05-01', '2025-05-02');
-  CALL refresh_continuous_aggregate('cagg_bars_15m', '2025-05-01', '2025-05-02');
-  CALL refresh_continuous_aggregate('cagg_bars_1h', '2025-05-01', '2025-05-02');
-  CALL refresh_continuous_aggregate('cagg_bars_4h', '2025-05-01', '2025-05-02');
-  CALL refresh_continuous_aggregate('cagg_bars_1d', '2025-05-01', '2025-05-02');
-"
-```
-
-The `venue_trade_id LIKE 'backfill-%'` filter means this only removes synthesized trades — real trades from live ingestion are untouched.
+- Add `sweep_id` column to backtests table → persistent sweep grouping
+- Sidebar link to `/backtests/sweep`
+- Walk-forward analysis (train/test split on time)
+- Result export (CSV download of the table)
+- Random/Bayesian search alternatives to grid
