@@ -48,6 +48,13 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from packages.backtest import BacktestConfig, compute_analytics, run_backtest
+from packages.backtest.walkforward import run_walkforward
+from packages.backtest.walkforward_persistence import (
+    load_walkforward,
+    mark_walkforward_failed,
+    mark_walkforward_running,
+    save_walkforward_results,
+)
 from packages.backtest.persistence import (
     load_backtest,
     mark_backtest_failed,
@@ -55,7 +62,7 @@ from packages.backtest.persistence import (
     save_backtest_results,
 )
 from packages.data.db import get_engine
-from packages.data.messagebus import QUEUE_BACKTEST_JOBS
+from packages.data.messagebus import QUEUE_BACKTEST_JOBS, QUEUE_WALKFORWARD_JOBS
 from packages.strategy.base import Strategy
 from packages.strategy.registry import discover_strategies
 from packages.data.db import session_scope
@@ -326,7 +333,7 @@ async def main_loop() -> None:
         try:
             # BRPOP returns (key, value) tuple or None on timeout
             popped = await redis_client.brpop(
-                [QUEUE_BACKTEST_JOBS],
+                [QUEUE_WALKFORWARD_JOBS, QUEUE_BACKTEST_JOBS],
                 timeout=POP_TIMEOUT_S,
             )
         except Exception as e:
@@ -349,7 +356,10 @@ async def main_loop() -> None:
             continue
 
         try:
-            await _process_job(backtest_id, engine, strategies_cache)
+            if _queue_name == QUEUE_WALKFORWARD_JOBS:
+                await _process_walkforward_job(backtest_id, engine, strategies_cache)
+            else:
+                await _process_job(backtest_id, engine, strategies_cache)
         except Exception as e:
             # Defensive: _process_job already handles its own exceptions,
             # but catch anything that leaks to keep the loop alive.

@@ -167,3 +167,4 @@ GROUP_BAR_BUILDER = "bar-builder"   # consumes trades:raw, builds bars
 # ============================================================
 # Step 22b: backtest worker consumes job UUIDs (as strings) from this list
 QUEUE_BACKTEST_JOBS = "backtest:jobs"
+QUEUE_WALKFORWARD_JOBS = "walkforward:jobs"

@@ -1,88 +1,363 @@
-# Step 32 — Strategy Parameter Sweep UI
+# Step 33 Stage 1 — Walk-Forward Backend
 
-A new page at **`/backtests/sweep`** that runs one strategy across a grid of parameter values, displays results inline sorted by Sharpe.
+Backend-only. No UI yet. Tested via `curl`. Frontend ships in Stage 2.
 
 ## What This Ships
 
-- **`frontend/app/backtests/sweep/page.tsx`** (NEW, ~400 lines)
+**New files:**
+- `migrations/versions/0007_walkforwards.sql` — new `walkforwards` table
+- `packages/backtest/walkforward.py` — orchestration logic
+- `packages/backtest/walkforward_persistence.py` — CRUD helpers
+- `services/api/routers/walkforwards.py` — POST/GET endpoints
 
-That's it. Pure frontend. Reuses the existing `POST /backtests` API (which already accepts a `params: dict[str, Any]` field per its schema). No backend changes, no migrations.
+**Patches needed (heredoc instructions below):**
+- `packages/data/messagebus.py` — add `QUEUE_WALKFORWARD_JOBS` constant
+- `services/api/main.py` — register the new router
+- `services/backtest_worker/main.py` — handle walkforward queue jobs
 
 ## Apply
 
+### 1. Unzip and verify new files landed
+
 ```bash
-# Mac
 cd ~/signal-platform
-unzip -o ~/Downloads/step32-sweep.zip
+unzip -o ~/Downloads/step33-walkforward-backend.zip
+ls migrations/versions/0007_walkforwards.sql
+ls packages/backtest/walkforward.py
+ls packages/backtest/walkforward_persistence.py
+ls services/api/routers/walkforwards.py
+```
+
+All four should exist.
+
+### 2. Apply the three patches
+
+```bash
+cd ~/signal-platform
+
+python3 <<'PY'
+import pathlib
+
+# --- Patch 1: messagebus constant ---
+p = pathlib.Path("packages/data/messagebus.py")
+src = p.read_text()
+if "QUEUE_WALKFORWARD_JOBS" in src:
+    print("messagebus: already patched")
+else:
+    # Find QUEUE_BACKTEST_JOBS line and add walkforward next to it
+    anchor = 'QUEUE_BACKTEST_JOBS'
+    if anchor not in src:
+        print("messagebus: ERROR anchor not found")
+    else:
+        idx = src.find(anchor)
+        line_end = src.find("\n", idx)
+        line = src[idx:line_end]
+        # Replicate the same style for the new constant
+        new_line = line.replace("BACKTEST_JOBS", "WALKFORWARD_JOBS").replace("backtest:jobs", "walkforward:jobs")
+        src = src[:line_end + 1] + new_line + "\n" + src[line_end + 1:]
+        p.write_text(src)
+        print("messagebus: patched")
+        print("  added:", new_line)
+
+# --- Patch 2: register router in API main ---
+p = pathlib.Path("services/api/main.py")
+src = p.read_text()
+if 'from services.api.routers.walkforwards' in src or '"walkforwards"' in src:
+    print("api main: already patched")
+else:
+    # Add import next to other router imports
+    import_anchor = 'from services.api.routers.backtests'
+    if import_anchor not in src:
+        print("api main: ERROR import anchor not found")
+    else:
+        # Find the line, append new import after it
+        idx = src.find(import_anchor)
+        line_end = src.find("\n", idx)
+        existing_line = src[idx:line_end]
+        # Mirror the import style
+        new_import = existing_line.replace("backtests", "walkforwards")
+        src = src[:line_end + 1] + new_import + "\n" + src[line_end + 1:]
+
+        # Add app.include_router call. Look for the backtests router include line.
+        include_anchor_lines = [
+            'app.include_router(backtests.router',
+            'app.include_router(backtests_router',
+            'include_router(backtests',
+        ]
+        included = False
+        for a in include_anchor_lines:
+            if a in src:
+                idx = src.find(a)
+                line_end = src.find("\n", idx)
+                existing_line = src[idx:line_end]
+                new_include = existing_line.replace("backtests", "walkforwards")
+                src = src[:line_end + 1] + new_include + "\n" + src[line_end + 1:]
+                included = True
+                break
+        if not included:
+            print("api main: WARN could not find router include anchor — patch manually:")
+            print("  app.include_router(walkforwards.router)")
+        p.write_text(src)
+        print("api main: patched")
+
+# --- Patch 3: worker handles walkforward queue ---
+p = pathlib.Path("services/backtest_worker/main.py")
+src = p.read_text()
+if "QUEUE_WALKFORWARD_JOBS" in src:
+    print("worker: already patched")
+else:
+    # 3a. Update messagebus import
+    old = "from packages.data.messagebus import QUEUE_BACKTEST_JOBS"
+    new = "from packages.data.messagebus import QUEUE_BACKTEST_JOBS, QUEUE_WALKFORWARD_JOBS"
+    if old in src:
+        src = src.replace(old, new)
+    else:
+        print("worker: WARN import line not found, add manually:", new)
+
+    # 3b. Add walkforward processing imports near the persistence imports
+    old = "from packages.backtest.persistence import ("
+    insert_block = (
+        "from packages.backtest.walkforward import run_walkforward\n"
+        "from packages.backtest.walkforward_persistence import (\n"
+        "    load_walkforward,\n"
+        "    mark_walkforward_failed,\n"
+        "    mark_walkforward_running,\n"
+        "    save_walkforward_results,\n"
+        ")\n"
+    )
+    if old in src and "from packages.backtest.walkforward import" not in src:
+        src = src.replace(old, insert_block + old)
+
+    # 3c. Update BRPOP to listen to both queues
+    old_brpop = "[QUEUE_BACKTEST_JOBS]"
+    new_brpop = "[QUEUE_WALKFORWARD_JOBS, QUEUE_BACKTEST_JOBS]"
+    if old_brpop in src:
+        src = src.replace(old_brpop, new_brpop)
+    else:
+        print("worker: WARN BRPOP list anchor not found")
+
+    # 3d. Dispatch on queue name. Find where we currently call _process_job(backtest_id, ...)
+    old_dispatch = "await _process_job(backtest_id, engine, strategies_cache)"
+    new_dispatch = """if _queue_name == QUEUE_WALKFORWARD_JOBS:
+                await _process_walkforward_job(backtest_id, engine, strategies_cache)
+            else:
+                await _process_job(backtest_id, engine, strategies_cache)"""
+    if old_dispatch in src:
+        src = src.replace(old_dispatch, new_dispatch)
+    else:
+        print("worker: WARN dispatch anchor not found")
+
+    # 3e. Append the _process_walkforward_job function right after _process_job.
+    # Find the end of _process_job by looking for the next async def / # ====... block.
+    handler_code = '''
+
+
+# ============================================================
+# Walkforward job processing
+# ============================================================
+async def _process_walkforward_job(
+    walkforward_id: UUID,
+    engine: AsyncEngine,
+    strategies_cache: dict[str, Type[Strategy]],
+) -> None:
+    """Process one walk-forward job end-to-end."""
+    log.info("backtest_worker.walkforward.start", walkforward_id=str(walkforward_id))
+
+    async with engine.connect() as conn:
+        header = await load_walkforward(conn, walkforward_id)
+    if header is None:
+        log.error("backtest_worker.walkforward.not_found",
+                  walkforward_id=str(walkforward_id))
+        return
+    if header["status"] != "pending":
+        log.warning("backtest_worker.walkforward.not_pending",
+                    walkforward_id=str(walkforward_id),
+                    status=header["status"])
+        return
+
+    async with engine.begin() as conn:
+        await mark_walkforward_running(conn, walkforward_id)
+
+    try:
+        strategy_name = header["strategy_name"]
+        symbols = list(header["symbols"])
+        resolution = header["bar_resolution"]
+        param_grid = header["param_grid"] or {}
+
+        # Resolve strategy class
+        async with session_scope() as session:
+            try:
+                resolved = await resolve_strategy(
+                    session,
+                    user_id=header["user_id"],
+                    strategy_name=strategy_name,
+                    builtin_registry=strategies_cache,
+                )
+            except StrategyNotFoundError:
+                raise RuntimeError(
+                    f"Strategy {strategy_name!r} not found in built-ins or user_strategies."
+                )
+            except StrategyLoadError as e:
+                raise RuntimeError(
+                    f"Strategy {strategy_name!r} failed to compile: {e}"
+                )
+        strategy_cls = resolved.cls
+
+        # Load all bars (full history)
+        bars: dict[str, pd.DataFrame] = {}
+        for symbol in symbols:
+            df = await _load_bars(engine, symbol, resolution)
+            if df.empty:
+                raise RuntimeError(
+                    f"No bars available for {symbol!r} at resolution {resolution!r}"
+                )
+            bars[symbol] = df
+
+        # Run walk-forward orchestration (in-process)
+        config = BacktestConfig(
+            starting_cash=Decimal(str(header["starting_cash"])),
+            fee_rate_bps=int(header["fee_rate_bps"]),
+            slippage_bps=int(header["slippage_bps"]),
+        )
+        result = run_walkforward(
+            strategy_cls=strategy_cls,
+            symbols=symbols,
+            all_bars=bars,
+            param_grid=param_grid,
+            train_bars=int(header["train_bars"]),
+            test_bars=int(header["test_bars"]),
+            num_windows=int(header["num_windows"]),
+            config=config,
+            selection_metric=header["selection_metric"],
+        )
+
+        async with engine.begin() as conn:
+            await save_walkforward_results(conn, walkforward_id, result)
+
+        log.info("backtest_worker.walkforward.completed",
+                 walkforward_id=str(walkforward_id),
+                 windows=len(result.windows),
+                 duration_s=result.duration_seconds)
+
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {e}\\n\\n{traceback.format_exc()}"
+        log.error("backtest_worker.walkforward.failed",
+                  walkforward_id=str(walkforward_id),
+                  err=str(e))
+        try:
+            async with engine.begin() as conn:
+                await mark_walkforward_failed(conn, walkforward_id, error_msg)
+        except Exception as inner_e:
+            log.error("backtest_worker.walkforward.cannot_mark_failed",
+                      walkforward_id=str(walkforward_id),
+                      err=str(inner_e))
+'''
+    # Insert before "# Main loop" or before async def main_loop
+    main_loop_anchor = "async def main_loop"
+    if main_loop_anchor in src and "_process_walkforward_job" not in src:
+        # Find the comment block right before async def main_loop
+        idx = src.find(main_loop_anchor)
+        # Walk back over the comment block ("# ===" lines)
+        # Just insert before the first "# ==" preceding main_loop
+        comment_block_start = src.rfind("# ===", 0, idx)
+        if comment_block_start == -1:
+            comment_block_start = idx
+        src = src[:comment_block_start] + handler_code + "\n\n" + src[comment_block_start:]
+    p.write_text(src)
+    print("worker: patched")
+PY
+```
+
+Expected output for each: `patched`. Any `WARN` or `ERROR` means a manual edit is needed — paste those back to me and I'll fix.
+
+### 3. Run the migration
+
+```bash
+# Mac → push, then box → apply
 git add -A
-git commit -m "Step 32: strategy parameter sweep UI"
+git status
+git commit -m "Step 33 Stage 1: walk-forward backend (orchestration, persistence, API)"
 git push
 
-# Box (after the BTC backfill finishes — frontend can rebuild while DB is busy)
+# Box
 cd ~/app
 git pull
-docker compose build frontend
-docker compose up -d --force-recreate frontend
+cat migrations/versions/0007_walkforwards.sql | docker exec -i signal_postgres psql -U signal -d signal_platform
 ```
 
-## How To Use
+Should print `CREATE TABLE`, `CREATE INDEX`, `CREATE INDEX`.
 
-Navigate to **`https://signal.cimcha.com/backtests/sweep`** directly (no nav link yet — that's a polish item).
+### 4. Rebuild and restart
 
-The form has two sections:
-
-**1. Sweep configuration:** strategy, symbol, resolution, starting cash, fee bps, slippage bps. Standard backtest fields.
-
-**2. Parameter grid:** a textarea with one parameter per line:
-
-```
-fast_window: 5, 10, 20
-slow_window: 50, 100, 200
+```bash
+cd ~/app
+docker compose build api backtest_worker
+docker compose up -d --force-recreate api backtest_worker
+sleep 10
 ```
 
-Live preview at the bottom shows the combo count (here, 9 = 3 × 3).
+### 5. Smoke test via curl
 
-Submit → page switches to "results mode" with a sortable table:
+You'll need to grab a fresh auth token. From the browser, open dev tools → Network tab → any API request → copy the `Authorization: Bearer ...` header.
 
-| fast_window | slow_window | Status | Return | Sharpe | Max DD | Trades | Win % |
-|-------------|-------------|--------|--------|--------|--------|--------|-------|
-| 10 | 50 | completed | +2.1% | 0.42 | -1.8% | 14 | 64% |
-| 5 | 200 | completed | -0.8% | -0.31 | -3.2% | 8 | 25% |
-| ... | ... | ... | ... | ... | ... | ... | ... |
+```bash
+# Replace YOUR_TOKEN
+TOKEN="YOUR_BEARER_TOKEN_HERE"
+BASE="https://signal.cimcha.com/api"   # adjust to your API base if different
 
-Sorted by Sharpe descending — best strategy on top.
-
-Each row has a `detail →` link to the full backtest result page.
-
-## Critical First Test — Verify Params Are Actually Used
-
-Before running a big sweep, do a 2-combo sanity check to confirm the backend uses the params field rather than the strategy's hardcoded defaults:
-
+# Create a walk-forward job
+curl -X POST "$BASE/walkforwards" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "strategy_name": "SMACrossover",
+    "symbols": ["BTC-USDT@BINANCEUS"],
+    "bar_resolution": "1d",
+    "param_grid": {"slow_period": [30, 50, 100, 150]},
+    "train_bars": 180,
+    "test_bars": 30,
+    "num_windows": 5,
+    "selection_metric": "sharpe"
+  }'
 ```
-fast_window: 5
-slow_window: 50, 200
+
+Should return `{"id":"some-uuid", "status":"pending"}`.
+
+Wait ~30 seconds, then fetch the result:
+
+```bash
+WF_ID="THE_ID_FROM_ABOVE"
+curl -s "$BASE/walkforwards/$WF_ID" \
+  -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
 ```
 
-That's 2 backtests. If they return **identical** numbers, the worker is ignoring `params` and using internal defaults — bug we'd need to fix in `services/backtest_worker/main.py`. If they return **different** numbers, params flow end-to-end and you can sweep with confidence.
+You should see `"status": "completed"` and a `windows_result` array with 5 entries, each showing best_params, train/test sharpe, etc.
 
-## Guardrails
+## What To Paste Back
 
-- **MAX_COMBOS = 50** — refuses to submit more than 50 backtests in one sweep
-- **Parse errors shown inline** — won't submit with bad grid syntax
-- **Polling** — refreshes every 3s while any sweep run is pending/running, then stops
+The full output of:
+1. The patch script (`patched` or `WARN` lines)
+2. The migration command (`CREATE TABLE` etc.)
+3. The first curl POST response
+4. The follow-up GET response (after 30 seconds)
 
-## Known Limitations
+If everything looks good, Stage 2 (frontend) goes in the next round.
 
-- **No nav link** — must type `/backtests/sweep` URL directly. Can add to sidebar later.
-- **Sweep state is in-memory only** — reload the page = lose the sweep view. The individual backtests are still in the database and viewable in the main list, but you lose the "which ones are part of this sweep" grouping. A future improvement would add a `sweep_id` column and persist this.
-- **Cartesian product only** — no random sampling, latin hypercube, Bayesian optimization. Pure grid.
-- **Numeric params only** — string params (e.g., `signal_type: "ema"`) not supported by the parser. Can extend if needed.
-- **Single symbol per sweep** — multi-symbol sweeps not yet supported.
+## Rollback
 
-## What's Next After Tonight
+If things break and you need to wind back:
 
-- Add `sweep_id` column to backtests table → persistent sweep grouping
-- Sidebar link to `/backtests/sweep`
-- Walk-forward analysis (train/test split on time)
-- Result export (CSV download of the table)
-- Random/Bayesian search alternatives to grid
+```bash
+# Drop the table
+docker exec -i signal_postgres psql -U signal -d signal_platform -c "DROP TABLE IF EXISTS walkforwards CASCADE;"
+
+# Revert the commit
+cd ~/signal-platform
+git revert HEAD --no-edit
+git push
+
+cd ~/app
+git pull
+docker compose build api backtest_worker
+docker compose up -d --force-recreate api backtest_worker
+```
