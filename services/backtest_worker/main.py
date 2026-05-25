@@ -301,6 +301,97 @@ async def _process_job(
 
 # ============================================================
 # Main loop
+
+
+
+# ============================================================
+# Walkforward job processing
+# ============================================================
+async def _process_walkforward_job(
+    walkforward_id: UUID,
+    engine: AsyncEngine,
+    strategies_cache: dict[str, Type[Strategy]],
+) -> None:
+    """Process one walk-forward job end-to-end."""
+    log.info("backtest_worker.walkforward.start", walkforward_id=str(walkforward_id))
+
+    async with engine.connect() as conn:
+        header = await load_walkforward(conn, walkforward_id)
+    if header is None:
+        log.error("backtest_worker.walkforward.not_found", walkforward_id=str(walkforward_id))
+        return
+    if header["status"] != "pending":
+        log.warning("backtest_worker.walkforward.not_pending",
+                    walkforward_id=str(walkforward_id), status=header["status"])
+        return
+
+    async with engine.begin() as conn:
+        await mark_walkforward_running(conn, walkforward_id)
+
+    try:
+        strategy_name = header["strategy_name"]
+        symbols = list(header["symbols"])
+        resolution = header["bar_resolution"]
+        param_grid = header["param_grid"] or {}
+
+        async with session_scope() as session:
+            try:
+                resolved = await resolve_strategy(
+                    session,
+                    user_id=header["user_id"],
+                    strategy_name=strategy_name,
+                    builtin_registry=strategies_cache,
+                )
+            except StrategyNotFoundError:
+                raise RuntimeError(f"Strategy {strategy_name!r} not found")
+            except StrategyLoadError as e:
+                raise RuntimeError(f"Strategy {strategy_name!r} failed to compile: {e}")
+        strategy_cls = resolved.cls
+
+        bars: dict[str, pd.DataFrame] = {}
+        for symbol in symbols:
+            df = await _load_bars(engine, symbol, resolution)
+            if df.empty:
+                raise RuntimeError(f"No bars available for {symbol!r} at resolution {resolution!r}")
+            bars[symbol] = df
+
+        config = BacktestConfig(
+            starting_cash=Decimal(str(header["starting_cash"])),
+            fee_rate_bps=int(header["fee_rate_bps"]),
+            slippage_bps=int(header["slippage_bps"]),
+        )
+        result = run_walkforward(
+            strategy_cls=strategy_cls,
+            symbols=symbols,
+            all_bars=bars,
+            param_grid=param_grid,
+            train_bars=int(header["train_bars"]),
+            test_bars=int(header["test_bars"]),
+            num_windows=int(header["num_windows"]),
+            config=config,
+            selection_metric=header["selection_metric"],
+        )
+
+        async with engine.begin() as conn:
+            await save_walkforward_results(conn, walkforward_id, result)
+
+        log.info("backtest_worker.walkforward.completed",
+                 walkforward_id=str(walkforward_id),
+                 windows=len(result.windows),
+                 duration_s=result.duration_seconds)
+
+    except Exception as e:
+        error_msg = f"{type(e).__name__}: {e}\n\n{traceback.format_exc()}"
+        log.error("backtest_worker.walkforward.failed",
+                  walkforward_id=str(walkforward_id), err=str(e))
+        try:
+            async with engine.begin() as conn:
+                await mark_walkforward_failed(conn, walkforward_id, error_msg)
+        except Exception as inner_e:
+            log.error("backtest_worker.walkforward.cannot_mark_failed",
+                      walkforward_id=str(walkforward_id), err=str(inner_e))
+
+
 # ============================================================
 async def main_loop() -> None:
     redis_client: redis.Redis = redis.from_url(REDIS_URL, decode_responses=True)
