@@ -28,6 +28,7 @@ from services.api.routers import (
     strategies,
     system,
     user_strategies,
+    walkforwards,
     ws,
 )
 
@@ -121,6 +122,7 @@ app.include_router(settings_router.router)
 app.include_router(strategies.router)
 app.include_router(backtests.router)
 app.include_router(user_strategies.router)
+app.include_router(walkforwards.router)
 app.include_router(ws.router)
 
 
