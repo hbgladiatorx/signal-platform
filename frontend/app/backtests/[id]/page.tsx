@@ -125,6 +125,13 @@ export default function BacktestDetailPage() {
               error={equityQuery.error as Error | null}
               data={equityQuery.data}
               startingCash={Number(detail.starting_cash)}
+              trades={tradesQuery.data}
+            />
+
+            <DrawdownChartCard
+              loading={equityQuery.isLoading}
+              error={equityQuery.error as Error | null}
+              data={equityQuery.data}
             />
 
             <TradesCard
@@ -373,11 +380,13 @@ function EquityChartCard({
   error,
   data,
   startingCash,
+  trades,
 }: {
   loading: boolean;
   error: Error | null;
   data: BacktestEquityPoint[] | undefined;
   startingCash: number;
+  trades?: BacktestTrade[];
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -436,6 +445,29 @@ function EquityChartCard({
       title: "Start",
     });
 
+    // Trade markers on equity line: green up arrow at entry, gray down arrow at exit.
+    if (trades && trades.length > 0) {
+      const markers = trades
+        .flatMap((t) => [
+          {
+            time: Math.floor(new Date(t.entry_ts).getTime() / 1000) as UTCTimestamp,
+            position: "belowBar" as const,
+            color: t.side === "long" ? "#16a34a" : "#dc2626",
+            shape: "arrowUp" as const,
+            text: t.side === "long" ? "Buy" : "Short",
+          },
+          {
+            time: Math.floor(new Date(t.exit_ts).getTime() / 1000) as UTCTimestamp,
+            position: "aboveBar" as const,
+            color: "#6b7280",
+            shape: "arrowDown" as const,
+            text: "Close",
+          },
+        ])
+        .sort((a, b) => (a.time as number) - (b.time as number));
+      series.setMarkers(markers);
+    }
+
     chart.timeScale().fitContent();
 
     const handleResize = () => {
@@ -452,7 +484,7 @@ function EquityChartCard({
       chartRef.current = null;
       seriesRef.current = null;
     };
-  }, [data, startingCash]);
+  }, [data, startingCash, trades]);
 
   return (
     <div className="rounded-lg border border-gray-200 bg-white">
@@ -487,6 +519,147 @@ function EquityChartCard({
       </div>
     </div>
   );
+}
+
+
+// ============================================================
+// Drawdown chart
+// ============================================================
+function DrawdownChartCard({
+  loading,
+  error,
+  data,
+}: {
+  loading: boolean;
+  error: Error | null;
+  data: BacktestEquityPoint[] | undefined;
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current || !data || data.length === 0) return;
+
+    const chart = createChart(containerRef.current, {
+      width: containerRef.current.clientWidth,
+      height: 180,
+      layout: {
+        background: { type: ColorType.Solid, color: "transparent" },
+        textColor: "#374151",
+        fontSize: 12,
+      },
+      grid: {
+        vertLines: { color: "#f3f4f6" },
+        horzLines: { color: "#f3f4f6" },
+      },
+      rightPriceScale: { borderColor: "#e5e7eb" },
+      timeScale: {
+        borderColor: "#e5e7eb",
+        timeVisible: true,
+        secondsVisible: false,
+      },
+      crosshair: { mode: 1 },
+    });
+
+    const series = chart.addAreaSeries({
+      lineColor: "#dc2626",
+      topColor: "rgba(220, 38, 38, 0.4)",
+      bottomColor: "rgba(220, 38, 38, 0.05)",
+      lineWidth: 2,
+      priceFormat: { type: "price", precision: 2, minMove: 0.01 },
+    });
+
+    // Drawdown at each bar: (equity / running_peak) - 1, in percent. Always <= 0.
+    let runningMax = -Infinity;
+    const points = data.map((p) => {
+      const eq = Number(p.total_equity);
+      if (eq > runningMax) runningMax = eq;
+      const dd = runningMax > 0 ? (eq / runningMax - 1) * 100 : 0;
+      return {
+        time: Math.floor(new Date(p.ts).getTime() / 1000) as UTCTimestamp,
+        value: dd,
+      };
+    });
+    series.setData(points);
+
+    series.createPriceLine({
+      price: 0,
+      color: "#9ca3af",
+      lineStyle: LineStyle.Dashed,
+      lineWidth: 1,
+      axisLabelVisible: false,
+      title: "",
+    });
+
+    chart.timeScale().fitContent();
+
+    const handleResize = () => {
+      if (containerRef.current) {
+        chart.applyOptions({ width: containerRef.current.clientWidth });
+      }
+    };
+    const ro = new ResizeObserver(handleResize);
+    ro.observe(containerRef.current);
+
+    return () => {
+      ro.disconnect();
+      chart.remove();
+    };
+  }, [data]);
+
+  const maxDD =
+    data && data.length > 0 ? computeMaxDrawdown(data) : null;
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white">
+      <div className="border-b border-gray-200 px-6 py-3">
+        <h3 className="text-sm font-semibold text-navy-700">Drawdown</h3>
+        <p className="mt-0.5 text-xs text-gray-500">
+          Percent below running peak equity at each bar.
+          {maxDD !== null && (
+            <>
+              {" "}
+              Max:{" "}
+              <span className="font-mono text-red-700">{maxDD.toFixed(4)}%</span>.
+            </>
+          )}
+        </p>
+      </div>
+      <div className="px-6 py-4">
+        {loading && (
+          <div className="py-12 text-center text-sm text-gray-500">
+            Loading drawdown…
+          </div>
+        )}
+        {error && (
+          <div className="py-4 text-center text-sm text-red-600">
+            {error.message}
+          </div>
+        )}
+        {data && data.length === 0 && (
+          <div className="py-12 text-center text-sm text-gray-500">
+            No equity points were recorded.
+          </div>
+        )}
+        {data && data.length > 0 && (
+          <div ref={containerRef} className="h-[180px] w-full" />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function computeMaxDrawdown(data: BacktestEquityPoint[]): number {
+  let runningMax = -Infinity;
+  let maxDD = 0;
+  for (const p of data) {
+    const eq = Number(p.total_equity);
+    if (eq > runningMax) runningMax = eq;
+    if (runningMax > 0) {
+      const dd = (eq / runningMax - 1) * 100;
+      if (dd < maxDD) maxDD = dd;
+    }
+  }
+  return maxDD;
 }
 
 
