@@ -235,10 +235,18 @@ async def lookup_instrument(engine, canonical_symbol: str) -> tuple[int, str]:
 
 
 async def earliest_real_trade(engine, instrument_id: int) -> datetime | None:
-    """Return the earliest ts in trades for this instrument, or None if no rows."""
+    """Return the earliest ts of a NON-BACKFILLED trade for this instrument.
+
+    Backfilled trades (venue_trade_id LIKE 'backfill-%') are excluded so the
+    script can re-process its own prior runs idempotently.
+    """
     async with engine.connect() as conn:
         result = await conn.execute(
-            text("SELECT MIN(ts) FROM trades WHERE instrument_id = :iid"),
+            text(
+                "SELECT MIN(ts) FROM trades "
+                "WHERE instrument_id = :iid "
+                "AND venue_trade_id NOT LIKE 'backfill-%'"
+            ),
             {"iid": instrument_id},
         )
         return result.scalar()
