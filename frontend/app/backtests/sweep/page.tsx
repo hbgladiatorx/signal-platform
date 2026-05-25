@@ -97,7 +97,7 @@ export default function SweepPage() {
   const [feeBps, setFeeBps] = useState("10");
   const [slippageBps, setSlippageBps] = useState("5");
   const [gridText, setGridText] = useState(
-    "fast_window: 5, 10, 20\nslow_window: 50, 100, 200"
+    "fast_period: 5, 10, 20\nslow_period: 50, 100, 200"
   );
 
   // ---- submission state ----
@@ -296,7 +296,7 @@ export default function SweepPage() {
               value={gridText}
               onChange={(e) => setGridText(e.target.value)}
               className="w-full h-32 font-mono text-sm border border-slate-300 rounded px-3 py-2"
-              placeholder="fast_window: 5, 10, 20&#10;slow_window: 50, 100, 200"
+              placeholder="fast_period: 5, 10, 20&#10;slow_period: 50, 100, 200"
             />
             {parseErrors.length > 0 && (
               <div className="text-sm text-rose-700 space-y-1">

@@ -27,6 +27,8 @@ from packages.strategy.context import BarContext
 class SMACrossoverParams(BaseModel):
     """Parameters for the SMA crossover strategy."""
 
+    model_config = {"extra": "forbid"}
+
     fast_period: int = Field(
         default=10,
         ge=2,
