@@ -21,7 +21,6 @@ import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as AppPerformanceRouteImport } from './routes/app.performance'
 import { Route as AppHomeRouteImport } from './routes/app.home'
 import { Route as AppCatalogRouteImport } from './routes/app.catalog'
-import { Route as StudioBuilderNewRouteImport } from './routes/studio.builder.new'
 import { Route as AppStrategyIdRouteImport } from './routes/app.strategy.$id'
 import { Route as AppSignalIdRouteImport } from './routes/app.signal.$id'
 import { Route as AppShareCardIdRouteImport } from './routes/app.share.$cardId'
@@ -86,11 +85,6 @@ const AppCatalogRoute = AppCatalogRouteImport.update({
   path: '/catalog',
   getParentRoute: () => AppRoute,
 } as any)
-const StudioBuilderNewRoute = StudioBuilderNewRouteImport.update({
-  id: '/builder/new',
-  path: '/builder/new',
-  getParentRoute: () => StudioRoute,
-} as any)
 const AppStrategyIdRoute = AppStrategyIdRouteImport.update({
   id: '/strategy/$id',
   path: '/strategy/$id',
@@ -123,7 +117,6 @@ export interface FileRoutesByFullPath {
   '/app/share/$cardId': typeof AppShareCardIdRoute
   '/app/signal/$id': typeof AppSignalIdRoute
   '/app/strategy/$id': typeof AppStrategyIdRoute
-  '/studio/builder/new': typeof StudioBuilderNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -141,7 +134,6 @@ export interface FileRoutesByTo {
   '/app/share/$cardId': typeof AppShareCardIdRoute
   '/app/signal/$id': typeof AppSignalIdRoute
   '/app/strategy/$id': typeof AppStrategyIdRoute
-  '/studio/builder/new': typeof StudioBuilderNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -160,7 +152,6 @@ export interface FileRoutesById {
   '/app/share/$cardId': typeof AppShareCardIdRoute
   '/app/signal/$id': typeof AppSignalIdRoute
   '/app/strategy/$id': typeof AppStrategyIdRoute
-  '/studio/builder/new': typeof StudioBuilderNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -180,7 +171,6 @@ export interface FileRouteTypes {
     | '/app/share/$cardId'
     | '/app/signal/$id'
     | '/app/strategy/$id'
-    | '/studio/builder/new'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -198,7 +188,6 @@ export interface FileRouteTypes {
     | '/app/share/$cardId'
     | '/app/signal/$id'
     | '/app/strategy/$id'
-    | '/studio/builder/new'
   id:
     | '__root__'
     | '/'
@@ -216,7 +205,6 @@ export interface FileRouteTypes {
     | '/app/share/$cardId'
     | '/app/signal/$id'
     | '/app/strategy/$id'
-    | '/studio/builder/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -312,13 +300,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCatalogRouteImport
       parentRoute: typeof AppRoute
     }
-    '/studio/builder/new': {
-      id: '/studio/builder/new'
-      path: '/builder/new'
-      fullPath: '/studio/builder/new'
-      preLoaderRoute: typeof StudioBuilderNewRouteImport
-      parentRoute: typeof StudioRoute
-    }
     '/app/strategy/$id': {
       id: '/app/strategy/$id'
       path: '/strategy/$id'
@@ -371,14 +352,12 @@ interface StudioRouteChildren {
   StudioDocsRoute: typeof StudioDocsRoute
   StudioEarningsRoute: typeof StudioEarningsRoute
   StudioHomeRoute: typeof StudioHomeRoute
-  StudioBuilderNewRoute: typeof StudioBuilderNewRoute
 }
 
 const StudioRouteChildren: StudioRouteChildren = {
   StudioDocsRoute: StudioDocsRoute,
   StudioEarningsRoute: StudioEarningsRoute,
   StudioHomeRoute: StudioHomeRoute,
-  StudioBuilderNewRoute: StudioBuilderNewRoute,
 }
 
 const StudioRouteWithChildren =
@@ -393,3 +372,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
