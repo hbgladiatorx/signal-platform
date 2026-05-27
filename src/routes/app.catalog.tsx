@@ -77,7 +77,7 @@ function CatalogPage() {
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
         {list.map((s) => (
-          <Link key={s.id} to="/strategy/$id" params={{ id: s.id }}>
+          <Link key={s.id} to="/app/strategy/$id" params={{ id: s.id }}>
             <Card className="group flex h-full flex-col gap-3 border-border bg-elevated p-5 transition-colors hover:border-cyan/30">
               <div className="flex items-start justify-between gap-2">
                 <h3 className="font-semibold leading-tight group-hover:text-cyan">{s.name}</h3>

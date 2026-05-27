@@ -10,33 +10,29 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as StudioRouteImport } from './routes/_studio'
-import { Route as AppRouteImport } from './routes/_app'
+import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ShareCardIdRouteImport } from './routes/share.$cardId'
-import { Route as StudioStudioRouteImport } from './routes/_studio.studio'
-import { Route as AppSignalsRouteImport } from './routes/_app.signals'
-import { Route as AppSettingsRouteImport } from './routes/_app.settings'
-import { Route as AppPerformanceRouteImport } from './routes/_app.performance'
-import { Route as AppHomeRouteImport } from './routes/_app.home'
-import { Route as AppCatalogRouteImport } from './routes/_app.catalog'
-import { Route as StudioStudioNewRouteImport } from './routes/_studio.studio.new'
-import { Route as StudioStudioEarningsRouteImport } from './routes/_studio.studio.earnings'
-import { Route as StudioStudioDocsRouteImport } from './routes/_studio.studio.docs'
-import { Route as AppStrategyIdRouteImport } from './routes/_app.strategy.$id'
-import { Route as AppSignalIdRouteImport } from './routes/_app.signal.$id'
+import { Route as StudioHomeRouteImport } from './routes/studio.home'
+import { Route as StudioEarningsRouteImport } from './routes/studio.earnings'
+import { Route as StudioDocsRouteImport } from './routes/studio.docs'
+import { Route as AppSignalsRouteImport } from './routes/app.signals'
+import { Route as AppSettingsRouteImport } from './routes/app.settings'
+import { Route as AppPerformanceRouteImport } from './routes/app.performance'
+import { Route as AppHomeRouteImport } from './routes/app.home'
+import { Route as AppCatalogRouteImport } from './routes/app.catalog'
+import { Route as StudioBuilderNewRouteImport } from './routes/studio.builder.new'
+import { Route as AppStrategyIdRouteImport } from './routes/app.strategy.$id'
+import { Route as AppSignalIdRouteImport } from './routes/app.signal.$id'
+import { Route as AppShareCardIdRouteImport } from './routes/app.share.$cardId'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const StudioRoute = StudioRouteImport.update({
-  id: '/_studio',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AppRoute = AppRouteImport.update({
-  id: '/_app',
+  id: '/app',
+  path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -44,15 +40,20 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ShareCardIdRoute = ShareCardIdRouteImport.update({
-  id: '/share/$cardId',
-  path: '/share/$cardId',
+const StudioHomeRoute = StudioHomeRouteImport.update({
+  id: '/studio/home',
+  path: '/studio/home',
   getParentRoute: () => rootRouteImport,
 } as any)
-const StudioStudioRoute = StudioStudioRouteImport.update({
-  id: '/studio',
-  path: '/studio',
-  getParentRoute: () => StudioRoute,
+const StudioEarningsRoute = StudioEarningsRouteImport.update({
+  id: '/studio/earnings',
+  path: '/studio/earnings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StudioDocsRoute = StudioDocsRouteImport.update({
+  id: '/studio/docs',
+  path: '/studio/docs',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppSignalsRoute = AppSignalsRouteImport.update({
   id: '/signals',
@@ -79,20 +80,10 @@ const AppCatalogRoute = AppCatalogRouteImport.update({
   path: '/catalog',
   getParentRoute: () => AppRoute,
 } as any)
-const StudioStudioNewRoute = StudioStudioNewRouteImport.update({
-  id: '/new',
-  path: '/new',
-  getParentRoute: () => StudioStudioRoute,
-} as any)
-const StudioStudioEarningsRoute = StudioStudioEarningsRouteImport.update({
-  id: '/earnings',
-  path: '/earnings',
-  getParentRoute: () => StudioStudioRoute,
-} as any)
-const StudioStudioDocsRoute = StudioStudioDocsRouteImport.update({
-  id: '/docs',
-  path: '/docs',
-  getParentRoute: () => StudioStudioRoute,
+const StudioBuilderNewRoute = StudioBuilderNewRouteImport.update({
+  id: '/studio/builder/new',
+  path: '/studio/builder/new',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppStrategyIdRoute = AppStrategyIdRouteImport.update({
   id: '/strategy/$id',
@@ -104,117 +95,126 @@ const AppSignalIdRoute = AppSignalIdRouteImport.update({
   path: '/signal/$id',
   getParentRoute: () => AppRoute,
 } as any)
+const AppShareCardIdRoute = AppShareCardIdRouteImport.update({
+  id: '/share/$cardId',
+  path: '/share/$cardId',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
-  '/catalog': typeof AppCatalogRoute
-  '/home': typeof AppHomeRoute
-  '/performance': typeof AppPerformanceRoute
-  '/settings': typeof AppSettingsRoute
-  '/signals': typeof AppSignalsRoute
-  '/studio': typeof StudioStudioRouteWithChildren
-  '/share/$cardId': typeof ShareCardIdRoute
-  '/signal/$id': typeof AppSignalIdRoute
-  '/strategy/$id': typeof AppStrategyIdRoute
-  '/studio/docs': typeof StudioStudioDocsRoute
-  '/studio/earnings': typeof StudioStudioEarningsRoute
-  '/studio/new': typeof StudioStudioNewRoute
+  '/app/catalog': typeof AppCatalogRoute
+  '/app/home': typeof AppHomeRoute
+  '/app/performance': typeof AppPerformanceRoute
+  '/app/settings': typeof AppSettingsRoute
+  '/app/signals': typeof AppSignalsRoute
+  '/studio/docs': typeof StudioDocsRoute
+  '/studio/earnings': typeof StudioEarningsRoute
+  '/studio/home': typeof StudioHomeRoute
+  '/app/share/$cardId': typeof AppShareCardIdRoute
+  '/app/signal/$id': typeof AppSignalIdRoute
+  '/app/strategy/$id': typeof AppStrategyIdRoute
+  '/studio/builder/new': typeof StudioBuilderNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
-  '/catalog': typeof AppCatalogRoute
-  '/home': typeof AppHomeRoute
-  '/performance': typeof AppPerformanceRoute
-  '/settings': typeof AppSettingsRoute
-  '/signals': typeof AppSignalsRoute
-  '/studio': typeof StudioStudioRouteWithChildren
-  '/share/$cardId': typeof ShareCardIdRoute
-  '/signal/$id': typeof AppSignalIdRoute
-  '/strategy/$id': typeof AppStrategyIdRoute
-  '/studio/docs': typeof StudioStudioDocsRoute
-  '/studio/earnings': typeof StudioStudioEarningsRoute
-  '/studio/new': typeof StudioStudioNewRoute
+  '/app/catalog': typeof AppCatalogRoute
+  '/app/home': typeof AppHomeRoute
+  '/app/performance': typeof AppPerformanceRoute
+  '/app/settings': typeof AppSettingsRoute
+  '/app/signals': typeof AppSignalsRoute
+  '/studio/docs': typeof StudioDocsRoute
+  '/studio/earnings': typeof StudioEarningsRoute
+  '/studio/home': typeof StudioHomeRoute
+  '/app/share/$cardId': typeof AppShareCardIdRoute
+  '/app/signal/$id': typeof AppSignalIdRoute
+  '/app/strategy/$id': typeof AppStrategyIdRoute
+  '/studio/builder/new': typeof StudioBuilderNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/_app': typeof AppRouteWithChildren
-  '/_studio': typeof StudioRouteWithChildren
+  '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
-  '/_app/catalog': typeof AppCatalogRoute
-  '/_app/home': typeof AppHomeRoute
-  '/_app/performance': typeof AppPerformanceRoute
-  '/_app/settings': typeof AppSettingsRoute
-  '/_app/signals': typeof AppSignalsRoute
-  '/_studio/studio': typeof StudioStudioRouteWithChildren
-  '/share/$cardId': typeof ShareCardIdRoute
-  '/_app/signal/$id': typeof AppSignalIdRoute
-  '/_app/strategy/$id': typeof AppStrategyIdRoute
-  '/_studio/studio/docs': typeof StudioStudioDocsRoute
-  '/_studio/studio/earnings': typeof StudioStudioEarningsRoute
-  '/_studio/studio/new': typeof StudioStudioNewRoute
+  '/app/catalog': typeof AppCatalogRoute
+  '/app/home': typeof AppHomeRoute
+  '/app/performance': typeof AppPerformanceRoute
+  '/app/settings': typeof AppSettingsRoute
+  '/app/signals': typeof AppSignalsRoute
+  '/studio/docs': typeof StudioDocsRoute
+  '/studio/earnings': typeof StudioEarningsRoute
+  '/studio/home': typeof StudioHomeRoute
+  '/app/share/$cardId': typeof AppShareCardIdRoute
+  '/app/signal/$id': typeof AppSignalIdRoute
+  '/app/strategy/$id': typeof AppStrategyIdRoute
+  '/studio/builder/new': typeof StudioBuilderNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/app'
     | '/auth'
-    | '/catalog'
-    | '/home'
-    | '/performance'
-    | '/settings'
-    | '/signals'
-    | '/studio'
-    | '/share/$cardId'
-    | '/signal/$id'
-    | '/strategy/$id'
+    | '/app/catalog'
+    | '/app/home'
+    | '/app/performance'
+    | '/app/settings'
+    | '/app/signals'
     | '/studio/docs'
     | '/studio/earnings'
-    | '/studio/new'
+    | '/studio/home'
+    | '/app/share/$cardId'
+    | '/app/signal/$id'
+    | '/app/strategy/$id'
+    | '/studio/builder/new'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/app'
     | '/auth'
-    | '/catalog'
-    | '/home'
-    | '/performance'
-    | '/settings'
-    | '/signals'
-    | '/studio'
-    | '/share/$cardId'
-    | '/signal/$id'
-    | '/strategy/$id'
+    | '/app/catalog'
+    | '/app/home'
+    | '/app/performance'
+    | '/app/settings'
+    | '/app/signals'
     | '/studio/docs'
     | '/studio/earnings'
-    | '/studio/new'
+    | '/studio/home'
+    | '/app/share/$cardId'
+    | '/app/signal/$id'
+    | '/app/strategy/$id'
+    | '/studio/builder/new'
   id:
     | '__root__'
     | '/'
-    | '/_app'
-    | '/_studio'
+    | '/app'
     | '/auth'
-    | '/_app/catalog'
-    | '/_app/home'
-    | '/_app/performance'
-    | '/_app/settings'
-    | '/_app/signals'
-    | '/_studio/studio'
-    | '/share/$cardId'
-    | '/_app/signal/$id'
-    | '/_app/strategy/$id'
-    | '/_studio/studio/docs'
-    | '/_studio/studio/earnings'
-    | '/_studio/studio/new'
+    | '/app/catalog'
+    | '/app/home'
+    | '/app/performance'
+    | '/app/settings'
+    | '/app/signals'
+    | '/studio/docs'
+    | '/studio/earnings'
+    | '/studio/home'
+    | '/app/share/$cardId'
+    | '/app/signal/$id'
+    | '/app/strategy/$id'
+    | '/studio/builder/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
-  StudioRoute: typeof StudioRouteWithChildren
   AuthRoute: typeof AuthRoute
-  ShareCardIdRoute: typeof ShareCardIdRoute
+  StudioDocsRoute: typeof StudioDocsRoute
+  StudioEarningsRoute: typeof StudioEarningsRoute
+  StudioHomeRoute: typeof StudioHomeRoute
+  StudioBuilderNewRoute: typeof StudioBuilderNewRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -226,17 +226,10 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_studio': {
-      id: '/_studio'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof StudioRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_app': {
-      id: '/_app'
-      path: ''
-      fullPath: '/'
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
@@ -247,88 +240,88 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/share/$cardId': {
-      id: '/share/$cardId'
-      path: '/share/$cardId'
-      fullPath: '/share/$cardId'
-      preLoaderRoute: typeof ShareCardIdRouteImport
+    '/studio/home': {
+      id: '/studio/home'
+      path: '/studio/home'
+      fullPath: '/studio/home'
+      preLoaderRoute: typeof StudioHomeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_studio/studio': {
-      id: '/_studio/studio'
-      path: '/studio'
-      fullPath: '/studio'
-      preLoaderRoute: typeof StudioStudioRouteImport
-      parentRoute: typeof StudioRoute
+    '/studio/earnings': {
+      id: '/studio/earnings'
+      path: '/studio/earnings'
+      fullPath: '/studio/earnings'
+      preLoaderRoute: typeof StudioEarningsRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_app/signals': {
-      id: '/_app/signals'
+    '/studio/docs': {
+      id: '/studio/docs'
+      path: '/studio/docs'
+      fullPath: '/studio/docs'
+      preLoaderRoute: typeof StudioDocsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app/signals': {
+      id: '/app/signals'
       path: '/signals'
-      fullPath: '/signals'
+      fullPath: '/app/signals'
       preLoaderRoute: typeof AppSignalsRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/settings': {
-      id: '/_app/settings'
+    '/app/settings': {
+      id: '/app/settings'
       path: '/settings'
-      fullPath: '/settings'
+      fullPath: '/app/settings'
       preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/performance': {
-      id: '/_app/performance'
+    '/app/performance': {
+      id: '/app/performance'
       path: '/performance'
-      fullPath: '/performance'
+      fullPath: '/app/performance'
       preLoaderRoute: typeof AppPerformanceRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/home': {
-      id: '/_app/home'
+    '/app/home': {
+      id: '/app/home'
       path: '/home'
-      fullPath: '/home'
+      fullPath: '/app/home'
       preLoaderRoute: typeof AppHomeRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/catalog': {
-      id: '/_app/catalog'
+    '/app/catalog': {
+      id: '/app/catalog'
       path: '/catalog'
-      fullPath: '/catalog'
+      fullPath: '/app/catalog'
       preLoaderRoute: typeof AppCatalogRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_studio/studio/new': {
-      id: '/_studio/studio/new'
-      path: '/new'
-      fullPath: '/studio/new'
-      preLoaderRoute: typeof StudioStudioNewRouteImport
-      parentRoute: typeof StudioStudioRoute
+    '/studio/builder/new': {
+      id: '/studio/builder/new'
+      path: '/studio/builder/new'
+      fullPath: '/studio/builder/new'
+      preLoaderRoute: typeof StudioBuilderNewRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_studio/studio/earnings': {
-      id: '/_studio/studio/earnings'
-      path: '/earnings'
-      fullPath: '/studio/earnings'
-      preLoaderRoute: typeof StudioStudioEarningsRouteImport
-      parentRoute: typeof StudioStudioRoute
-    }
-    '/_studio/studio/docs': {
-      id: '/_studio/studio/docs'
-      path: '/docs'
-      fullPath: '/studio/docs'
-      preLoaderRoute: typeof StudioStudioDocsRouteImport
-      parentRoute: typeof StudioStudioRoute
-    }
-    '/_app/strategy/$id': {
-      id: '/_app/strategy/$id'
+    '/app/strategy/$id': {
+      id: '/app/strategy/$id'
       path: '/strategy/$id'
-      fullPath: '/strategy/$id'
+      fullPath: '/app/strategy/$id'
       preLoaderRoute: typeof AppStrategyIdRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/signal/$id': {
-      id: '/_app/signal/$id'
+    '/app/signal/$id': {
+      id: '/app/signal/$id'
       path: '/signal/$id'
-      fullPath: '/signal/$id'
+      fullPath: '/app/signal/$id'
       preLoaderRoute: typeof AppSignalIdRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/share/$cardId': {
+      id: '/app/share/$cardId'
+      path: '/share/$cardId'
+      fullPath: '/app/share/$cardId'
+      preLoaderRoute: typeof AppShareCardIdRouteImport
       parentRoute: typeof AppRoute
     }
   }
@@ -340,6 +333,7 @@ interface AppRouteChildren {
   AppPerformanceRoute: typeof AppPerformanceRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppSignalsRoute: typeof AppSignalsRoute
+  AppShareCardIdRoute: typeof AppShareCardIdRoute
   AppSignalIdRoute: typeof AppSignalIdRoute
   AppStrategyIdRoute: typeof AppStrategyIdRoute
 }
@@ -350,45 +344,21 @@ const AppRouteChildren: AppRouteChildren = {
   AppPerformanceRoute: AppPerformanceRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppSignalsRoute: AppSignalsRoute,
+  AppShareCardIdRoute: AppShareCardIdRoute,
   AppSignalIdRoute: AppSignalIdRoute,
   AppStrategyIdRoute: AppStrategyIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
-interface StudioStudioRouteChildren {
-  StudioStudioDocsRoute: typeof StudioStudioDocsRoute
-  StudioStudioEarningsRoute: typeof StudioStudioEarningsRoute
-  StudioStudioNewRoute: typeof StudioStudioNewRoute
-}
-
-const StudioStudioRouteChildren: StudioStudioRouteChildren = {
-  StudioStudioDocsRoute: StudioStudioDocsRoute,
-  StudioStudioEarningsRoute: StudioStudioEarningsRoute,
-  StudioStudioNewRoute: StudioStudioNewRoute,
-}
-
-const StudioStudioRouteWithChildren = StudioStudioRoute._addFileChildren(
-  StudioStudioRouteChildren,
-)
-
-interface StudioRouteChildren {
-  StudioStudioRoute: typeof StudioStudioRouteWithChildren
-}
-
-const StudioRouteChildren: StudioRouteChildren = {
-  StudioStudioRoute: StudioStudioRouteWithChildren,
-}
-
-const StudioRouteWithChildren =
-  StudioRoute._addFileChildren(StudioRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
-  StudioRoute: StudioRouteWithChildren,
   AuthRoute: AuthRoute,
-  ShareCardIdRoute: ShareCardIdRoute,
+  StudioDocsRoute: StudioDocsRoute,
+  StudioEarningsRoute: StudioEarningsRoute,
+  StudioHomeRoute: StudioHomeRoute,
+  StudioBuilderNewRoute: StudioBuilderNewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

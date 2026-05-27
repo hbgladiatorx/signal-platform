@@ -38,7 +38,7 @@ function StudioHome() {
           <p className="text-sm text-muted-foreground font-mono">// developer workspace</p>
         </div>
         <Button asChild className="bg-cyan text-cyan-foreground hover:bg-cyan/90">
-          <Link to="/studio/new"><Plus className="mr-2 size-4" /> New strategy</Link>
+          <Link to="/studio/builder/new"><Plus className="mr-2 size-4" /> New strategy</Link>
         </Button>
       </div>
       <Card className="border-border bg-elevated">

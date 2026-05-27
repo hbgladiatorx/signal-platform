@@ -142,7 +142,7 @@ function StrategyDetail() {
           <Card className="border-border bg-elevated">
             <div className="divide-y divide-border">
               {(sigs.data ?? []).slice(0, 20).map((sig) => (
-                <Link key={sig.id} to="/signal/$id" params={{ id: sig.id }} className="grid grid-cols-12 items-center gap-3 px-4 py-3 text-sm hover:bg-muted/30">
+                <Link key={sig.id} to="/app/signal/$id" params={{ id: sig.id }} className="grid grid-cols-12 items-center gap-3 px-4 py-3 text-sm hover:bg-muted/30">
                   <div className="col-span-3 text-xs text-muted-foreground">{format(new Date(sig.firedAt), "MMM d, HH:mm")}</div>
                   <div className="col-span-2 font-mono">{sig.symbol}</div>
                   <div className="col-span-1"><DirectionPill direction={sig.direction} /></div>

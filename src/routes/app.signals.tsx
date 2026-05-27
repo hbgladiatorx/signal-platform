@@ -47,7 +47,7 @@ function SignalsPage() {
       <Card className="border-border bg-elevated">
         <div className="divide-y divide-border">
           {list.map((sig) => (
-            <Link key={sig.id} to="/signal/$id" params={{ id: sig.id }} className="grid grid-cols-12 items-center gap-3 px-4 py-3 hover:bg-muted/30">
+            <Link key={sig.id} to="/app/signal/$id" params={{ id: sig.id }} className="grid grid-cols-12 items-center gap-3 px-4 py-3 hover:bg-muted/30">
               <div className="col-span-2 text-xs text-muted-foreground">{formatDistanceToNow(new Date(sig.firedAt), { addSuffix: true })}</div>
               <div className="col-span-3 truncate">
                 <div className="truncate text-sm font-medium">{sig.strategyName}</div>
