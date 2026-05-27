@@ -111,8 +111,6 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { Toaster } = require("@/components/ui/sonner");
   return (
     <QueryClientProvider client={queryClient}>
       <Outlet />
