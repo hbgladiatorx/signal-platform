@@ -18,7 +18,7 @@ function AuthPage() {
   const handle = (e: React.FormEvent) => {
     e.preventDefault();
     // TODO: supabase.auth.signInWithPassword({ email, password })
-    nav({ to: "/home" });
+    nav({ to: "/app/home" });
   };
 
   return (
