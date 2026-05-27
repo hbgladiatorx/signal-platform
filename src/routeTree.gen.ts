@@ -13,14 +13,22 @@ import { Route as StudioRouteImport } from './routes/studio'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as StudioSubmissionsRouteImport } from './routes/studio.submissions'
+import { Route as StudioStrategiesRouteImport } from './routes/studio.strategies'
+import { Route as StudioSignalsRouteImport } from './routes/studio.signals'
+import { Route as StudioSettingsRouteImport } from './routes/studio.settings'
 import { Route as StudioHomeRouteImport } from './routes/studio.home'
 import { Route as StudioEarningsRouteImport } from './routes/studio.earnings'
 import { Route as StudioDocsRouteImport } from './routes/studio.docs'
+import { Route as StudioBacktestsRouteImport } from './routes/studio.backtests'
 import { Route as AppSignalsRouteImport } from './routes/app.signals'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as AppPerformanceRouteImport } from './routes/app.performance'
 import { Route as AppHomeRouteImport } from './routes/app.home'
 import { Route as AppCatalogRouteImport } from './routes/app.catalog'
+import { Route as StudioStrategyIdRouteImport } from './routes/studio.strategy.$id'
+import { Route as StudioBuilderIdRouteImport } from './routes/studio.builder.$id'
+import { Route as StudioBacktestsStrategyIdRouteImport } from './routes/studio.backtests.$strategyId'
 import { Route as AppStrategyIdRouteImport } from './routes/app.strategy.$id'
 import { Route as AppSignalIdRouteImport } from './routes/app.signal.$id'
 import { Route as AppShareCardIdRouteImport } from './routes/app.share.$cardId'
@@ -45,6 +53,26 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StudioSubmissionsRoute = StudioSubmissionsRouteImport.update({
+  id: '/submissions',
+  path: '/submissions',
+  getParentRoute: () => StudioRoute,
+} as any)
+const StudioStrategiesRoute = StudioStrategiesRouteImport.update({
+  id: '/strategies',
+  path: '/strategies',
+  getParentRoute: () => StudioRoute,
+} as any)
+const StudioSignalsRoute = StudioSignalsRouteImport.update({
+  id: '/signals',
+  path: '/signals',
+  getParentRoute: () => StudioRoute,
+} as any)
+const StudioSettingsRoute = StudioSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => StudioRoute,
+} as any)
 const StudioHomeRoute = StudioHomeRouteImport.update({
   id: '/home',
   path: '/home',
@@ -58,6 +86,11 @@ const StudioEarningsRoute = StudioEarningsRouteImport.update({
 const StudioDocsRoute = StudioDocsRouteImport.update({
   id: '/docs',
   path: '/docs',
+  getParentRoute: () => StudioRoute,
+} as any)
+const StudioBacktestsRoute = StudioBacktestsRouteImport.update({
+  id: '/backtests',
+  path: '/backtests',
   getParentRoute: () => StudioRoute,
 } as any)
 const AppSignalsRoute = AppSignalsRouteImport.update({
@@ -85,6 +118,22 @@ const AppCatalogRoute = AppCatalogRouteImport.update({
   path: '/catalog',
   getParentRoute: () => AppRoute,
 } as any)
+const StudioStrategyIdRoute = StudioStrategyIdRouteImport.update({
+  id: '/strategy/$id',
+  path: '/strategy/$id',
+  getParentRoute: () => StudioRoute,
+} as any)
+const StudioBuilderIdRoute = StudioBuilderIdRouteImport.update({
+  id: '/builder/$id',
+  path: '/builder/$id',
+  getParentRoute: () => StudioRoute,
+} as any)
+const StudioBacktestsStrategyIdRoute =
+  StudioBacktestsStrategyIdRouteImport.update({
+    id: '/$strategyId',
+    path: '/$strategyId',
+    getParentRoute: () => StudioBacktestsRoute,
+  } as any)
 const AppStrategyIdRoute = AppStrategyIdRouteImport.update({
   id: '/strategy/$id',
   path: '/strategy/$id',
@@ -111,12 +160,20 @@ export interface FileRoutesByFullPath {
   '/app/performance': typeof AppPerformanceRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/signals': typeof AppSignalsRoute
+  '/studio/backtests': typeof StudioBacktestsRouteWithChildren
   '/studio/docs': typeof StudioDocsRoute
   '/studio/earnings': typeof StudioEarningsRoute
   '/studio/home': typeof StudioHomeRoute
+  '/studio/settings': typeof StudioSettingsRoute
+  '/studio/signals': typeof StudioSignalsRoute
+  '/studio/strategies': typeof StudioStrategiesRoute
+  '/studio/submissions': typeof StudioSubmissionsRoute
   '/app/share/$cardId': typeof AppShareCardIdRoute
   '/app/signal/$id': typeof AppSignalIdRoute
   '/app/strategy/$id': typeof AppStrategyIdRoute
+  '/studio/backtests/$strategyId': typeof StudioBacktestsStrategyIdRoute
+  '/studio/builder/$id': typeof StudioBuilderIdRoute
+  '/studio/strategy/$id': typeof StudioStrategyIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -128,12 +185,20 @@ export interface FileRoutesByTo {
   '/app/performance': typeof AppPerformanceRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/signals': typeof AppSignalsRoute
+  '/studio/backtests': typeof StudioBacktestsRouteWithChildren
   '/studio/docs': typeof StudioDocsRoute
   '/studio/earnings': typeof StudioEarningsRoute
   '/studio/home': typeof StudioHomeRoute
+  '/studio/settings': typeof StudioSettingsRoute
+  '/studio/signals': typeof StudioSignalsRoute
+  '/studio/strategies': typeof StudioStrategiesRoute
+  '/studio/submissions': typeof StudioSubmissionsRoute
   '/app/share/$cardId': typeof AppShareCardIdRoute
   '/app/signal/$id': typeof AppSignalIdRoute
   '/app/strategy/$id': typeof AppStrategyIdRoute
+  '/studio/backtests/$strategyId': typeof StudioBacktestsStrategyIdRoute
+  '/studio/builder/$id': typeof StudioBuilderIdRoute
+  '/studio/strategy/$id': typeof StudioStrategyIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -146,12 +211,20 @@ export interface FileRoutesById {
   '/app/performance': typeof AppPerformanceRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/signals': typeof AppSignalsRoute
+  '/studio/backtests': typeof StudioBacktestsRouteWithChildren
   '/studio/docs': typeof StudioDocsRoute
   '/studio/earnings': typeof StudioEarningsRoute
   '/studio/home': typeof StudioHomeRoute
+  '/studio/settings': typeof StudioSettingsRoute
+  '/studio/signals': typeof StudioSignalsRoute
+  '/studio/strategies': typeof StudioStrategiesRoute
+  '/studio/submissions': typeof StudioSubmissionsRoute
   '/app/share/$cardId': typeof AppShareCardIdRoute
   '/app/signal/$id': typeof AppSignalIdRoute
   '/app/strategy/$id': typeof AppStrategyIdRoute
+  '/studio/backtests/$strategyId': typeof StudioBacktestsStrategyIdRoute
+  '/studio/builder/$id': typeof StudioBuilderIdRoute
+  '/studio/strategy/$id': typeof StudioStrategyIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -165,12 +238,20 @@ export interface FileRouteTypes {
     | '/app/performance'
     | '/app/settings'
     | '/app/signals'
+    | '/studio/backtests'
     | '/studio/docs'
     | '/studio/earnings'
     | '/studio/home'
+    | '/studio/settings'
+    | '/studio/signals'
+    | '/studio/strategies'
+    | '/studio/submissions'
     | '/app/share/$cardId'
     | '/app/signal/$id'
     | '/app/strategy/$id'
+    | '/studio/backtests/$strategyId'
+    | '/studio/builder/$id'
+    | '/studio/strategy/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -182,12 +263,20 @@ export interface FileRouteTypes {
     | '/app/performance'
     | '/app/settings'
     | '/app/signals'
+    | '/studio/backtests'
     | '/studio/docs'
     | '/studio/earnings'
     | '/studio/home'
+    | '/studio/settings'
+    | '/studio/signals'
+    | '/studio/strategies'
+    | '/studio/submissions'
     | '/app/share/$cardId'
     | '/app/signal/$id'
     | '/app/strategy/$id'
+    | '/studio/backtests/$strategyId'
+    | '/studio/builder/$id'
+    | '/studio/strategy/$id'
   id:
     | '__root__'
     | '/'
@@ -199,12 +288,20 @@ export interface FileRouteTypes {
     | '/app/performance'
     | '/app/settings'
     | '/app/signals'
+    | '/studio/backtests'
     | '/studio/docs'
     | '/studio/earnings'
     | '/studio/home'
+    | '/studio/settings'
+    | '/studio/signals'
+    | '/studio/strategies'
+    | '/studio/submissions'
     | '/app/share/$cardId'
     | '/app/signal/$id'
     | '/app/strategy/$id'
+    | '/studio/backtests/$strategyId'
+    | '/studio/builder/$id'
+    | '/studio/strategy/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -244,6 +341,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/studio/submissions': {
+      id: '/studio/submissions'
+      path: '/submissions'
+      fullPath: '/studio/submissions'
+      preLoaderRoute: typeof StudioSubmissionsRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/studio/strategies': {
+      id: '/studio/strategies'
+      path: '/strategies'
+      fullPath: '/studio/strategies'
+      preLoaderRoute: typeof StudioStrategiesRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/studio/signals': {
+      id: '/studio/signals'
+      path: '/signals'
+      fullPath: '/studio/signals'
+      preLoaderRoute: typeof StudioSignalsRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/studio/settings': {
+      id: '/studio/settings'
+      path: '/settings'
+      fullPath: '/studio/settings'
+      preLoaderRoute: typeof StudioSettingsRouteImport
+      parentRoute: typeof StudioRoute
+    }
     '/studio/home': {
       id: '/studio/home'
       path: '/home'
@@ -263,6 +388,13 @@ declare module '@tanstack/react-router' {
       path: '/docs'
       fullPath: '/studio/docs'
       preLoaderRoute: typeof StudioDocsRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/studio/backtests': {
+      id: '/studio/backtests'
+      path: '/backtests'
+      fullPath: '/studio/backtests'
+      preLoaderRoute: typeof StudioBacktestsRouteImport
       parentRoute: typeof StudioRoute
     }
     '/app/signals': {
@@ -299,6 +431,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/catalog'
       preLoaderRoute: typeof AppCatalogRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/studio/strategy/$id': {
+      id: '/studio/strategy/$id'
+      path: '/strategy/$id'
+      fullPath: '/studio/strategy/$id'
+      preLoaderRoute: typeof StudioStrategyIdRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/studio/builder/$id': {
+      id: '/studio/builder/$id'
+      path: '/builder/$id'
+      fullPath: '/studio/builder/$id'
+      preLoaderRoute: typeof StudioBuilderIdRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/studio/backtests/$strategyId': {
+      id: '/studio/backtests/$strategyId'
+      path: '/$strategyId'
+      fullPath: '/studio/backtests/$strategyId'
+      preLoaderRoute: typeof StudioBacktestsStrategyIdRouteImport
+      parentRoute: typeof StudioBacktestsRoute
     }
     '/app/strategy/$id': {
       id: '/app/strategy/$id'
@@ -348,16 +501,42 @@ const AppRouteChildren: AppRouteChildren = {
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
+interface StudioBacktestsRouteChildren {
+  StudioBacktestsStrategyIdRoute: typeof StudioBacktestsStrategyIdRoute
+}
+
+const StudioBacktestsRouteChildren: StudioBacktestsRouteChildren = {
+  StudioBacktestsStrategyIdRoute: StudioBacktestsStrategyIdRoute,
+}
+
+const StudioBacktestsRouteWithChildren = StudioBacktestsRoute._addFileChildren(
+  StudioBacktestsRouteChildren,
+)
+
 interface StudioRouteChildren {
+  StudioBacktestsRoute: typeof StudioBacktestsRouteWithChildren
   StudioDocsRoute: typeof StudioDocsRoute
   StudioEarningsRoute: typeof StudioEarningsRoute
   StudioHomeRoute: typeof StudioHomeRoute
+  StudioSettingsRoute: typeof StudioSettingsRoute
+  StudioSignalsRoute: typeof StudioSignalsRoute
+  StudioStrategiesRoute: typeof StudioStrategiesRoute
+  StudioSubmissionsRoute: typeof StudioSubmissionsRoute
+  StudioBuilderIdRoute: typeof StudioBuilderIdRoute
+  StudioStrategyIdRoute: typeof StudioStrategyIdRoute
 }
 
 const StudioRouteChildren: StudioRouteChildren = {
+  StudioBacktestsRoute: StudioBacktestsRouteWithChildren,
   StudioDocsRoute: StudioDocsRoute,
   StudioEarningsRoute: StudioEarningsRoute,
   StudioHomeRoute: StudioHomeRoute,
+  StudioSettingsRoute: StudioSettingsRoute,
+  StudioSignalsRoute: StudioSignalsRoute,
+  StudioStrategiesRoute: StudioStrategiesRoute,
+  StudioSubmissionsRoute: StudioSubmissionsRoute,
+  StudioBuilderIdRoute: StudioBuilderIdRoute,
+  StudioStrategyIdRoute: StudioStrategyIdRoute,
 }
 
 const StudioRouteWithChildren =

@@ -1,68 +1,148 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { getDevStrategies, getPersonalSignals, getBacktestsForStrategy } from "@/lib/api/studio";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { strategies as allStrats } from "@/lib/mockData";
+import { StageBadge } from "@/components/common/StageBadge";
 import { AssetClassBadge } from "@/components/common/AssetClassBadge";
+import { DirectionPill } from "@/components/common/DirectionPill";
+import { StatusPill } from "@/components/common/StatusPill";
+import { formatDistanceToNow } from "date-fns";
+import { Plus, Layers, FlaskConical, Activity, Inbox } from "lucide-react";
 import type { PipelineStage } from "@/lib/types";
-import { Plus } from "lucide-react";
 
 export const Route = createFileRoute("/studio/home")({
   head: () => ({ meta: [{ title: "Studio — Bayn" }] }),
   component: StudioHome,
 });
 
-const devStrategies = [
-  { ...allStrats[0], stage: "Published" as PipelineStage },
-  { ...allStrats[3], stage: "Forward Testing" as PipelineStage },
-  { ...allStrats[6], stage: "Out-of-Sample Passed" as PipelineStage },
-  { ...allStrats[9], stage: "Backtested" as PipelineStage },
-  { id: "draft-1", name: "VIX Term-Structure Carry", description: "Carry trade on VIX term structure during contango regimes.", assetClass: "options" as const, stage: "Draft" as PipelineStage, stats: { sharpe: 0, winRate: 0, sampleSize: 0, maxDrawdown: 0, liveDays: 0, subscribers: 0, avgR: 0 } },
+const STAGE_GROUPS: Array<{ label: string; stages: PipelineStage[]; accent: string }> = [
+  { label: "Draft", stages: ["Draft"], accent: "text-muted-foreground" },
+  { label: "Backtesting", stages: ["Backtested", "Out-of-Sample Passed"], accent: "text-cyan" },
+  { label: "Forward Testing", stages: ["Forward Testing"], accent: "text-options" },
+  { label: "Live", stages: ["Live"], accent: "text-futures" },
+  { label: "Submitted", stages: ["Submitted", "Under Review"], accent: "text-violet" },
 ];
 
-const stageColors: Record<PipelineStage, string> = {
-  Draft: "text-muted-foreground border-border bg-muted/30",
-  Backtested: "text-cyan border-cyan/30 bg-cyan/10",
-  "Out-of-Sample Passed": "text-gold border-gold/30 bg-gold/10",
-  "Forward Testing": "text-options border-options/30 bg-options/10",
-  Submitted: "text-stocks border-stocks/30 bg-stocks/10",
-  Published: "text-futures border-futures/30 bg-futures/10",
-  Rejected: "text-danger border-danger/30 bg-danger/10",
-};
-
 function StudioHome() {
+  const strategies = useQuery({ queryKey: ["devStrategies"], queryFn: getDevStrategies });
+  const sigs = useQuery({ queryKey: ["personalSignals", 6], queryFn: () => getPersonalSignals({ limit: 6 }) });
+
+  const list = strategies.data ?? [];
+
   return (
-    <div className="space-y-5 p-4 md:p-6">
+    <div className="space-y-6 p-4 md:p-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">My strategies</h1>
-          <p className="text-sm text-muted-foreground font-mono">// developer workspace</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Studio dashboard</h1>
+          <p className="text-sm text-muted-foreground font-mono">// build, test, run your own strategies</p>
         </div>
-        <Button asChild className="bg-cyan text-cyan-foreground hover:bg-cyan/90">
-          <Link to="/studio/builder/new"><Plus className="mr-2 size-4" /> New strategy</Link>
+        <Button asChild className="bg-violet text-violet-foreground hover:bg-violet/90">
+          <Link to="/studio/builder/$id" params={{ id: "new" }}><Plus className="mr-2 size-4" /> New strategy</Link>
         </Button>
       </div>
-      <Card className="border-border bg-elevated">
-        <div className="divide-y divide-border">
-          {devStrategies.map((s) => (
-            <div key={s.id} className="grid grid-cols-12 items-center gap-3 px-4 py-3">
-              <div className="col-span-5">
-                <div className="font-medium">{s.name}</div>
-                <div className="text-xs text-muted-foreground">{s.description}</div>
-              </div>
-              <div className="col-span-2"><AssetClassBadge assetClass={s.assetClass} hideIcon /></div>
-              <div className="col-span-2">
-                <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-mono ${stageColors[s.stage]}`}>{s.stage}</span>
-              </div>
-              <div className="col-span-2 text-right font-mono text-sm text-muted-foreground">
-                {s.stats.sharpe ? `Sharpe ${s.stats.sharpe.toFixed(2)}` : "—"}
-              </div>
-              <div className="col-span-1 text-right">
-                <Button variant="ghost" size="sm">Open</Button>
-              </div>
-            </div>
-          ))}
+
+      {/* Summary tiles */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        {STAGE_GROUPS.map((g) => {
+          const count = list.filter((s) => g.stages.includes(s.stage)).length;
+          return (
+            <Card key={g.label} className="border-border bg-elevated p-4">
+              <div className={`text-xs uppercase tracking-wider ${g.accent}`}>{g.label}</div>
+              <div className="mt-1 font-mono text-3xl">{count}</div>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Recent personal signals */}
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Recent personal signals</h2>
+          <Button variant="ghost" size="sm" asChild><Link to="/studio/signals">View all →</Link></Button>
         </div>
-      </Card>
+        <Card className="border-border bg-elevated">
+          {!sigs.data?.length ? (
+            <div className="p-6 text-center text-sm text-muted-foreground">
+              <Inbox className="mx-auto mb-2 size-8 opacity-50" />
+              No live signals yet. Deploy a strategy to start receiving signals from your own rules.
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {sigs.data.map((sig) => (
+                <div key={sig.id} className="grid grid-cols-12 items-center gap-3 px-4 py-3">
+                  <div className="col-span-2 text-xs text-muted-foreground">{formatDistanceToNow(new Date(sig.firedAt), { addSuffix: true })}</div>
+                  <div className="col-span-4 truncate">
+                    <div className="truncate text-sm font-medium">{sig.ownStrategyName}</div>
+                    <div className="font-mono text-xs text-violet">{sig.symbol}</div>
+                  </div>
+                  <div className="col-span-1"><DirectionPill direction={sig.direction} /></div>
+                  <div className="col-span-3 font-mono text-xs text-muted-foreground">
+                    <span className="text-foreground">{sig.entry}</span> · stop {sig.stop} · tgt {sig.target}
+                  </div>
+                  <div className="col-span-2 flex justify-end"><StatusPill status={sig.status} /></div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </section>
+
+      {/* Active backtests + Recent activity */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card className="border-border bg-elevated p-5">
+          <div className="mb-3 flex items-center gap-2 text-sm font-medium"><FlaskConical className="size-4 text-violet" /> Active backtests</div>
+          <div className="space-y-2 text-sm text-muted-foreground">
+            {list.slice(0, 2).map((s) => (
+              <div key={s.id} className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-foreground">{s.name}</span>
+                  <span className="font-mono text-xs">{Math.floor(60 + Math.random() * 30)}%</span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div className="h-full bg-violet" style={{ width: `${60 + Math.random() * 30}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+        <Card className="border-border bg-elevated p-5">
+          <div className="mb-3 flex items-center gap-2 text-sm font-medium"><Activity className="size-4 text-violet" /> Recent activity</div>
+          <ul className="space-y-2 text-sm">
+            {list.flatMap((s) => s.versions.slice(0, 1).map((v) => ({ s, v }))).slice(0, 5).map(({ s, v }) => (
+              <li key={s.id + v.id} className="flex items-center justify-between text-muted-foreground">
+                <span><span className="text-foreground">{s.name}</span> · {v.note}</span>
+                <span className="font-mono text-xs">{formatDistanceToNow(new Date(v.createdAt), { addSuffix: true })}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      </div>
+
+      {/* My strategies summary */}
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2"><Layers className="size-4" /> My strategies</h2>
+          <Button variant="ghost" size="sm" asChild><Link to="/studio/strategies">View all →</Link></Button>
+        </div>
+        <Card className="border-border bg-elevated">
+          <div className="divide-y divide-border">
+            {list.slice(0, 5).map((s) => (
+              <Link key={s.id} to="/studio/strategy/$id" params={{ id: s.id }} className="grid grid-cols-12 items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30">
+                <div className="col-span-5">
+                  <div className="font-medium">{s.name}</div>
+                  <div className="text-xs text-muted-foreground">{s.description}</div>
+                </div>
+                <div className="col-span-2"><AssetClassBadge assetClass={s.assetClass} hideIcon /></div>
+                <div className="col-span-3"><StageBadge stage={s.stage} /></div>
+                <div className="col-span-2 text-right font-mono text-sm text-muted-foreground">
+                  {s.stats ? `Sharpe ${s.stats.sharpe.toFixed(2)}` : "—"}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </Card>
+      </section>
     </div>
   );
 }
