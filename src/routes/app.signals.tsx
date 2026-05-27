@@ -11,7 +11,7 @@ import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import type { AssetClass } from "@/lib/types";
 
-export const Route = createFileRoute("/_app/signals")({
+export const Route = createFileRoute("/app/signals")({
   head: () => ({ meta: [{ title: "Signals — Bayn" }] }),
   component: SignalsPage,
 });

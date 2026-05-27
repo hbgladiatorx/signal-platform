@@ -5,7 +5,7 @@ import {
 } from "recharts";
 import { format } from "date-fns";
 
-export const Route = createFileRoute("/_studio/studio/earnings")({
+export const Route = createFileRoute("/studio/earnings")({
   head: () => ({ meta: [{ title: "Earnings — Bayn Studio" }] }),
   component: EarningsPage,
 });

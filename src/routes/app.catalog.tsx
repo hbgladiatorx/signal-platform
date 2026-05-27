@@ -12,7 +12,7 @@ import type { AssetClass } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Users } from "lucide-react";
 
-export const Route = createFileRoute("/_app/catalog")({
+export const Route = createFileRoute("/app/catalog")({
   head: () => ({ meta: [{ title: "Strategy catalog — Bayn" }, { name: "description", content: "Browse verified trading strategies across stocks, crypto, options and futures." }] }),
   component: CatalogPage,
 });

@@ -11,7 +11,7 @@ import type { AssetClass } from "@/lib/types";
 import { toast } from "sonner";
 import { CheckCircle2, Loader2, Plus, X } from "lucide-react";
 
-export const Route = createFileRoute("/_studio/studio/new")({
+export const Route = createFileRoute("/studio/builder/new")({
   head: () => ({ meta: [{ title: "New strategy — Bayn Studio" }] }),
   component: NewStrategyWizard,
 });

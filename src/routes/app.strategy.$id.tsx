@@ -16,7 +16,7 @@ import { format } from "date-fns";
 import { useState } from "react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_app/strategy/$id")({
+export const Route = createFileRoute("/app/strategy/$id")({
   head: ({ params }) => ({ meta: [{ title: `Strategy ${params.id} — Bayn` }] }),
   component: StrategyDetail,
 });

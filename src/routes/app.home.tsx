@@ -18,7 +18,7 @@ import {
 } from "recharts";
 import { TrendingUp, Inbox } from "lucide-react";
 
-export const Route = createFileRoute("/_app/home")({
+export const Route = createFileRoute("/app/home")({
   head: () => ({ meta: [{ title: "Home — Bayn" }] }),
   component: HomePage,
 });

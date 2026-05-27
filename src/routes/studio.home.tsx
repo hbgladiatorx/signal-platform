@@ -6,7 +6,7 @@ import { AssetClassBadge } from "@/components/common/AssetClassBadge";
 import type { PipelineStage } from "@/lib/types";
 import { Plus } from "lucide-react";
 
-export const Route = createFileRoute("/_studio/studio")({
+export const Route = createFileRoute("/studio/home")({
   head: () => ({ meta: [{ title: "Studio — Bayn" }] }),
   component: StudioHome,
 });

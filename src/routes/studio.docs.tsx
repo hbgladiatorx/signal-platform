@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Card } from "@/components/ui/card";
 
-export const Route = createFileRoute("/_studio/studio/docs")({
+export const Route = createFileRoute("/studio/docs")({
   head: () => ({ meta: [{ title: "Docs — Bayn Studio" }] }),
   component: DocsPage,
 });

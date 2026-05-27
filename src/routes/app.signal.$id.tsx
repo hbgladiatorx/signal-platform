@@ -18,7 +18,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { Share2, Bitcoin } from "lucide-react";
 
-export const Route = createFileRoute("/_app/signal/$id")({
+export const Route = createFileRoute("/app/signal/$id")({
   head: ({ params }) => ({ meta: [{ title: `Signal ${params.id} — Bayn` }] }),
   component: SignalDetail,
 });
