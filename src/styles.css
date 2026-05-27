@@ -1,6 +1,7 @@
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
+@import "reactflow/dist/style.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -30,6 +31,8 @@
   --color-ring: var(--ring);
   --color-cyan: var(--cyan);
   --color-cyan-foreground: var(--cyan-foreground);
+  --color-violet: var(--violet);
+  --color-violet-foreground: var(--violet-foreground);
   --color-danger: var(--danger);
   --color-danger-foreground: var(--danger-foreground);
   --color-gold: var(--gold);
@@ -52,17 +55,16 @@
   --font-mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, monospace;
 }
 
-/* Dark mode by default — Bayn is a dark product */
 :root {
   --radius: 0.625rem;
-  --background: oklch(0.145 0.005 270);          /* #0A0A0B near-black */
+  --background: oklch(0.145 0.005 270);
   --foreground: oklch(0.96 0.005 270);
-  --elevated: oklch(0.19 0.005 270);             /* #141416 cards */
+  --elevated: oklch(0.19 0.005 270);
   --card: oklch(0.19 0.005 270);
   --card-foreground: oklch(0.96 0.005 270);
   --popover: oklch(0.21 0.005 270);
   --popover-foreground: oklch(0.96 0.005 270);
-  --primary: oklch(0.85 0.18 210);               /* electric cyan */
+  --primary: oklch(0.85 0.18 210);
   --primary-foreground: oklch(0.12 0.02 270);
   --secondary: oklch(0.25 0.005 270);
   --secondary-foreground: oklch(0.96 0.005 270);
@@ -76,23 +78,32 @@
   --input: oklch(1 0 0 / 10%);
   --ring: oklch(0.85 0.18 210);
 
-  --cyan: oklch(0.85 0.18 210);                  /* #00E0FF buy/long */
+  --cyan: oklch(0.85 0.18 210);
   --cyan-foreground: oklch(0.12 0.02 270);
-  --danger: oklch(0.68 0.21 18);                 /* #FF4D5E short/stop */
+  --violet: oklch(0.68 0.21 295);
+  --violet-foreground: oklch(0.98 0 0);
+  --danger: oklch(0.68 0.21 18);
   --danger-foreground: oklch(0.98 0 0);
-  --gold: oklch(0.78 0.13 85);                   /* #D4AF37 edge verified */
+  --gold: oklch(0.78 0.13 85);
   --gold-foreground: oklch(0.15 0.02 85);
 
-  --stocks: oklch(0.7 0.15 240);                 /* blue */
-  --crypto: oklch(0.72 0.17 50);                 /* orange */
-  --options: oklch(0.68 0.2 300);                /* purple */
-  --futures: oklch(0.72 0.16 145);               /* green */
+  --stocks: oklch(0.7 0.15 240);
+  --crypto: oklch(0.72 0.17 50);
+  --options: oklch(0.68 0.2 300);
+  --futures: oklch(0.72 0.16 145);
 
   --sidebar: oklch(0.17 0.005 270);
   --sidebar-foreground: oklch(0.85 0.005 270);
   --sidebar-accent: oklch(0.23 0.005 270);
   --sidebar-accent-foreground: oklch(0.96 0.005 270);
   --sidebar-border: oklch(1 0 0 / 6%);
+}
+
+/* Studio mode overrides sidebar accent to violet */
+.studio-mode {
+  --sidebar-accent: oklch(0.35 0.15 295 / 0.25);
+  --sidebar-accent-foreground: oklch(0.96 0.005 270);
+  --ring: oklch(0.68 0.21 295);
 }
 
 @layer base {
@@ -118,4 +129,54 @@
     70% { box-shadow: 0 0 0 8px transparent; }
     100% { box-shadow: 0 0 0 0 transparent; }
   }
+  .mode-fade { animation: mode-fade 200ms ease-out; }
+  @keyframes mode-fade {
+    from { opacity: 0.4; }
+    to { opacity: 1; }
+  }
+}
+
+/* React Flow dark theming */
+.react-flow {
+  background: var(--background);
+}
+.react-flow__node {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+.react-flow__handle {
+  background: var(--violet);
+  border: 2px solid var(--background);
+  width: 10px;
+  height: 10px;
+}
+.react-flow__edge-path {
+  stroke: color-mix(in oklab, var(--violet) 70%, transparent);
+  stroke-width: 2;
+}
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: var(--violet);
+}
+.react-flow__controls {
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.react-flow__controls button {
+  background: var(--elevated);
+  border-bottom: 1px solid var(--border);
+  color: var(--foreground);
+  fill: currentColor;
+}
+.react-flow__controls button:hover {
+  background: var(--accent);
+}
+.react-flow__minimap {
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.react-flow__attribution {
+  background: transparent;
+  color: var(--muted-foreground);
 }

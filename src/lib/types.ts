@@ -7,14 +7,16 @@ export type PipelineStage =
   | "Backtested"
   | "Out-of-Sample Passed"
   | "Forward Testing"
+  | "Live"
   | "Submitted"
+  | "Under Review"
   | "Published"
   | "Rejected";
 
 export interface StrategyStats {
   sharpe: number;
-  winRate: number;       // 0..1
-  maxDrawdown: number;   // 0..1
+  winRate: number;
+  maxDrawdown: number;
   sampleSize: number;
   avgR: number;
   liveDays: number;
@@ -34,7 +36,7 @@ export interface Strategy {
   stage: PipelineStage;
   edgeVerified: boolean;
   symbols: string[];
-  lastSignalAt: string;     // ISO
+  lastSignalAt: string;
   stats: StrategyStats;
   createdAt: string;
 }
@@ -54,7 +56,6 @@ export interface Signal {
   closedAt?: string;
   pnlR?: number;
   reasoning: string;
-  // option/future extras
   strike?: number;
   expiry?: string;
   delta?: number;
@@ -83,4 +84,92 @@ export interface TakenSignal {
   fillPrice: number;
   pnlR?: number;
   outcome: SignalStatus;
+}
+
+/* ---------- Studio (developer-side) types ---------- */
+
+export type NodeCategory = "data" | "indicator" | "logic" | "risk" | "signal";
+
+export interface StrategyNode {
+  id: string;
+  type: string;            // e.g. "price", "sma", "comparator", "stopLoss", "entry"
+  category: NodeCategory;
+  label: string;
+  position: { x: number; y: number };
+  data: Record<string, unknown>;
+}
+
+export interface StrategyEdge {
+  id: string;
+  source: string;
+  target: string;
+  sourceHandle?: string;
+  targetHandle?: string;
+}
+
+export interface StrategyGraph {
+  nodes: StrategyNode[];
+  edges: StrategyEdge[];
+}
+
+export interface DevStrategy {
+  id: string;
+  name: string;
+  description: string;
+  assetClass: AssetClass;
+  stage: PipelineStage;
+  createdAt: string;
+  lastRunAt?: string;
+  graph: StrategyGraph;
+  stats?: StrategyStats;
+  liveSinceDays?: number;
+  versions: Array<{ id: string; createdAt: string; note: string }>;
+  submissionStatus?: "Submitted" | "Under Review" | "Pipeline Validation" | "Human Review" | "Accepted" | "Rejected";
+  submissionNotes?: string;
+}
+
+export interface BacktestRun {
+  id: string;
+  strategyId: string;
+  ranAt: string;
+  params: { startDate: string; endDate: string; capital: number; commissionBps: number; slippageBps: number };
+  stats: {
+    totalReturn: number;
+    cagr: number;
+    sharpe: number;
+    sortino: number;
+    maxDrawdown: number;
+    winRate: number;
+    profitFactor: number;
+    avgWin: number;
+    avgLoss: number;
+    avgHoldDays: number;
+    totalTrades: number;
+  };
+  equity: EquityPoint[];
+  trades: Array<{
+    id: string;
+    entryDate: string;
+    exitDate: string;
+    symbol: string;
+    direction: Direction;
+    entry: number;
+    exit: number;
+    pnlPct: number;
+    pnlR: number;
+  }>;
+  monthlyReturns: Array<{ month: string; ret: number }>;
+}
+
+export interface PersonalSignal extends Signal {
+  ownStrategyId: string;
+  ownStrategyName: string;
+}
+
+export interface StudioEarning {
+  month: string;
+  strategyId: string;
+  strategyName: string;
+  amount: number;
+  subscribers: number;
 }
