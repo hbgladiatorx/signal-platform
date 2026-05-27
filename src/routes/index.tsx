@@ -26,7 +26,7 @@ function Landing() {
         <div className="flex items-center gap-2">
           <Button variant="ghost" asChild><Link to="/auth">Sign in</Link></Button>
           <Button asChild className="bg-cyan text-cyan-foreground hover:bg-cyan/90">
-            <Link to="/catalog">See the catalog</Link>
+            <Link to="/app/catalog">See the catalog</Link>
           </Button>
         </div>
       </header>
@@ -45,7 +45,7 @@ function Landing() {
         </p>
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
           <Button size="lg" asChild className="bg-cyan text-cyan-foreground hover:bg-cyan/90">
-            <Link to="/catalog">See the catalog <ArrowRight className="ml-2 size-4" /></Link>
+            <Link to="/app/catalog">See the catalog <ArrowRight className="ml-2 size-4" /></Link>
           </Button>
           <Button size="lg" variant="outline" asChild>
             <Link to="/auth">Create account</Link>
