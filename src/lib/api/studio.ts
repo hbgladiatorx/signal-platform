@@ -1,7 +1,7 @@
 // Studio (developer-side) API.
 // Live state — no mock seeding. A developer only sees what they actually
 // create. Drafts live in-memory for the session until a backend is wired.
-import type { DevStrategy, BacktestRun, PersonalSignal, StrategyGraph } from "../types";
+import type { DevStrategy, BacktestRun, PersonalSignal, StrategyGraph, StudioEarning } from "../types";
 
 const wait = (ms = 80) => new Promise((r) => setTimeout(r, ms));
 
