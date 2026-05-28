@@ -40,6 +40,7 @@ function SignalDetail() {
   const [showBroker, setShowBroker] = useState(false);
   const [showTaken, setShowTaken] = useState(false);
   const [fillPrice, setFillPrice] = useState<string>("");
+  const [interval, setIntervalKey] = useState<string>("60");
 
   if (sig.isFetched && !sig.data) throw notFound();
   const s = sig.data;
