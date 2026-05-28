@@ -106,8 +106,7 @@ export function LiveTrackerChart() {
     );
   }
 
-    );
-  }
+
 
   const series = active.priceSeries;
   const last = series[series.length - 1]?.price ?? active.entry;
