@@ -316,23 +316,7 @@ export function useDismissedChecklistItems() {
   return usePref<string[]>("checklist.dismissed", []);
 }
 
-/* ---------------- Account seeding / onboarding flags ---------------- */
-export function getTraderSeeded() { return read<boolean>("traderSeeded", false); }
-export function setTraderSeeded(v: boolean) { write("traderSeeded", v); logDebugEvent({ type: "onboarding", message: `Trader onboarding seeded: ${v}` }); }
-export function useTraderSeeded() { return usePref<boolean>("traderSeeded", false); }
 
-export function getStudioSeeded() { return read<boolean>("studioSeeded", false); }
-export function setStudioSeeded(v: boolean) { write("studioSeeded", v); logDebugEvent({ type: "onboarding", message: `Studio onboarding seeded: ${v}` }); }
-export function useStudioSeeded() { return usePref<boolean>("studioSeeded", false); }
-
-export function getOnboarded() { return read<boolean>("onboarded", false); }
-export function setOnboarded(v: boolean) { write("onboarded", v); logDebugEvent({ type: "onboarding", message: `Onboarding flag set: ${v}` }); }
-export function useOnboarded() { return usePref<boolean>("onboarded", false); }
-
-export type OnboardingPath = "trader" | "developer" | "both";
-export function getOnboardingPath() { return read<OnboardingPath | null>("onboarding.path", null); }
-export function setOnboardingPath(v: OnboardingPath) { write("onboarding.path", v); logDebugEvent({ type: "onboarding", message: `Onboarding path selected: ${v}` }); }
-export function useOnboardingPath() { return usePref<OnboardingPath | null>("onboarding.path", null); }
 
 /** Wipe local prefs — used on sign-out so the next account starts blank. */
 export function resetAllPrefs() {
