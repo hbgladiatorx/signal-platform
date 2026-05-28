@@ -220,6 +220,10 @@ function Builder() {
         </div>
         <div className="ml-auto flex gap-2">
           <Button size="sm" variant="ghost" onClick={() => setShowTemplates(true)}><FileCode className="mr-1 size-4" /> Templates</Button>
+          <Button size="sm" variant="ghost" onClick={() => setAiOpen((o) => !o)} className="text-violet hover:bg-violet/10 hover:text-violet">
+            <Sparkles className="mr-1 size-4" /> Build with AI
+          </Button>
+
           <Button size="sm" variant="outline" onClick={handleExport}><Download className="mr-1 size-4" /> Export JSON</Button>
           <Button size="sm" variant="outline" onClick={validate}>Validate</Button>
           <Button size="sm" variant="outline" onClick={handleSave}><Save className="mr-1 size-4" /> Save</Button>
