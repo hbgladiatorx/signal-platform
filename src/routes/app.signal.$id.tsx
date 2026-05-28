@@ -11,9 +11,7 @@ import { AssetClassBadge } from "@/components/common/AssetClassBadge";
 import { DirectionPill } from "@/components/common/DirectionPill";
 import { StatusPill } from "@/components/common/StatusPill";
 import { Disclaimer } from "@/components/common/Disclaimer";
-import {
-  ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Area,
-} from "recharts";
+import { TradingViewChart } from "@/components/common/TradingViewChart";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Share2, Bitcoin } from "lucide-react";
