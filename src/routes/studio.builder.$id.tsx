@@ -295,40 +295,82 @@ function Builder() {
 
       {/* Workspace */}
       <div className="flex min-h-0 flex-1">
-        {/* Left sidebar: AI Builder ↔ Palette tabs */}
-        <div className="flex w-[340px] shrink-0 flex-col border-r border-border bg-sidebar">
-          <div className="flex border-b border-border bg-elevated">
-            <button
-              onClick={() => setLeftTab("ai")}
-              className={cn(
-                "flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[11px] font-mono uppercase tracking-wider transition-colors",
-                leftTab === "ai"
-                  ? "border-b-2 border-violet bg-violet/5 text-violet"
-                  : "border-b-2 border-transparent text-muted-foreground hover:text-foreground",
-              )}
+        {/* Left sidebar: AI Builder ↔ Palette tabs (resizable) */}
+        {!sidebarCollapsed && (
+          <>
+            <div
+              className="flex shrink-0 flex-col border-r border-border bg-sidebar"
+              style={{ width: sidebarWidth }}
             >
-              <Sparkles className="size-3.5" /> AI Builder
-            </button>
-            <button
-              onClick={() => setLeftTab("palette")}
-              className={cn(
-                "flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[11px] font-mono uppercase tracking-wider transition-colors",
-                leftTab === "palette"
-                  ? "border-b-2 border-cyan bg-cyan/5 text-cyan"
-                  : "border-b-2 border-transparent text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <FileCode className="size-3.5" /> Palette
-            </button>
-          </div>
-          <div className="min-h-0 flex-1 overflow-hidden">
-            {leftTab === "ai" ? (
-              <AgentChat mode="studio" compact onGraph={(g) => g && applyAIGraph(g)} />
-            ) : (
-              <NodePalette onAdd={addNodeFromPalette} />
-            )}
-          </div>
-        </div>
+              <div className="flex items-center border-b border-border bg-elevated">
+                <button
+                  onClick={() => setLeftTab("ai")}
+                  className={cn(
+                    "flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[11px] font-mono uppercase tracking-wider transition-colors",
+                    leftTab === "ai"
+                      ? "border-b-2 border-violet bg-violet/5 text-violet"
+                      : "border-b-2 border-transparent text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <Sparkles className="size-3.5" /> AI Builder
+                </button>
+                <button
+                  onClick={() => setLeftTab("palette")}
+                  className={cn(
+                    "flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[11px] font-mono uppercase tracking-wider transition-colors",
+                    leftTab === "palette"
+                      ? "border-b-2 border-cyan bg-cyan/5 text-cyan"
+                      : "border-b-2 border-transparent text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <FileCode className="size-3.5" /> Palette
+                </button>
+                <button
+                  onClick={() => setSidebarWidth((w) => (w < 600 ? 720 : 340))}
+                  title="Expand / shrink"
+                  className="px-2 py-2.5 text-muted-foreground hover:text-foreground"
+                >
+                  <ChevronsLeftRight className="size-3.5" />
+                </button>
+                <button
+                  onClick={() => setSidebarCollapsed(true)}
+                  title="Collapse sidebar"
+                  className="px-2 py-2.5 text-muted-foreground hover:text-foreground"
+                >
+                  <PanelLeftClose className="size-3.5" />
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-hidden">
+                {leftTab === "ai" ? (
+                  <AgentChat
+                    mode="studio"
+                    compact
+                    getCurrentGraph={getCurrentGraph}
+                    onGraph={(g) => g && applyAIGraph(g)}
+                    onTweak={(t) => applyAITweak(t)}
+                  />
+                ) : (
+                  <NodePalette onAdd={addNodeFromPalette} />
+                )}
+              </div>
+            </div>
+            {/* drag handle */}
+            <div
+              onMouseDown={() => { dragging.current = true; document.body.style.cursor = "col-resize"; }}
+              className="w-1 shrink-0 cursor-col-resize bg-border hover:bg-violet/40"
+              title="Drag to resize"
+            />
+          </>
+        )}
+        {sidebarCollapsed && (
+          <button
+            onClick={() => setSidebarCollapsed(false)}
+            className="flex w-8 shrink-0 items-center justify-center border-r border-border bg-sidebar text-muted-foreground hover:text-foreground"
+            title="Expand sidebar"
+          >
+            <PanelLeftOpen className="size-4" />
+          </button>
+        )}
 
         {/* Canvas + console */}
         <div className="flex min-w-0 flex-1 flex-col">
