@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Loader2, ShieldCheck, Mail, Lock, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { getOnboarded } from "@/lib/user-prefs";
+import { getOnboarded, resetAllPrefs } from "@/lib/user-prefs";
+import { resetCurrentPlan } from "@/lib/api/billing";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -58,7 +59,10 @@ function AuthPage() {
     });
     setLoading(false);
     if (error) return toast.error(error.message);
-    // If email confirmation is OFF in Supabase, user is signed in immediately.
+    // Brand-new account: wipe any prefs/plan left over from a previous
+    // session in this browser so the user always goes through onboarding fresh.
+    resetAllPrefs();
+    resetCurrentPlan();
     const { data } = await supabase.auth.getSession();
     if (data.session) {
       toast.success("Account created");

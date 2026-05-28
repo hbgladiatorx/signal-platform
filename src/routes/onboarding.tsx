@@ -65,10 +65,9 @@ function OnboardingPage() {
     setTraderSeeded(true);
   };
 
-  // Mark onboarded as soon as the user lands on /onboarding so AuthGate never
-  // bounces them back here once they're inside the flow (or close & reopen).
-  // Completion is tracked separately via traderSeeded / studioSeeded.
-  useState(() => { setOnboarded(true); return null; });
+  // NOTE: onboarded is only flipped to true inside finish(). Marking it on
+  // mount would let users skip the flow by refreshing — AuthGate would then
+  // route them straight into the app.
 
   const next = () => {
     setStep((s) => {
