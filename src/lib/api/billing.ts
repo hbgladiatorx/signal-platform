@@ -244,7 +244,7 @@ export function isFreeStrategy(id: string) { return FREE_STRATEGY_IDS.has(id); }
 /** Count how many add-on slots the user has purchased. */
 export function getAddOnSlotCount(): number {
   let n = 0;
-  for (const a of mock.activeAddOns) {
+  for (const a of readStoredPlan().activeAddOns) {
     if (a === "trader-extra-strategy") n += 1;
     if (a === "trader-strategy-pack-5") n += 5;
   }
@@ -253,7 +253,8 @@ export function getAddOnSlotCount(): number {
 
 /** Total premium slots = tier allotment + add-ons. -1 = unlimited. */
 export function getTotalSlots(): number {
-  const tier = mock.trader ? getTier(mock.trader) : null;
+  const plan = readStoredPlan();
+  const tier = plan.trader ? getTier(plan.trader) : null;
   const base = tier?.includedSlots ?? 0;
   if (base === -1) return -1;
   return base + getAddOnSlotCount();
@@ -281,23 +282,26 @@ export function checkSlotAvailability(strategyId: string, followedNonFreeIds: st
 
 /** Mock purchase: append an add-on id to active list. */
 export function purchaseAddOn(addOnId: "trader-extra-strategy" | "trader-strategy-pack-5") {
+  readStoredPlan();
   if (!mock.activeAddOns.includes(addOnId)) {
-    mock.activeAddOns = [...mock.activeAddOns, addOnId];
+    setCurrentPlan({ activeAddOns: [...mock.activeAddOns, addOnId] });
+    logDebugEvent({ type: "subscription", message: `Add-on purchased: ${addOnId}` });
   }
 }
 
 /** Mock upgrade: set the trader tier directly. */
 export function upgradePlan(tier: TierId) {
-  if (tier.startsWith("studio")) mock.developer = tier;
-  else mock.trader = tier;
+  if (tier.startsWith("studio")) setCurrentPlan({ developer: tier });
+  else setCurrentPlan({ trader: tier });
 }
 
 export type UsageKey = "trader-slots" | "studio-strategies" | "studio-backtests" | "studio-live" | "trader-ai";
 export type Usage = { key: UsageKey; label: string; current: number; limit: number; period?: string };
 
 export function getUsage(followedNonFreeCount = 0): Usage[] {
-  const trader = mock.trader ? getTier(mock.trader) : null;
-  const studio = mock.developer ? getTier(mock.developer) : null;
+  const plan = readStoredPlan();
+  const trader = plan.trader ? getTier(plan.trader) : null;
+  const studio = plan.developer ? getTier(plan.developer) : null;
   return [
     { key: "trader-slots", label: "Premium strategy slots",
       current: followedNonFreeCount, limit: getTotalSlots() },
