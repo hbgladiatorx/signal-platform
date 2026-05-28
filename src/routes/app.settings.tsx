@@ -6,8 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { Briefcase, Bitcoin, Building2, Activity, Check } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Briefcase, Bitcoin, Building2, Activity, Check, Sparkles, Settings as SettingsIcon } from "lucide-react";
 import { toast } from "sonner";
+import { MCPConnectionSection } from "@/components/agent/AgentConnections";
+
 
 export const Route = createFileRoute("/app/settings")({
   head: () => ({ meta: [{ title: "Settings — Bayn" }] }),
