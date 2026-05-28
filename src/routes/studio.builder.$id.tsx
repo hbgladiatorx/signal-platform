@@ -177,8 +177,17 @@ function Builder() {
 
   const handleRunBacktest = async (params: any) => {
     setLogs((l) => [...l, { ts: new Date().toISOString(), level: "info", msg: `Backtest started: ${params.startDate} → ${params.endDate}, $${params.capital}` }]);
-    const run = await runBacktest(id, params);
-    advanceStage(id, "backtested");
+    // Ensure a real DevStrategy exists so the results page can resolve it.
+    const graph: StrategyGraph = {
+      nodes: nodes.map((n) => ({
+        id: n.id, type: n.data.nodeType, category: n.data.category, label: n.data.label,
+        position: n.position, data: n.data.config,
+      })),
+      edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle ?? undefined, targetHandle: e.targetHandle ?? undefined })),
+    };
+    const draft = ensureDevStrategyDraft({ id: isNew ? undefined : id, name, assetClass, graph });
+    const run = await runBacktest(draft.id, params);
+    advanceStage(draft.id, "backtested");
     setLogs((l) => [...l, { ts: new Date().toISOString(), level: "ok", msg: `Backtest ${run.id} completed. Opening results…` }]);
     toast.success("Backtest finished — opening results");
     return run;
