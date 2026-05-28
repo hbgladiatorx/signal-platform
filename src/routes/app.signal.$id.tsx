@@ -76,15 +76,40 @@ function SignalDetail() {
       <div className="grid gap-5 lg:grid-cols-3">
         {/* Chart */}
         <Card className="border-border bg-elevated p-3 lg:col-span-2">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="flex items-center gap-0.5 rounded-md border border-border bg-background/60 p-0.5">
+              {TIMEFRAMES.map((tf) => (
+                <button
+                  key={tf.key}
+                  onClick={() => setIntervalKey(tf.key)}
+                  className={cn(
+                    "rounded px-2 py-1 font-mono text-[10px] uppercase tracking-wider transition-colors",
+                    interval === tf.key
+                      ? "bg-cyan/15 text-cyan"
+                      : "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+                  )}
+                >
+                  {tf.label}
+                </button>
+              ))}
+            </div>
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Drag plan rows to adjust levels
+            </span>
+          </div>
           <div className="relative">
             <TradingViewChart
+              key={`${s.symbol}-${interval}`}
               symbol={s.symbol}
               assetClass={s.assetClass}
-              interval="60"
+              interval={interval}
               height={420}
               withDrawingTools
             />
-            <SignalPlanOverlay entry={s.entry} stop={s.stop} target={s.target} direction={s.direction} />
+            <DraggableLevelsOverlay
+              initial={{ entry: s.entry, stop: s.stop, target: s.target }}
+              direction={s.direction}
+            />
           </div>
           <Card className="mt-3 border-border bg-background/40 p-4">
             <h3 className="mb-1 text-sm font-semibold">Strategy reasoning</h3>
