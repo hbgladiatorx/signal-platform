@@ -57,7 +57,6 @@ function Landing() {
 
   return (
 
-  return (
     <div
       className="min-h-screen bg-background text-foreground"
       style={{
