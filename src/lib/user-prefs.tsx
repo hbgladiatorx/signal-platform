@@ -112,3 +112,32 @@ export function toggleFollow(id: string, follow: boolean) {
   else { removed.add(id); added.delete(id); }
   write("follows", { added: [...added], removed: [...removed] });
 }
+
+/* ---------------- Account seeding / onboarding flags ----------------
+ * New accounts start completely blank. The onboarding flow flips these
+ * once the user picks their path and activates their free strategies.
+ */
+export function getTraderSeeded() { return read<boolean>("traderSeeded", false); }
+export function setTraderSeeded(v: boolean) { write("traderSeeded", v); }
+export function useTraderSeeded() { return usePref<boolean>("traderSeeded", false); }
+
+export function getStudioSeeded() { return read<boolean>("studioSeeded", false); }
+export function setStudioSeeded(v: boolean) { write("studioSeeded", v); }
+export function useStudioSeeded() { return usePref<boolean>("studioSeeded", false); }
+
+export function getOnboarded() { return read<boolean>("onboarded", false); }
+export function setOnboarded(v: boolean) { write("onboarded", v); }
+export function useOnboarded() { return usePref<boolean>("onboarded", false); }
+
+/** Wipe local prefs — used on sign-out so a different account starts blank. */
+export function resetAllPrefs() {
+  const keys = ["watchlist", "news.categories", "follows", "traderSeeded", "studioSeeded", "onboarded"];
+  for (const k of keys) {
+    inMemory.delete(k);
+    if (typeof window !== "undefined") {
+      try { window.localStorage.removeItem(STORAGE_PREFIX + k); } catch { /* noop */ }
+    }
+    notify(k);
+  }
+}
+
