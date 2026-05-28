@@ -52,9 +52,16 @@ export async function getMarketOverview() { await wait(60); return marketTiles; 
 export async function getStrategyEquity(strategyId: string, days = 30) {
   await wait();
   return getEquityCurve(strategyId, days);
-}
 export async function getUserPerformance(days = 30) {
   await wait();
+  // New / un-seeded accounts: no follows → no performance history.
+  if (getEffectiveFollowedIds().length === 0) {
+    return {
+      equity: [] as ReturnType<typeof getUserEquityCurve>,
+      taken: [] as typeof takenSignals,
+      kpis: { totalTaken: 0, winRate: 0, avgR: 0, maxDrawdown: 0 },
+    };
+  }
   const equity = getUserEquityCurve(days);
   const taken = takenSignals;
   const wins = taken.filter((t) => t.outcome === "HIT_TARGET").length;
@@ -64,6 +71,10 @@ export async function getUserPerformance(days = 30) {
   let peak = -Infinity, maxDD = 0;
   for (const p of equity) { peak = Math.max(peak, p.equity); const dd = (p.equity - peak) / peak; if (dd < maxDD) maxDD = dd; }
   return { equity, taken, kpis: { totalTaken: total, winRate, avgR, maxDrawdown: maxDD } };
+}
+export async function subscribeToStrategy(id: string) { await wait(); toggleFollow(id, true); return { ok: true }; }
+export async function unsubscribeFromStrategy(id: string) { await wait(); toggleFollow(id, false); return { ok: true }; }
+
 }
 export async function subscribeToStrategy(id: string) { await wait(); toggleFollow(id, true); return { ok: true }; }
 export async function unsubscribeFromStrategy(id: string) { await wait(); toggleFollow(id, false); return { ok: true }; }
