@@ -1,4 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect } from "react";
+
 import { Button } from "@/components/ui/button";
 import {
   BadgeCheck,
@@ -35,9 +37,26 @@ export const Route = createFileRoute("/")({
   }),
   component: Landing,
 });
-
 function Landing() {
+  useEffect(() => {
+    const els = document.querySelectorAll<HTMLElement>("[data-reveal]");
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add("is-revealed");
+            io.unobserve(e.target);
+          }
+        });
+      },
+      { threshold: 0.12, rootMargin: "0px 0px -60px 0px" }
+    );
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, []);
+
   return (
+
     <div
       className="min-h-screen bg-background text-foreground"
       style={{
@@ -88,7 +107,45 @@ function Landing() {
           animation: draw 2.4s ease-out forwards;
         }
         @keyframes draw { to { stroke-dashoffset: 0; } }
+
+        /* Scroll reveal */
+        [data-reveal] {
+          opacity: 0;
+          transform: translateY(28px);
+          transition: opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
+                      transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+          transition-delay: var(--reveal-delay, 0ms);
+          will-change: opacity, transform;
+        }
+        [data-reveal].is-revealed {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          [data-reveal] { opacity: 1; transform: none; transition: none; }
+          .ticker-track, .equity-rise, .hero-shimmer, .hero-rise { animation: none !important; }
+        }
+
+        /* Hero text animations */
+        .hero-rise {
+          opacity: 0;
+          transform: translateY(20px);
+          animation: heroRise 900ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+          animation-delay: var(--rise-delay, 0ms);
+        }
+        @keyframes heroRise {
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .hero-shimmer {
+          background-size: 200% auto;
+          animation: shimmer 6s linear infinite;
+        }
+        @keyframes shimmer {
+          0% { background-position: 0% center; }
+          100% { background-position: 200% center; }
+        }
       `}</style>
+
 
       {/* HEADER */}
       <header className="sticky top-0 z-30 bg-background/60 backdrop-blur-xl">
@@ -134,25 +191,35 @@ function Landing() {
         <div className="mx-auto max-w-7xl px-6 pb-16 pt-20 md:px-10 md:pt-28">
           <div className="mx-auto max-w-4xl text-center">
             <div
-              className="mx-auto mb-7 inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs"
+              className="hero-rise mx-auto mb-7 inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs"
               style={{
                 borderColor: "color-mix(in oklab, var(--brand-gold) 40%, transparent)",
                 background: "color-mix(in oklab, var(--brand-gold) 10%, transparent)",
                 color: "var(--brand-gold)",
+                ["--rise-delay" as any]: "0ms",
               }}
             >
               <BadgeCheck className="size-3.5" />
               <span className="font-medium">A two-sided market for verified trading edge</span>
             </div>
-            <h1 className="landing-display text-balance text-5xl font-bold leading-[1.05] md:text-7xl lg:text-[5.5rem]">
-              <span className="landing-grad-text">Trade</span> the signal.{" "}
-              <span className="landing-grad-text">Build</span> the signal.
+            <h1
+              className="hero-rise landing-display text-balance text-5xl font-bold leading-[1.05] md:text-7xl lg:text-[5.5rem]"
+              style={{ ["--rise-delay" as any]: "120ms" }}
+            >
+              <span className="landing-grad-text hero-shimmer">Trade</span> the signal.{" "}
+              <span className="landing-grad-text hero-shimmer">Build</span> the signal.
             </h1>
-            <p className="mx-auto mt-7 max-w-2xl text-balance text-lg text-muted-foreground md:text-xl">
+            <p
+              className="hero-rise mx-auto mt-7 max-w-2xl text-balance text-lg text-muted-foreground md:text-xl"
+              style={{ ["--rise-delay" as any]: "260ms" }}
+            >
               Bayn is the marketplace where quants ship verified strategies and traders follow them.
               <span className="text-foreground"> One filter. Both sides win.</span>
             </p>
-            <div className="mt-9 grid gap-3 sm:grid-cols-2 sm:gap-4">
+            <div
+              className="hero-rise mt-9 grid gap-3 sm:grid-cols-2 sm:gap-4"
+              style={{ ["--rise-delay" as any]: "380ms" }}
+            >
               <Button
                 size="lg"
                 asChild
@@ -179,7 +246,10 @@ function Landing() {
                 </Link>
               </Button>
             </div>
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
+            <div
+              className="hero-rise mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground"
+              style={{ ["--rise-delay" as any]: "500ms" }}
+            >
               <span className="flex items-center gap-1.5"><Lock className="size-3.5" /> No auto-trading</span>
               <span className="opacity-50">·</span>
               <span className="flex items-center gap-1.5"><Zap className="size-3.5" /> Free to start</span>
@@ -187,6 +257,7 @@ function Landing() {
               <span className="flex items-center gap-1.5"><Users className="size-3.5" /> 4,200+ traders · 380+ devs</span>
             </div>
           </div>
+
 
 
           {/* Live ticker */}
@@ -220,7 +291,7 @@ function Landing() {
       </section>
 
       {/* SHARED FILTER (neutral — the bridge between both sides) */}
-      <section id="pipeline" className="mx-auto max-w-7xl px-6 pb-16 pt-10 md:px-10 md:pb-24">
+      <section data-reveal id="pipeline" className="mx-auto max-w-7xl px-6 pb-16 pt-10 md:px-10 md:pb-24">
         <div className="mb-8 text-center">
           <div className="mb-3 font-mono text-xs uppercase tracking-[0.2em] text-brand-gold">The bridge</div>
           <h2 className="landing-display mx-auto max-w-3xl text-balance text-3xl font-bold tracking-tight md:text-5xl">
@@ -263,7 +334,7 @@ function Landing() {
       </section>
 
       {/* TWO-SIDED SYMMETRIC BENTO */}
-      <section id="catalog" className="mx-auto max-w-7xl px-6 pb-20 md:px-10 md:pb-28">
+      <section data-reveal id="catalog" className="mx-auto max-w-7xl px-6 pb-20 md:px-10 md:pb-28">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* === TRADER SIDE === */}
           <SideColumn
@@ -361,7 +432,7 @@ function Landing() {
 
 
       {/* PROOF / TRUST */}
-      <section id="proof" className="border-y border-border/60 bg-elevated/40">
+      <section data-reveal id="proof" className="border-y border-border/60 bg-elevated/40">
         <div className="mx-auto grid max-w-7xl grid-cols-2 gap-6 px-6 py-12 md:grid-cols-4 md:px-10">
           {[
             { v: "127", l: "Live strategies" },
@@ -378,7 +449,7 @@ function Landing() {
       </section>
 
       {/* THREE PILLARS */}
-      <section className="mx-auto max-w-7xl px-6 py-20 md:px-10 md:py-28">
+      <section data-reveal className="mx-auto max-w-7xl px-6 py-20 md:px-10 md:py-28">
         <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
           {[
             {
@@ -415,7 +486,7 @@ function Landing() {
       </section>
 
       {/* FINAL CTA */}
-      <section className="mx-auto max-w-7xl px-6 pb-24 md:px-10">
+      <section data-reveal className="mx-auto max-w-7xl px-6 pb-24 md:px-10">
         <div
           className="relative overflow-hidden rounded-3xl border p-10 text-center md:p-16"
           style={{
