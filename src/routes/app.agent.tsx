@@ -33,7 +33,7 @@ function TraderAgent() {
               <li>Bayn's pipeline validates a strategy → publishes it → it fires a signal.</li>
               <li>Your AI agent (connected to <code className="font-mono text-foreground">https://agent.bayn.app/mcp</code>) reads the signal.</li>
               <li>The agent presents it to you with Bayn's verified context.</li>
-              <li>On your confirmation, the agent places the order via <code className="font-mono text-foreground">https://agent.broker.com/mcp/trading</code>.</li>
+              <li>On your confirmation, the agent places the order via <code className="font-mono text-foreground">https://agent.broker.app/mcp/trading</code>.</li>
               <li>Bayn tracks the outcome for your verified performance record.</li>
             </ol>
             <div className="rounded-md border border-warn/30 bg-warn/5 px-3 py-1.5 text-xs text-foreground/80">
