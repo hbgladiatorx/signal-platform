@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Loader2, ShieldCheck, Mail, Lock, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { getOnboarded } from "@/lib/user-prefs";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
