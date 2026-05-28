@@ -52,9 +52,9 @@ export async function getMarketOverview() { await wait(60); return marketTiles; 
 export async function getStrategyEquity(strategyId: string, days = 30) {
   await wait();
   return getEquityCurve(strategyId, days);
+}
 export async function getUserPerformance(days = 30) {
   await wait();
-  // New / un-seeded accounts: no follows → no performance history.
   if (getEffectiveFollowedIds().length === 0) {
     return {
       equity: [] as ReturnType<typeof getUserEquityCurve>,
@@ -74,9 +74,8 @@ export async function getUserPerformance(days = 30) {
 }
 export async function subscribeToStrategy(id: string) { await wait(); toggleFollow(id, true); return { ok: true }; }
 export async function unsubscribeFromStrategy(id: string) { await wait(); toggleFollow(id, false); return { ok: true }; }
+export async function markSignalTaken(_signalId: string, _fillPrice: number) { await wait(); return { ok: true }; }
+export async function sendOrderToBroker(_signalId: string, _broker: string) { await wait(400); return { ok: true }; }
 
-}
-export async function subscribeToStrategy(id: string) { await wait(); toggleFollow(id, true); return { ok: true }; }
-export async function unsubscribeFromStrategy(id: string) { await wait(); toggleFollow(id, false); return { ok: true }; }
 export async function markSignalTaken(_signalId: string, _fillPrice: number) { await wait(); return { ok: true }; }
 export async function sendOrderToBroker(_signalId: string, _broker: string) { await wait(400); return { ok: true }; }
