@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { getOnboarded } from "@/lib/user-prefs";
 
 /**
  * Client-side auth gate. Renders children only when a Supabase session exists.
- * Redirects to /auth otherwise. Used to protect /app and /studio subtrees.
+ * Redirects unauthenticated users to /auth, and authenticated users that
+ * have not completed onboarding to /onboarding.
  */
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const nav = useNavigate();
@@ -14,22 +16,29 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let active = true;
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!active) return;
-      if (session) setStatus("authed");
-      else {
+    const route = (hasSession: boolean) => {
+      if (!hasSession) {
         setStatus("anon");
         nav({ to: "/auth" });
+        return;
       }
+      if (!getOnboarded()) {
+        // Authenticated but not through onboarding yet.
+        setStatus("checking");
+        nav({ to: "/onboarding" });
+        return;
+      }
+      setStatus("authed");
+    };
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return;
+      route(!!session);
     });
 
     supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
-      if (data.session) setStatus("authed");
-      else {
-        setStatus("anon");
-        nav({ to: "/auth" });
-      }
+      route(!!data.session);
     });
 
     return () => {
