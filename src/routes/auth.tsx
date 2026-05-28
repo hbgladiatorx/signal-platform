@@ -30,9 +30,8 @@ function AuthPage() {
   const [password, setPassword] = useState("");
 
   // If already signed in, bounce into the app.
-  useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) nav({ to: "/app/home" });
+      if (data.session) nav({ to: getOnboarded() ? "/app/home" : "/onboarding" });
     });
   }, [nav]);
 
@@ -43,8 +42,9 @@ function AuthPage() {
     setLoading(false);
     if (error) return toast.error(error.message);
     toast.success("Welcome back");
-    nav({ to: "/app/home" });
+    nav({ to: getOnboarded() ? "/app/home" : "/onboarding" });
   };
+
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
