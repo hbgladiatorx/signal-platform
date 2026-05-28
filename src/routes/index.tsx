@@ -208,6 +208,13 @@ function Landing() {
                       <span className="text-muted-foreground/40">|</span>
                     </div>
                   ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* SHARED FILTER (neutral — the bridge between both sides) */}
       <section id="pipeline" className="mx-auto max-w-7xl px-6 pb-16 pt-10 md:px-10 md:pb-24">
         <div className="mb-8 text-center">
