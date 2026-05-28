@@ -1,5 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,6 +45,7 @@ const ASSETS: { key: Asset; label: string }[] = [
 
 function OnboardingPage() {
   const nav = useNavigate();
+  const [authChecked, setAuthChecked] = useState(false);
   const [step, setStep] = useState(1);
   const [path, setPath] = useState<Path>("trader");
   const [assets, setAssets] = useState<Asset[]>(["stocks", "crypto"]);
@@ -86,7 +89,24 @@ function OnboardingPage() {
     else nav({ to: "/app/home" });
   };
 
+  // Onboarding requires an account. Anonymous visitors get bounced to /auth.
+  useEffect(() => {
+    let active = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!active) return;
+      if (!data.session) nav({ to: "/auth" });
+      else setAuthChecked(true);
+    });
+    return () => { active = false; };
+  }, [nav]);
 
+  if (!authChecked) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-background">
+        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
 
   return (
