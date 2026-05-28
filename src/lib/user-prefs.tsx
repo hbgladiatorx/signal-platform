@@ -216,12 +216,131 @@ export function resetAllPrefs() {
   for (const k of keys) {
     inMemory.delete(k);
     if (typeof window !== "undefined") {
-      try {
-        window.localStorage.removeItem(storageKey(k));
-        window.localStorage.removeItem(STORAGE_PREFIX + k);
-      } catch { /* noop */ }
-    }
-    notify(k);
-  }
-  logDebugEvent({ type: "reset", message: "All onboarding and preference state reset" });
+/* ---------------- Identity ---------------- */
+export type Identity = {
+  displayName: string;
+  timezone: string;
+  currency: string;
+  avatarUrl: string | null;
+};
+const DEFAULT_IDENTITY: Identity = { displayName: "", timezone: "", currency: "USD", avatarUrl: null };
+export function useIdentity() { return usePref<Identity>("identity", DEFAULT_IDENTITY); }
+export function setIdentity(v: Identity) { write("identity", v); }
+
+/* ---------------- Experience profile ---------------- */
+export type ExperienceLevel = "retail" | "active" | "professional" | "institutional";
+export type ExperienceProfile = {
+  level: ExperienceLevel | null;
+  years: string | null; // bucket: "<1", "1-3", "3-5", "5-10", "10+"
+  motivations: string[];
+  signalSources: string[];
+};
+const DEFAULT_EXP: ExperienceProfile = { level: null, years: null, motivations: [], signalSources: [] };
+export function useExperienceProfile() { return usePref<ExperienceProfile>("experience", DEFAULT_EXP); }
+
+/* ---------------- Risk + trading defaults (extended) ---------------- */
+export function useMaxConcurrentPositions() { return usePref<number>("trading.maxConcurrent", 5); }
+export function useDailyLossLimit() {
+  return usePref<{ enabled: boolean; threshold: number }>("trading.dailyLossLimit", { enabled: false, threshold: 0 });
 }
+
+/* ---------------- Broker connections (preference only) ---------------- */
+export type BrokerId = "coinbase" | "ibkr" | "tradier" | "topstepx" | "robinhood-agentic";
+export function useBrokerConnections() { return usePref<BrokerId[]>("brokers.connections", []); }
+export function useDefaultBrokerByAssetClass() {
+  return usePref<Partial<Record<AssetClass, BrokerId>>>("brokers.defaultByAssetClass", {});
+}
+
+/* ---------------- AI agent setup ---------------- */
+export type AgentPlatform = "claude-code" | "claude-desktop" | "chatgpt" | "codex" | "cursor" | "other";
+export function useAgentSetup() {
+  return usePref<{
+    platform: AgentPlatform | null;
+    baynMcpConnected: boolean;
+    brokerageAgentConnected: boolean;
+    readSignalFeed: boolean;
+  }>("agent.setup", { platform: null, baynMcpConnected: false, brokerageAgentConnected: false, readSignalFeed: false });
+}
+
+/* ---------------- Studio preferences ---------------- */
+export type BuilderEntry = "template" | "blank" | "ai-describe";
+export type StudioExperience = "none" | "some" | "strong" | "professional";
+export type NodeStyle = "conservative" | "minimal" | "aggressive";
+
+export function useStudioAssetClasses() { return usePref<AssetClass[]>("studio.assetClasses", []); }
+export function useStudioExperience() {
+  return usePref<{ level: StudioExperience | null; usedNodeBuilder: boolean | null; entry: BuilderEntry | null }>(
+    "studio.experience", { level: null, usedNodeBuilder: null, entry: null },
+  );
+}
+export function useBacktestDefaults() {
+  return usePref<{
+    startingCapital: number;
+    dateRange: "1Y" | "3Y" | "5Y" | "MAX";
+    commissionModel: "per-share" | "per-contract" | "percent" | "custom";
+    commissionValue: number;
+    slippageBps: number;
+    currency: string;
+  }>("studio.backtestDefaults", {
+    startingCapital: 0, dateRange: "3Y", commissionModel: "per-share",
+    commissionValue: 0, slippageBps: 0, currency: "USD",
+  });
+}
+export function useForwardTestDefaults() {
+  return usePref<{
+    paperCapital: number;
+    autoPromoteDays: number;
+    delivery: { inApp: boolean; email: boolean; push: boolean };
+  }>("studio.forwardTestDefaults", {
+    paperCapital: 0, autoPromoteDays: 30, delivery: { inApp: true, email: false, push: false },
+  });
+}
+export function useStudioAiPreferences() {
+  return usePref<{ nodeStyle: NodeStyle; rememberSession: boolean }>(
+    "studio.aiPrefs", { nodeStyle: "minimal", rememberSession: true },
+  );
+}
+export function useStudioWorkspaceDefaults() {
+  return usePref<{ view: "grid" | "list" | "kanban"; defaultAssetClass: AssetClass | null }>(
+    "studio.workspaceDefaults", { view: "grid", defaultAssetClass: null },
+  );
+}
+export function usePayoutPreference() {
+  return usePref<{ method: "ach" | "wire" | "stripe" | null }>("studio.payout", { method: null });
+}
+
+/* ---------------- Default mode on login (both-mode users) ---------------- */
+export function useDefaultModeOnLogin() {
+  return usePref<"trader" | "studio" | null>("defaultModeOnLogin", null);
+}
+
+/* ---------------- Resume support ---------------- */
+export function useOnboardingResume() {
+  return usePref<{ step: number; total: number } | null>("onboarding.resume", null);
+}
+export function setOnboardingResume(v: { step: number; total: number } | null) {
+  write("onboarding.resume", v);
+}
+
+/* ---------------- Dismissed checklist items ---------------- */
+export function useDismissedChecklistItems() {
+  return usePref<string[]>("checklist.dismissed", []);
+}
+
+/* ---------------- Account seeding / onboarding flags ---------------- */
+export function getTraderSeeded() { return read<boolean>("traderSeeded", false); }
+export function setTraderSeeded(v: boolean) { write("traderSeeded", v); logDebugEvent({ type: "onboarding", message: `Trader onboarding seeded: ${v}` }); }
+export function useTraderSeeded() { return usePref<boolean>("traderSeeded", false); }
+
+export function getStudioSeeded() { return read<boolean>("studioSeeded", false); }
+export function setStudioSeeded(v: boolean) { write("studioSeeded", v); logDebugEvent({ type: "onboarding", message: `Studio onboarding seeded: ${v}` }); }
+export function useStudioSeeded() { return usePref<boolean>("studioSeeded", false); }
+
+export function getOnboarded() { return read<boolean>("onboarded", false); }
+export function setOnboarded(v: boolean) { write("onboarded", v); logDebugEvent({ type: "onboarding", message: `Onboarding flag set: ${v}` }); }
+export function useOnboarded() { return usePref<boolean>("onboarded", false); }
+
+export type OnboardingPath = "trader" | "developer" | "both";
+export function getOnboardingPath() { return read<OnboardingPath | null>("onboarding.path", null); }
+export function setOnboardingPath(v: OnboardingPath) { write("onboarding.path", v); logDebugEvent({ type: "onboarding", message: `Onboarding path selected: ${v}` }); }
+export function useOnboardingPath() { return usePref<OnboardingPath | null>("onboarding.path", null); }
