@@ -56,13 +56,15 @@ export function PaywallModal({
     onResolved?.();
   };
 
+  const strategyName = strategy?.name ?? "this strategy";
+
   const unsub = useMutation({
     mutationFn: async (id: string) => {
       await unsubscribeFromStrategy(id);
       if (strategyId) await subscribeToStrategy(strategyId);
       return { ok: true };
     },
-    onSuccess: () => handleResolve(`Now following ${strategy.name}`, false),
+    onSuccess: () => handleResolve(`Now following ${strategyName}`, false),
   });
 
   if (!strategy) return null;
