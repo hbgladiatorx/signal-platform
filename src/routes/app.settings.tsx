@@ -110,8 +110,11 @@ function SettingsPage() {
           ))}
         </div>
       </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
+
 
 export default SettingsPage;
