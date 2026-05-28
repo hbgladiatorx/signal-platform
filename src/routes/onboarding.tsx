@@ -89,7 +89,24 @@ function OnboardingPage() {
     else nav({ to: "/app/home" });
   };
 
+  // Onboarding requires an account. Anonymous visitors get bounced to /auth.
+  useEffect(() => {
+    let active = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!active) return;
+      if (!data.session) nav({ to: "/auth" });
+      else setAuthChecked(true);
+    });
+    return () => { active = false; };
+  }, [nav]);
 
+  if (!authChecked) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-background">
+        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
 
   return (
