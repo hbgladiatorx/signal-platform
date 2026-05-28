@@ -33,6 +33,7 @@ const fmtPct = (n: number) => `${n >= 0 ? "+" : ""}${(n * 100).toFixed(2)}%`;
 function HomePage() {
   const [days, setDays] = useState(30);
   const { assetClass } = useAssetFilter();
+  const [watchlist] = useWatchlist();
   const market = useQuery({ queryKey: ["market"], queryFn: getMarketOverview });
   const followed = useQuery({ queryKey: ["followed"], queryFn: getFollowedStrategies });
   const recent = useQuery({ queryKey: ["recent"], queryFn: () => getRecentSignals(20) });
@@ -40,9 +41,14 @@ function HomePage() {
 
   const tiles = useMemo(() => {
     const all = market.data ?? [];
-    if (assetClass === "all") return all;
-    return all.filter((t) => t.assetClass === assetClass);
-  }, [market.data, assetClass]);
+    const inWatch = new Set(watchlist);
+    let arr = all.filter((t) => inWatch.has(t.symbol));
+    if (assetClass !== "all") arr = arr.filter((t) => t.assetClass === assetClass);
+    // Preserve user-defined order
+    const order = new Map(watchlist.map((s, i) => [s, i] as const));
+    arr.sort((a, b) => (order.get(a.symbol) ?? 0) - (order.get(b.symbol) ?? 0));
+    return arr;
+  }, [market.data, assetClass, watchlist]);
 
   const followedFiltered = useMemo(() => {
     const all = followed.data ?? [];
