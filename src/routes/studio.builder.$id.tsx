@@ -67,7 +67,7 @@ function Builder() {
     { ts: new Date().toISOString(), level: "info", msg: "Builder ready. Drag nodes from the palette or load a template." },
   ]);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
-  const [aiOpen, setAiOpen] = useState(false);
+  const [leftTab, setLeftTab] = useState<"ai" | "palette">("ai");
   const [aiHighlight, setAiHighlight] = useState<Set<string>>(new Set());
   const counter = useRef(0);
 
