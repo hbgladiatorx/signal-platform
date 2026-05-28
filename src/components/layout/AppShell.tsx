@@ -14,6 +14,8 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AssetFilterProvider, useAssetFilter, ASSET_OPTIONS } from "@/lib/asset-filter";
 import { MarketTicker } from "@/components/common/MarketTicker";
+import { PlanBadge } from "@/components/billing/PlanBadge";
+import { getCurrentPlan } from "@/lib/api/billing";
 
 type NavItem = { to: string; label: string; icon: typeof Home };
 
@@ -118,11 +120,16 @@ function Shell({ mode }: { mode: "trader" | "studio" }) {
                 </div>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align="end" className="w-60">
               <DropdownMenuLabel>
-                Signed in as <span className={isStudio ? "font-mono text-violet" : "font-mono text-cyan"}>@trader</span>
-                <div className="mt-0.5 text-[10px] font-normal text-muted-foreground">
-                  {isStudio ? "Your private Studio" : "Trader account"}
+                <div className="flex items-center gap-1.5">
+                  Signed in as <span className={isStudio ? "font-mono text-violet" : "font-mono text-cyan"}>@trader</span>
+                </div>
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <PlanBadge tier={isStudio ? getCurrentPlan().developer : getCurrentPlan().trader} />
+                  <span className="text-[10px] font-normal text-muted-foreground">
+                    {isStudio ? "Your private Studio" : "Trader account"}
+                  </span>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
@@ -136,9 +143,11 @@ function Shell({ mode }: { mode: "trader" | "studio" }) {
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem asChild>
+                <Link to={isStudio ? "/studio/pricing" : "/app/pricing"}>Plan & billing</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
                 <Link to={isStudio ? "/studio/settings" : "/app/settings"}>Settings</Link>
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
               <DropdownMenuItem
                 onSelect={async () => {
                   const { supabase } = await import("@/integrations/supabase/client");
