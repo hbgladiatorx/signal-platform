@@ -28,7 +28,7 @@ function StudioAgent() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_360px]">
         <div className="h-[640px]">
-          <AgentChat mode="studio" onGraph={(g) => setLastBuild(g)} />
+          <AgentChat mode="studio" onGraph={(g) => g && setLastBuild(g)} />
         </div>
 
         <div className="space-y-3">
