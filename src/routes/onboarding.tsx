@@ -52,6 +52,9 @@ function OnboardingPage() {
   const [goals, setGoals] = useState<string[]>(["consistent income"]);
   const [billing, setBilling] = useState<Billing>("annual");
 
+  // After step 6, developers get the Studio intro (step 7), then land.
+  const totalSteps = path === "trader" ? 7 : 8;
+
   const activateTrader = () => {
     // Add the user's free verified strategies to their followed list, then mark seeded.
     const chosen = (assets.length ? assets : (ASSETS.map(a => a.key) as Asset[]));
