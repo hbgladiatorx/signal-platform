@@ -111,8 +111,9 @@
 
 @layer base {
   * { border-color: var(--color-border); }
-  html, body { background-color: var(--color-background); color: var(--color-foreground); }
-  body { font-feature-settings: "cv11", "ss01"; }
+  html, body { background-color: var(--color-background); color: var(--color-foreground); font-family: var(--font-sans); }
+  body { font-feature-settings: "cv11", "ss01", "ss02", "zero", "tnum"; letter-spacing: -0.005em; }
+  h1, h2, h3, h4 { letter-spacing: -0.018em; }
 }
 
 @layer utilities {
