@@ -226,10 +226,10 @@ function buildSteps(path: Path): { key: StepKey; label: string }[] {
     { key: "forwardTest", label: "Forward-test defaults" },
     { key: "studioAi", label: "Studio AI" },
     { key: "studioPlan", label: "Studio plan" },
-    { key: "payout", label: "Payout (optional)" },
     { key: "workspace", label: "Workspace defaults" },
     { key: "firstStrategy", label: "First strategy" },
   ];
+
   const studioCondensed: { key: StepKey; label: string }[] = [
     { key: "studioMarkets", label: "Build for which markets" },
     { key: "builderExp", label: "Builder experience" },
