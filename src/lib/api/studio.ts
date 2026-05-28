@@ -56,6 +56,8 @@ export function ensureDevStrategyDraft(input: {
     versions: [{ id: "v1", createdAt: now, note: "Initial draft" }],
   };
   devStrategies.unshift(draft);
+  // Creating a draft means the developer is actively using Studio — mark seeded
+  // so subsequent reads include their work, but not the demo seed strategies.
   return draft;
 }
 
@@ -66,17 +68,23 @@ export async function getTemplates() {
 
 export async function getBacktestsForStrategy(strategyId: string): Promise<BacktestRun[]> {
   await wait();
-  return backtestRuns.filter((b) => b.strategyId === strategyId);
+  const list = backtestRuns.filter((b) => b.strategyId === strategyId);
+  if (getStudioSeeded() || isUserCreated(strategyId)) return list;
+  return [];
 }
 
 export async function getBacktest(id: string): Promise<BacktestRun | undefined> {
   await wait();
-  return backtestRuns.find((b) => b.id === id);
+  const run = backtestRuns.find((b) => b.id === id);
+  if (!run) return undefined;
+  if (!getStudioSeeded() && !isUserCreated(run.strategyId)) return undefined;
+  return run;
 }
 
 export async function getPersonalSignals(opts?: { strategyId?: string; limit?: number }): Promise<PersonalSignal[]> {
   await wait();
   let list = [...personalSignals].sort((a, b) => +new Date(b.firedAt) - +new Date(a.firedAt));
+  if (!getStudioSeeded()) list = list.filter((s) => isUserCreated(s.ownStrategyId));
   if (opts?.strategyId) list = list.filter((s) => s.ownStrategyId === opts.strategyId);
   if (opts?.limit) list = list.slice(0, opts.limit);
   return list;
@@ -84,8 +92,10 @@ export async function getPersonalSignals(opts?: { strategyId?: string; limit?: n
 
 export async function getEarnings() {
   await wait();
+  if (!getStudioSeeded()) return [] as typeof studioEarnings;
   return studioEarnings;
 }
+
 
 export async function saveStrategyGraph(_id: string, _graph: StrategyGraph) {
   await wait(220);
