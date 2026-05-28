@@ -214,7 +214,9 @@ function Landing() {
             <a href="#how" className="rounded-full px-4 py-1.5 transition-colors hover:text-foreground">How it works</a>
             <a href="#traders" className="rounded-full px-4 py-1.5 transition-colors hover:text-foreground">For Traders</a>
             <a href="#devs" className="rounded-full px-4 py-1.5 transition-colors hover:text-foreground">For Devs</a>
+            <Link to="/pricing" className="rounded-full px-4 py-1.5 transition-colors hover:text-foreground">Pricing</Link>
             <a href="#faq" className="rounded-full px-4 py-1.5 transition-colors hover:text-foreground">FAQ</a>
+
           </nav>
 
 
