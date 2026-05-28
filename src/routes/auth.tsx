@@ -8,8 +8,8 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Loader2, ShieldCheck, Mail, Lock, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { getOnboarded, resetAllPrefs } from "@/lib/user-prefs";
-import { resetCurrentPlan } from "@/lib/api/billing";
+import { getOnboarded, resetAllPrefs, setPreferenceScope } from "@/lib/user-prefs";
+import { resetCurrentPlan, setBillingScope } from "@/lib/api/billing";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -33,6 +33,8 @@ function AuthPage() {
   // If already signed in, bounce into the app (or onboarding if not yet completed).
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
+      setPreferenceScope(data.session?.user?.id ?? null);
+      setBillingScope(data.session?.user?.id ?? null);
       if (data.session) nav({ to: getOnboarded() ? "/app/home" : "/onboarding" });
     });
   }, [nav]);
@@ -41,9 +43,11 @@ function AuthPage() {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     if (error) return toast.error(error.message);
+    setPreferenceScope(data.session?.user?.id ?? null);
+    setBillingScope(data.session?.user?.id ?? null);
     toast.success("Welcome back");
     nav({ to: getOnboarded() ? "/app/home" : "/onboarding" });
   };
@@ -64,7 +68,11 @@ function AuthPage() {
     resetAllPrefs();
     resetCurrentPlan();
     const { data } = await supabase.auth.getSession();
+    setPreferenceScope(data.session?.user?.id ?? null);
+    setBillingScope(data.session?.user?.id ?? null);
     if (data.session) {
+      resetAllPrefs();
+      resetCurrentPlan();
       toast.success("Account created");
       nav({ to: "/onboarding" });
     } else {
