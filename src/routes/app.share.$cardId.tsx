@@ -10,7 +10,7 @@ import {
   Area, AreaChart, ResponsiveContainer,
 } from "recharts";
 
-export const Route = createFileRoute("/share/$cardId")({
+export const Route = createFileRoute("/app/share/$cardId")({
   head: ({ params }) => ({ meta: [{ title: `Bayn share card ${params.cardId}` }] }),
   component: SharePage,
 });

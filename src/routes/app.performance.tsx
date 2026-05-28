@@ -14,7 +14,7 @@ import {
 import { Download } from "lucide-react";
 import { format } from "date-fns";
 
-export const Route = createFileRoute("/_app/performance")({
+export const Route = createFileRoute("/app/performance")({
   head: () => ({ meta: [{ title: "Performance — Bayn" }] }),
   component: PerformancePage,
 });

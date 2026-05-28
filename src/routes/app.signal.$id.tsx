@@ -18,7 +18,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { Share2, Bitcoin } from "lucide-react";
 
-export const Route = createFileRoute("/_app/signal/$id")({
+export const Route = createFileRoute("/app/signal/$id")({
   head: ({ params }) => ({ meta: [{ title: `Signal ${params.id} — Bayn` }] }),
   component: SignalDetail,
 });
@@ -46,7 +46,7 @@ function SignalDetail() {
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <AssetClassBadge assetClass={s.assetClass} hideIcon />
-            <Link to="/strategy/$id" params={{ id: s.strategyId }} className="hover:text-cyan">{s.strategyName}</Link>
+            <Link to="/app/strategy/$id" params={{ id: s.strategyId }} className="hover:text-cyan">{s.strategyName}</Link>
             <span>·</span>
             <span>{format(new Date(s.firedAt), "PP p")}</span>
           </div>

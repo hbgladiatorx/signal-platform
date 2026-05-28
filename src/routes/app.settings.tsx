@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Briefcase, Bitcoin, Building2, Activity, Check } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_app/settings")({
+export const Route = createFileRoute("/app/settings")({
   head: () => ({ meta: [{ title: "Settings — Bayn" }] }),
   component: SettingsPage,
 });

@@ -18,7 +18,7 @@ import {
 } from "recharts";
 import { TrendingUp, Inbox } from "lucide-react";
 
-export const Route = createFileRoute("/_app/home")({
+export const Route = createFileRoute("/app/home")({
   head: () => ({ meta: [{ title: "Home — Bayn" }] }),
   component: HomePage,
 });
@@ -67,14 +67,14 @@ function HomePage() {
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">My strategies</h2>
-          <Button variant="ghost" size="sm" asChild><Link to="/catalog">Browse catalog →</Link></Button>
+          <Button variant="ghost" size="sm" asChild><Link to="/app/catalog">Browse catalog →</Link></Button>
         </div>
         {followed.data?.length === 0 ? (
-          <EmptyState icon={Inbox} title="You're not following any strategies yet" cta={<Button asChild><Link to="/catalog">Explore catalog</Link></Button>} />
+          <EmptyState icon={Inbox} title="You're not following any strategies yet" cta={<Button asChild><Link to="/app/catalog">Explore catalog</Link></Button>} />
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
             {(followed.data ?? []).map((s) => (
-              <Link key={s.id} to="/strategy/$id" params={{ id: s.id }}>
+              <Link key={s.id} to="/app/strategy/$id" params={{ id: s.id }}>
                 <Card className="group h-full border-border bg-elevated p-4 transition-colors hover:border-cyan/30">
                   <div className="mb-2 flex items-start justify-between gap-2">
                     <h3 className="font-semibold leading-tight group-hover:text-cyan">{s.name}</h3>
@@ -107,7 +107,7 @@ function HomePage() {
         <Card className="border-border bg-elevated">
           <div className="divide-y divide-border">
             {(recent.data ?? []).map((sig) => (
-              <Link key={sig.id} to="/signal/$id" params={{ id: sig.id }} className="grid grid-cols-12 items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30">
+              <Link key={sig.id} to="/app/signal/$id" params={{ id: sig.id }} className="grid grid-cols-12 items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30">
                 <div className="col-span-2 text-xs text-muted-foreground">
                   {formatDistanceToNow(new Date(sig.firedAt), { addSuffix: true })}
                 </div>
