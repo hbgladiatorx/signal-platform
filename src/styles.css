@@ -38,6 +38,8 @@
   --color-danger-foreground: var(--danger-foreground);
   --color-gold: var(--gold);
   --color-gold-foreground: var(--gold-foreground);
+  --color-success: var(--success);
+  --color-warn: var(--warn);
   --color-stocks: var(--stocks);
   --color-crypto: var(--crypto);
   --color-options: var(--options);
