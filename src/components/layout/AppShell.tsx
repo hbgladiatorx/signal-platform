@@ -151,12 +151,16 @@ function Shell({ mode }: { mode: "trader" | "studio" }) {
               <DropdownMenuItem
                 onSelect={async () => {
                   const { supabase } = await import("@/integrations/supabase/client");
+                  const { resetAllPrefs } = await import("@/lib/user-prefs");
                   await supabase.auth.signOut();
+                  // Clear local prefs so the next account that signs in starts blank.
+                  resetAllPrefs();
                   navigate({ to: "/" });
                 }}
               >
                 Sign out
               </DropdownMenuItem>
+
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
