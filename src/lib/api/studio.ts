@@ -2,20 +2,30 @@
 import {
   devStrategies, backtestRuns, personalSignals, studioEarnings, graphTemplates,
 } from "../mockData";
+import { getStudioSeeded, setStudioSeeded } from "../user-prefs";
 import type { DevStrategy, BacktestRun, PersonalSignal, StrategyGraph } from "../types";
 
 const wait = (ms = 120) => new Promise((r) => setTimeout(r, ms));
 
+/** A "user-created" strategy is any draft saved during this session.
+ *  We mark those with an id beginning with `dev-` (see ensureDevStrategyDraft).
+ *  Mock seed strategies use other ids and are hidden until studio is seeded. */
+const isUserCreated = (id: string) => id.startsWith("dev-");
+
 export async function getDevStrategies(): Promise<DevStrategy[]> {
   await wait();
-  // TODO: supabase.from('dev_strategies').select('*').eq('user_id', userId)
-  return devStrategies;
+  if (getStudioSeeded()) return devStrategies;
+  return devStrategies.filter((s) => isUserCreated(s.id));
 }
 
 export async function getDevStrategy(id: string): Promise<DevStrategy | undefined> {
   await wait();
-  return devStrategies.find((s) => s.id === id);
+  const s = devStrategies.find((x) => x.id === id);
+  if (!s) return undefined;
+  if (!getStudioSeeded() && !isUserCreated(s.id)) return undefined;
+  return s;
 }
+
 
 export function ensureDevStrategyDraft(input: {
   id?: string;
