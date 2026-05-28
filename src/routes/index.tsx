@@ -115,6 +115,67 @@ function Landing() {
         .hero-shimmer { background-size: 200% auto; animation: shimmer 6s linear infinite; }
         @keyframes shimmer { 0% { background-position: 0% center; } 100% { background-position: 200% center; } }
 
+        /* Animated nav pill */
+        .nav-pill {
+          position: absolute;
+          background: color-mix(in oklab, var(--background) 35%, transparent);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+          border: 1px solid transparent;
+          background-clip: padding-box;
+          isolation: isolate;
+          overflow: hidden;
+          transition: transform 400ms cubic-bezier(0.22, 1, 0.36, 1), background 300ms;
+        }
+        .nav-pill::before {
+          content: "";
+          position: absolute;
+          inset: -1px;
+          border-radius: 9999px;
+          padding: 1px;
+          background: conic-gradient(
+            from var(--nav-angle, 0deg),
+            color-mix(in oklab, var(--emerald) 70%, transparent),
+            color-mix(in oklab, var(--brand-gold) 70%, transparent),
+            color-mix(in oklab, var(--emerald) 70%, transparent)
+          );
+          -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          -webkit-mask-composite: xor;
+                  mask-composite: exclude;
+          animation: navSpin 9s linear infinite;
+          z-index: -1;
+        }
+        @property --nav-angle {
+          syntax: '<angle>';
+          initial-value: 0deg;
+          inherits: false;
+        }
+        @keyframes navSpin {
+          to { --nav-angle: 360deg; }
+        }
+        .nav-pill::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          border-radius: 9999px;
+          background: linear-gradient(
+            110deg,
+            transparent 35%,
+            color-mix(in oklab, var(--foreground) 14%, transparent) 50%,
+            transparent 65%
+          );
+          background-size: 250% 100%;
+          animation: navSheen 7s ease-in-out infinite;
+          pointer-events: none;
+          mix-blend-mode: overlay;
+        }
+        @keyframes navSheen {
+          0% { background-position: 200% 0; }
+          100% { background-position: -100% 0; }
+        }
+        .nav-pill:hover { transform: translate(-50%, -1px); }
+
+
         .equity-draw { stroke-dasharray: 1200; stroke-dashoffset: 1200; animation: draw 2.8s ease-out forwards; }
         @keyframes draw { to { stroke-dashoffset: 0; } }
 
