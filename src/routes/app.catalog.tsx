@@ -21,6 +21,9 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/app/catalog")({
   head: () => ({ meta: [{ title: "Strategy catalog — Bayn" }, { name: "description", content: "Browse verified trading strategies across stocks, crypto, options and futures." }] }),
   component: CatalogPage,
+});
+
+
 function CatalogPage() {
   const { assetClass } = useAssetFilter();
   const [enabledClasses] = useEnabledAssetClasses();
