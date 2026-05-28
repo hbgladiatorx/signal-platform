@@ -115,6 +115,67 @@ function Landing() {
         .hero-shimmer { background-size: 200% auto; animation: shimmer 6s linear infinite; }
         @keyframes shimmer { 0% { background-position: 0% center; } 100% { background-position: 200% center; } }
 
+        /* Animated nav pill */
+        .nav-pill {
+          position: absolute;
+          background: color-mix(in oklab, var(--background) 35%, transparent);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+          border: 1px solid transparent;
+          background-clip: padding-box;
+          isolation: isolate;
+          overflow: hidden;
+          transition: transform 400ms cubic-bezier(0.22, 1, 0.36, 1), background 300ms;
+        }
+        .nav-pill::before {
+          content: "";
+          position: absolute;
+          inset: -1px;
+          border-radius: 9999px;
+          padding: 1px;
+          background: conic-gradient(
+            from var(--nav-angle, 0deg),
+            color-mix(in oklab, var(--emerald) 70%, transparent),
+            color-mix(in oklab, var(--brand-gold) 70%, transparent),
+            color-mix(in oklab, var(--emerald) 70%, transparent)
+          );
+          -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          -webkit-mask-composite: xor;
+                  mask-composite: exclude;
+          animation: navSpin 9s linear infinite;
+          z-index: -1;
+        }
+        @property --nav-angle {
+          syntax: '<angle>';
+          initial-value: 0deg;
+          inherits: false;
+        }
+        @keyframes navSpin {
+          to { --nav-angle: 360deg; }
+        }
+        .nav-pill::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          border-radius: 9999px;
+          background: linear-gradient(
+            110deg,
+            transparent 35%,
+            color-mix(in oklab, var(--foreground) 14%, transparent) 50%,
+            transparent 65%
+          );
+          background-size: 250% 100%;
+          animation: navSheen 7s ease-in-out infinite;
+          pointer-events: none;
+          mix-blend-mode: overlay;
+        }
+        @keyframes navSheen {
+          0% { background-position: 200% 0; }
+          100% { background-position: -100% 0; }
+        }
+        .nav-pill:hover { transform: translate(-50%, -1px); }
+
+
         .equity-draw { stroke-dasharray: 1200; stroke-dashoffset: 1200; animation: draw 2.8s ease-out forwards; }
         @keyframes draw { to { stroke-dashoffset: 0; } }
 
@@ -145,12 +206,13 @@ function Landing() {
             <span className="landing-display tracking-tight">Bayn</span>
           </Link>
 
-          <nav className="landing-display hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-1 rounded-full border border-foreground/25 bg-transparent px-3 py-2 text-xs font-medium uppercase tracking-[0.18em] text-foreground/80">
+          <nav className="nav-pill landing-display hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-1 rounded-full px-3 py-2 text-xs font-medium uppercase tracking-[0.18em] text-foreground/80">
             <a href="#how" className="rounded-full px-4 py-1.5 transition-colors hover:text-foreground">How it works</a>
             <a href="#traders" className="rounded-full px-4 py-1.5 transition-colors hover:text-foreground">For Traders</a>
             <a href="#devs" className="rounded-full px-4 py-1.5 transition-colors hover:text-foreground">For Devs</a>
             <a href="#faq" className="rounded-full px-4 py-1.5 transition-colors hover:text-foreground">FAQ</a>
           </nav>
+
 
           <div className="flex items-center gap-2">
             <Button variant="ghost" asChild className="hidden sm:inline-flex">
@@ -373,10 +435,10 @@ function Landing() {
               <div className="mono mb-3 flex items-center gap-2 text-[11px] uppercase tracking-wider text-brand-gold">
                 <Wrench className="size-3.5" /> For developers
               </div>
-              <h3 className="landing-display text-2xl font-bold md:text-3xl">Build, test, ship — get paid.</h3>
+              <h3 className="landing-display text-2xl font-bold md:text-3xl">Build your own edge. Trade it yourself.</h3>
               <p className="mt-3 text-sm text-muted-foreground md:text-base">
                 Compose strategies in the node builder or describe them in plain English. Backtest, Monte Carlo,
-                walk-forward — all built in. 30% revenue share on every subscriber.
+                walk-forward — all built in. Run your own ideas live and keep 100% of the upside.
               </p>
 
               {/* Faux code snippet */}
@@ -389,14 +451,15 @@ function Landing() {
   <span className="text-brand-gold">rsi</span>(<span className="text-success">14</span>) {'>'} <span className="text-success">55</span>,
   <span className="text-brand-gold">vol</span>(<span className="text-success">20</span>) {'<'} <span className="text-success">0.04</span>,
 )<span className="text-muted-foreground">;</span>
-<span className="text-emerald-glow">submit</span>(signal, {`{ tf: "1h" }`})<span className="text-muted-foreground">;</span></pre>
+<span className="text-emerald-glow">deploy</span>(signal, {`{ tf: "1h", mode: "live" }`})<span className="text-muted-foreground">;</span></pre>
               </div>
 
               <ul className="mt-6 space-y-2.5 text-sm">
                 <Row icon={Cpu}>Walk-forward + Monte Carlo built in</Row>
-                <Row icon={GitBranch}>Version your strategies, A/B in OOS</Row>
-                <Row icon={Sparkles}>AI co-builder: prompt → graph</Row>
+                <Row icon={GitBranch}>Version, fork and A/B your own strategies</Row>
+                <Row icon={Sparkles}>AI co-builder: prompt → graph → live</Row>
               </ul>
+
 
               <Button
                 asChild
@@ -475,8 +538,9 @@ function Landing() {
               a: "Every strategy passes backtest, out-of-sample, and forward-test on live data before publication. Live performance is tracked continuously and shown alongside the original backtest.",
             },
             {
-              q: "I'm a developer. How do I publish?",
-              a: "Build in the node-based Studio or describe a strategy in prose for the AI co-builder. Run backtests + Monte Carlo, submit for review, and earn 30% revenue share per subscriber once approved.",
+              q: "I'm a developer. What's the Studio for?",
+              a: "Build your own strategies in a node-based editor or via the AI co-builder. Backtest, run Monte Carlo + walk-forward, then deploy your strategy live and trade it yourself. You keep 100% of the upside — Bayn doesn't take a cut of what you trade.",
+
             },
           ].map(({ q, a }) => (
             <details
