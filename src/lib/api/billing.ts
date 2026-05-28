@@ -4,6 +4,8 @@
  * goes through getCurrentPlan/getUsage rather than touching constants.
  */
 
+import { logDebugEvent } from "@/lib/debug-log";
+
 export type Audience = "trader" | "developer";
 export type Billing = "monthly" | "annual";
 
@@ -187,16 +189,52 @@ export type CurrentPlan = {
   activeAddOns: string[];
 };
 
-// Brand-new accounts have NO paid plan. Onboarding step 6 fills these in.
-const mock: CurrentPlan = {
+const STORAGE_KEY = "bayn.billing.currentPlan";
+
+const defaultPlan: CurrentPlan = {
   trader: null,
   developer: null,
   billing: "annual",
   activeAddOns: [],
 };
 
-export function getCurrentPlan(): CurrentPlan { return mock; }
-export function setCurrentPlan(next: Partial<CurrentPlan>) { Object.assign(mock, next); }
+let mock: CurrentPlan = { ...defaultPlan };
+
+function readStoredPlan(): CurrentPlan {
+  if (typeof window === "undefined") return mock;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return mock;
+    const stored = JSON.parse(raw) as Partial<CurrentPlan>;
+    mock = { ...defaultPlan, ...stored, activeAddOns: stored.activeAddOns ?? [] };
+  } catch { /* noop */ }
+  return mock;
+}
+
+function persistPlan() {
+  if (typeof window === "undefined") return;
+  try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(mock)); } catch { /* noop */ }
+  window.dispatchEvent(new CustomEvent("bayn-debug-event"));
+}
+
+export function getCurrentPlan(): CurrentPlan { return readStoredPlan(); }
+export function setCurrentPlan(next: Partial<CurrentPlan>) {
+  const before = { ...readStoredPlan(), activeAddOns: [...mock.activeAddOns] };
+  mock = { ...mock, ...next, activeAddOns: next.activeAddOns ?? mock.activeAddOns };
+  persistPlan();
+  logDebugEvent({
+    type: "subscription",
+    message: `Plan updated: trader ${before.trader ?? "free"} → ${mock.trader ?? "free"}, studio ${before.developer ?? "none"} → ${mock.developer ?? "none"}`,
+    meta: { before, after: mock },
+  });
+}
+
+export function resetCurrentPlan() {
+  const before = { ...readStoredPlan(), activeAddOns: [...mock.activeAddOns] };
+  mock = { ...defaultPlan };
+  persistPlan();
+  logDebugEvent({ type: "reset", message: "Billing plan reset to free / no Studio", meta: { before, after: mock } });
+}
 
 /* ---------------- Slot system (mock) ---------------- */
 /**
@@ -213,7 +251,7 @@ export function isFreeStrategy(id: string) { return FREE_STRATEGY_IDS.has(id); }
 /** Count how many add-on slots the user has purchased. */
 export function getAddOnSlotCount(): number {
   let n = 0;
-  for (const a of mock.activeAddOns) {
+  for (const a of readStoredPlan().activeAddOns) {
     if (a === "trader-extra-strategy") n += 1;
     if (a === "trader-strategy-pack-5") n += 5;
   }
@@ -222,7 +260,8 @@ export function getAddOnSlotCount(): number {
 
 /** Total premium slots = tier allotment + add-ons. -1 = unlimited. */
 export function getTotalSlots(): number {
-  const tier = mock.trader ? getTier(mock.trader) : null;
+  const plan = readStoredPlan();
+  const tier = plan.trader ? getTier(plan.trader) : null;
   const base = tier?.includedSlots ?? 0;
   if (base === -1) return -1;
   return base + getAddOnSlotCount();
@@ -250,23 +289,26 @@ export function checkSlotAvailability(strategyId: string, followedNonFreeIds: st
 
 /** Mock purchase: append an add-on id to active list. */
 export function purchaseAddOn(addOnId: "trader-extra-strategy" | "trader-strategy-pack-5") {
+  readStoredPlan();
   if (!mock.activeAddOns.includes(addOnId)) {
-    mock.activeAddOns = [...mock.activeAddOns, addOnId];
+    setCurrentPlan({ activeAddOns: [...mock.activeAddOns, addOnId] });
+    logDebugEvent({ type: "subscription", message: `Add-on purchased: ${addOnId}` });
   }
 }
 
 /** Mock upgrade: set the trader tier directly. */
 export function upgradePlan(tier: TierId) {
-  if (tier.startsWith("studio")) mock.developer = tier;
-  else mock.trader = tier;
+  if (tier.startsWith("studio")) setCurrentPlan({ developer: tier });
+  else setCurrentPlan({ trader: tier });
 }
 
 export type UsageKey = "trader-slots" | "studio-strategies" | "studio-backtests" | "studio-live" | "trader-ai";
 export type Usage = { key: UsageKey; label: string; current: number; limit: number; period?: string };
 
 export function getUsage(followedNonFreeCount = 0): Usage[] {
-  const trader = mock.trader ? getTier(mock.trader) : null;
-  const studio = mock.developer ? getTier(mock.developer) : null;
+  const plan = readStoredPlan();
+  const trader = plan.trader ? getTier(plan.trader) : null;
+  const studio = plan.developer ? getTier(plan.developer) : null;
   return [
     { key: "trader-slots", label: "Premium strategy slots",
       current: followedNonFreeCount, limit: getTotalSlots() },

@@ -18,6 +18,8 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Share2, Bitcoin, Lock, Check } from "lucide-react";
+import { PaywallModal } from "@/components/billing/PaywallModal";
+import { checkSlotAvailability, isFreeStrategy } from "@/lib/api/billing";
 
 /** Per-strategy unlock price — matches the extra-strategy-slot add-on. */
 const STRATEGY_UNLOCK_PRICE = 99;
@@ -44,6 +46,7 @@ function SignalDetail() {
   const [accountSize] = useState(25000);
   const [showBroker, setShowBroker] = useState(false);
   const [showTaken, setShowTaken] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
   const [fillPrice, setFillPrice] = useState<string>("");
   const [interval, setIntervalKey] = useState<string>("60");
   useFollowedOverlay();
@@ -61,6 +64,12 @@ function SignalDetail() {
   if (!s) return <div className="p-6 text-muted-foreground">Loading…</div>;
 
   const isFollowed = new Set(getEffectiveFollowedIds()).has(s.strategyId);
+  const followedNonFree = getEffectiveFollowedIds().filter((strategyId) => !isFreeStrategy(strategyId));
+  const tryUnlock = () => {
+    const check = checkSlotAvailability(s.strategyId, followedNonFree);
+    if (check.ok) subscribe.mutate(s.strategyId);
+    else setShowPaywall(true);
+  };
 
   if (!isFollowed) {
     return (
@@ -120,10 +129,10 @@ function SignalDetail() {
             <div className="flex flex-wrap gap-2">
               <Button
                 disabled={subscribe.isPending}
-                onClick={() => subscribe.mutate(s.strategyId)}
+                onClick={tryUnlock}
                 className="bg-cyan text-cyan-foreground hover:bg-cyan/90"
               >
-                {subscribe.isPending ? "Unlocking…" : `Unlock for $${STRATEGY_UNLOCK_PRICE}/mo`}
+                {subscribe.isPending ? "Unlocking…" : isFreeStrategy(s.strategyId) ? "Follow free strategy" : `Purchase + follow for $${STRATEGY_UNLOCK_PRICE}/mo`}
               </Button>
               <Button asChild variant="outline">
                 <Link to="/app/strategy/$id" params={{ id: s.strategyId }}>See strategy details</Link>
@@ -134,6 +143,13 @@ function SignalDetail() {
             </div>
           </div>
         </Card>
+
+        <PaywallModal
+          strategyId={s.strategyId}
+          open={showPaywall}
+          onOpenChange={setShowPaywall}
+          onResolved={() => qc.invalidateQueries({ queryKey: ["followed"] })}
+        />
 
         <Disclaimer variant="banner" />
       </div>

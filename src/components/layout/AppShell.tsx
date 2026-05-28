@@ -153,9 +153,11 @@ function Shell({ mode }: { mode: "trader" | "studio" }) {
                 onSelect={async () => {
                   const { supabase } = await import("@/integrations/supabase/client");
                   const { resetAllPrefs } = await import("@/lib/user-prefs");
+                  const { resetCurrentPlan } = await import("@/lib/api/billing");
                   await supabase.auth.signOut();
                   // Clear local prefs so the next account that signs in starts blank.
                   resetAllPrefs();
+                  resetCurrentPlan();
                   navigate({ to: "/" });
                 }}
               >

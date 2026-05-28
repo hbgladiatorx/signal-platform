@@ -140,9 +140,10 @@ function CatalogPage() {
                     size="sm"
                     variant="outline"
                     className="h-7 gap-1"
-                    onClick={(e) => { e.preventDefault(); subscribe.mutate(s.id); }}
+                    onClick={(e) => { e.preventDefault(); tryFollow(s.id); }}
                   >
-                    <Plus className="size-3" /> Follow
+                    {isFreeStrategy(s.id) ? <Plus className="size-3" /> : <Lock className="size-3" />}
+                    {isFreeStrategy(s.id) ? "Follow" : "$99/mo"}
                   </Button>
                 )}
               </div>
@@ -155,6 +156,15 @@ function CatalogPage() {
           </Card>
         )}
       </div>
+      <PaywallModal
+        strategyId={paywallId}
+        open={!!paywallId}
+        onOpenChange={(open) => !open && setPaywallId(null)}
+        onResolved={() => {
+          queryClient.invalidateQueries({ queryKey: ["followed"] });
+          setPaywallId(null);
+        }}
+      />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { AssetClass } from "./types";
+import { logDebugEvent } from "./debug-log";
 
 /**
  * Single source of truth for trader-side personalization.
@@ -115,6 +116,7 @@ export function toggleFollow(id: string, follow: boolean) {
   if (follow) { added.add(id); removed.delete(id); }
   else { removed.add(id); added.delete(id); }
   write("follows", { added: [...added], removed: [...removed] });
+  logDebugEvent({ type: "follow", message: `${follow ? "Followed" : "Unfollowed"} strategy ${id}`, meta: { id, follow } });
 }
 
 /* ---------------- Enabled asset classes (master cascade) ---------------- */
@@ -171,15 +173,15 @@ export function useNotifications() {
 
 /* ---------------- Account seeding / onboarding flags ---------------- */
 export function getTraderSeeded() { return read<boolean>("traderSeeded", false); }
-export function setTraderSeeded(v: boolean) { write("traderSeeded", v); }
+export function setTraderSeeded(v: boolean) { write("traderSeeded", v); logDebugEvent({ type: "onboarding", message: `Trader onboarding seeded: ${v}` }); }
 export function useTraderSeeded() { return usePref<boolean>("traderSeeded", false); }
 
 export function getStudioSeeded() { return read<boolean>("studioSeeded", false); }
-export function setStudioSeeded(v: boolean) { write("studioSeeded", v); }
+export function setStudioSeeded(v: boolean) { write("studioSeeded", v); logDebugEvent({ type: "onboarding", message: `Studio onboarding seeded: ${v}` }); }
 export function useStudioSeeded() { return usePref<boolean>("studioSeeded", false); }
 
 export function getOnboarded() { return read<boolean>("onboarded", false); }
-export function setOnboarded(v: boolean) { write("onboarded", v); }
+export function setOnboarded(v: boolean) { write("onboarded", v); logDebugEvent({ type: "onboarding", message: `Onboarding flag set: ${v}` }); }
 export function useOnboarded() { return usePref<boolean>("onboarded", false); }
 
 /** Wipe local prefs — used on sign-out so the next account starts blank. */
@@ -198,4 +200,5 @@ export function resetAllPrefs() {
     }
     notify(k);
   }
+  logDebugEvent({ type: "reset", message: "All onboarding and preference state reset" });
 }
