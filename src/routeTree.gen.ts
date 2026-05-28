@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StudioRouteImport } from './routes/studio'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AppRouteImport } from './routes/app'
@@ -38,6 +39,11 @@ import { Route as AppShareCardIdRouteImport } from './routes/app.share.$cardId'
 const StudioRoute = StudioRouteImport.update({
   id: '/studio',
   path: '/studio',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PricingRoute = PricingRouteImport.update({
@@ -167,6 +173,7 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
   '/pricing': typeof PricingRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/studio': typeof StudioRouteWithChildren
   '/app/agent': typeof AppAgentRoute
   '/app/catalog': typeof AppCatalogRoute
@@ -194,6 +201,7 @@ export interface FileRoutesByTo {
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
   '/pricing': typeof PricingRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/studio': typeof StudioRouteWithChildren
   '/app/agent': typeof AppAgentRoute
   '/app/catalog': typeof AppCatalogRoute
@@ -222,6 +230,7 @@ export interface FileRoutesById {
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
   '/pricing': typeof PricingRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/studio': typeof StudioRouteWithChildren
   '/app/agent': typeof AppAgentRoute
   '/app/catalog': typeof AppCatalogRoute
@@ -251,6 +260,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/auth'
     | '/pricing'
+    | '/reset-password'
     | '/studio'
     | '/app/agent'
     | '/app/catalog'
@@ -278,6 +288,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/auth'
     | '/pricing'
+    | '/reset-password'
     | '/studio'
     | '/app/agent'
     | '/app/catalog'
@@ -305,6 +316,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/auth'
     | '/pricing'
+    | '/reset-password'
     | '/studio'
     | '/app/agent'
     | '/app/catalog'
@@ -333,6 +345,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRoute
   PricingRoute: typeof PricingRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   StudioRoute: typeof StudioRouteWithChildren
 }
 
@@ -343,6 +356,13 @@ declare module '@tanstack/react-router' {
       path: '/studio'
       fullPath: '/studio'
       preLoaderRoute: typeof StudioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pricing': {
@@ -588,6 +608,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRoute,
   PricingRoute: PricingRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   StudioRoute: StudioRouteWithChildren,
 }
 export const routeTree = rootRouteImport
