@@ -138,16 +138,17 @@ function Landing() {
               }}
             >
               <BadgeCheck className="size-3.5" />
-              <span className="font-medium">Only 6% of submitted strategies make it to the catalog</span>
+              <span className="font-medium">A two-sided market for verified trading edge</span>
             </div>
             <h1 className="landing-display text-balance text-5xl font-bold leading-[1.05] md:text-7xl lg:text-[5.5rem]">
-              Signals that <span className="landing-grad-text">survived the filter</span>.
+              <span className="landing-grad-text">Trade</span> the signal.{" "}
+              <span className="landing-grad-text">Build</span> the signal.
             </h1>
             <p className="mx-auto mt-7 max-w-2xl text-balance text-lg text-muted-foreground md:text-xl">
-              Every strategy on Bayn passes a 5-stage edge pipeline before a single signal reaches you.
-              No promotions. No paid placements. <span className="text-foreground">You confirm every trade.</span>
+              Bayn is the marketplace where quants ship verified strategies and traders follow them.
+              <span className="text-foreground"> One filter. Both sides win.</span>
             </p>
-            <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <div className="mt-9 grid gap-3 sm:grid-cols-2 sm:gap-4">
               <Button
                 size="lg"
                 asChild
@@ -155,28 +156,34 @@ function Landing() {
                 style={{ background: "var(--gradient-emerald)", boxShadow: "var(--shadow-emerald)" }}
               >
                 <Link to="/app/catalog">
-                  Browse the catalog <ArrowRight className="ml-1.5 size-4" />
+                  <LineChart className="mr-1.5 size-4" /> I'm a trader
                 </Link>
               </Button>
               <Button
                 size="lg"
-                variant="outline"
                 asChild
-                className="h-12 border-border/80 px-6 text-base hover:bg-elevated"
+                className="h-12 px-6 text-base"
+                style={{
+                  background: "color-mix(in oklab, var(--brand-gold) 18%, transparent)",
+                  border: "1px solid color-mix(in oklab, var(--brand-gold) 50%, transparent)",
+                  color: "var(--brand-gold)",
+                  boxShadow: "var(--shadow-gold)",
+                }}
               >
                 <Link to="/studio/home">
-                  <Wrench className="mr-1.5 size-4" /> Build in Studio
+                  <Wrench className="mr-1.5 size-4" /> I'm a developer
                 </Link>
               </Button>
             </div>
-            <div className="mt-6 flex items-center justify-center gap-5 text-xs text-muted-foreground">
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
               <span className="flex items-center gap-1.5"><Lock className="size-3.5" /> No auto-trading</span>
               <span className="opacity-50">·</span>
               <span className="flex items-center gap-1.5"><Zap className="size-3.5" /> Free to start</span>
               <span className="opacity-50">·</span>
-              <span className="flex items-center gap-1.5"><Users className="size-3.5" /> 4,200+ traders</span>
+              <span className="flex items-center gap-1.5"><Users className="size-3.5" /> 4,200+ traders · 380+ devs</span>
             </div>
           </div>
+
 
           {/* Live ticker */}
           <div className="mt-14 overflow-hidden rounded-xl border border-border/60 bg-elevated/60">
