@@ -373,10 +373,10 @@ function Landing() {
               <div className="mono mb-3 flex items-center gap-2 text-[11px] uppercase tracking-wider text-brand-gold">
                 <Wrench className="size-3.5" /> For developers
               </div>
-              <h3 className="landing-display text-2xl font-bold md:text-3xl">Build, test, ship — get paid.</h3>
+              <h3 className="landing-display text-2xl font-bold md:text-3xl">Build your own edge. Trade it yourself.</h3>
               <p className="mt-3 text-sm text-muted-foreground md:text-base">
                 Compose strategies in the node builder or describe them in plain English. Backtest, Monte Carlo,
-                walk-forward — all built in. 30% revenue share on every subscriber.
+                walk-forward — all built in. Run your own ideas live and keep 100% of the upside.
               </p>
 
               {/* Faux code snippet */}
@@ -389,14 +389,15 @@ function Landing() {
   <span className="text-brand-gold">rsi</span>(<span className="text-success">14</span>) {'>'} <span className="text-success">55</span>,
   <span className="text-brand-gold">vol</span>(<span className="text-success">20</span>) {'<'} <span className="text-success">0.04</span>,
 )<span className="text-muted-foreground">;</span>
-<span className="text-emerald-glow">submit</span>(signal, {`{ tf: "1h" }`})<span className="text-muted-foreground">;</span></pre>
+<span className="text-emerald-glow">deploy</span>(signal, {`{ tf: "1h", mode: "live" }`})<span className="text-muted-foreground">;</span></pre>
               </div>
 
               <ul className="mt-6 space-y-2.5 text-sm">
                 <Row icon={Cpu}>Walk-forward + Monte Carlo built in</Row>
-                <Row icon={GitBranch}>Version your strategies, A/B in OOS</Row>
-                <Row icon={Sparkles}>AI co-builder: prompt → graph</Row>
+                <Row icon={GitBranch}>Version, fork and A/B your own strategies</Row>
+                <Row icon={Sparkles}>AI co-builder: prompt → graph → live</Row>
               </ul>
+
 
               <Button
                 asChild
