@@ -26,6 +26,7 @@ import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as AppPerformanceRouteImport } from './routes/app.performance'
 import { Route as AppHomeRouteImport } from './routes/app.home'
 import { Route as AppCatalogRouteImport } from './routes/app.catalog'
+import { Route as AppAgentRouteImport } from './routes/app.agent'
 import { Route as StudioStrategyIdRouteImport } from './routes/studio.strategy.$id'
 import { Route as StudioBuilderIdRouteImport } from './routes/studio.builder.$id'
 import { Route as StudioBacktestsStrategyIdRouteImport } from './routes/studio.backtests.$strategyId'
@@ -118,6 +119,11 @@ const AppCatalogRoute = AppCatalogRouteImport.update({
   path: '/catalog',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAgentRoute = AppAgentRouteImport.update({
+  id: '/agent',
+  path: '/agent',
+  getParentRoute: () => AppRoute,
+} as any)
 const StudioStrategyIdRoute = StudioStrategyIdRouteImport.update({
   id: '/strategy/$id',
   path: '/strategy/$id',
@@ -155,6 +161,7 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
   '/studio': typeof StudioRouteWithChildren
+  '/app/agent': typeof AppAgentRoute
   '/app/catalog': typeof AppCatalogRoute
   '/app/home': typeof AppHomeRoute
   '/app/performance': typeof AppPerformanceRoute
@@ -180,6 +187,7 @@ export interface FileRoutesByTo {
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
   '/studio': typeof StudioRouteWithChildren
+  '/app/agent': typeof AppAgentRoute
   '/app/catalog': typeof AppCatalogRoute
   '/app/home': typeof AppHomeRoute
   '/app/performance': typeof AppPerformanceRoute
@@ -206,6 +214,7 @@ export interface FileRoutesById {
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
   '/studio': typeof StudioRouteWithChildren
+  '/app/agent': typeof AppAgentRoute
   '/app/catalog': typeof AppCatalogRoute
   '/app/home': typeof AppHomeRoute
   '/app/performance': typeof AppPerformanceRoute
@@ -233,6 +242,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/auth'
     | '/studio'
+    | '/app/agent'
     | '/app/catalog'
     | '/app/home'
     | '/app/performance'
@@ -258,6 +268,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/auth'
     | '/studio'
+    | '/app/agent'
     | '/app/catalog'
     | '/app/home'
     | '/app/performance'
@@ -283,6 +294,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/auth'
     | '/studio'
+    | '/app/agent'
     | '/app/catalog'
     | '/app/home'
     | '/app/performance'
@@ -432,6 +444,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCatalogRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/agent': {
+      id: '/app/agent'
+      path: '/agent'
+      fullPath: '/app/agent'
+      preLoaderRoute: typeof AppAgentRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/studio/strategy/$id': {
       id: '/studio/strategy/$id'
       path: '/strategy/$id'
@@ -478,6 +497,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppAgentRoute: typeof AppAgentRoute
   AppCatalogRoute: typeof AppCatalogRoute
   AppHomeRoute: typeof AppHomeRoute
   AppPerformanceRoute: typeof AppPerformanceRoute
@@ -489,6 +509,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAgentRoute: AppAgentRoute,
   AppCatalogRoute: AppCatalogRoute,
   AppHomeRoute: AppHomeRoute,
   AppPerformanceRoute: AppPerformanceRoute,
@@ -551,3 +572,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
