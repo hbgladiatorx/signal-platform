@@ -93,6 +93,19 @@
   --success: oklch(0.78 0.17 155);
   --warn: oklch(0.82 0.15 80);
 
+  /* Landing brand tokens (Emerald Prestige) */
+  --emerald-deep: oklch(0.32 0.09 160);
+  --emerald: oklch(0.55 0.14 160);
+  --emerald-glow: oklch(0.72 0.16 160);
+  --brand-gold: oklch(0.82 0.13 85);
+  --brand-cream: oklch(0.96 0.02 85);
+  --gradient-emerald: linear-gradient(135deg, var(--emerald-deep), var(--emerald-glow));
+  --gradient-gold-emerald: linear-gradient(135deg, var(--brand-gold), var(--emerald));
+  --shadow-emerald: 0 20px 60px -20px color-mix(in oklab, var(--emerald) 45%, transparent);
+  --shadow-gold: 0 20px 60px -25px color-mix(in oklab, var(--brand-gold) 40%, transparent);
+  --font-landing-display: "Sora", ui-sans-serif, system-ui, sans-serif;
+  --font-landing-body: "Manrope", ui-sans-serif, system-ui, sans-serif;
+
   /* Asset classes — intentionally neutral. Color is reserved for state (cyan/violet/danger/gold). */
   --stocks: oklch(0.72 0.01 270);
   --crypto: oklch(0.72 0.01 270);
