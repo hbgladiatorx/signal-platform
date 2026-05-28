@@ -32,8 +32,14 @@ function StrategyBacktestCard({ strategyId, name, description, assetClass }: { s
   const { data } = useQuery({ queryKey: ["bts", strategyId], queryFn: () => getBacktestsForStrategy(strategyId) });
   const latest = data?.[0];
   return (
-    <Link to="/studio/backtests/$strategyId" params={{ strategyId }}>
-      <Card className="h-full border-border bg-elevated p-4 transition-colors hover:border-violet/30">
+    <Link
+      to="/studio/backtests/$strategyId"
+      params={{ strategyId }}
+      search={latest ? { runId: latest.id } : {}}
+      preload="intent"
+      className="block"
+    >
+      <Card className="h-full border-border bg-elevated p-4 transition-colors hover:border-violet/30 cursor-pointer">
         <div className="mb-1 flex items-start justify-between gap-2">
           <h3 className="font-semibold">{name}</h3>
           <AssetClassBadge assetClass={assetClass} hideIcon />

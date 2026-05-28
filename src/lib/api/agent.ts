@@ -215,10 +215,204 @@ export function buildGraphFromPrompt(prompt: string): BuildResult {
 }
 
 /* ──────────────────────────────────────────────────────────────
+   Tweak engine — patches an existing graph instead of rebuilding
+   ────────────────────────────────────────────────────────────── */
+
+export interface GraphContext {
+  name: string;
+  assetClass: AssetClass;
+  nodes: StrategyNode[];
+  edges: StrategyEdge[];
+}
+
+export interface TweakResult {
+  graph: StrategyGraph;
+  assetClass: AssetClass;
+  name: string;
+  changedNodeIds: string[];
+  changes: string[]; // human-readable bullet list of what changed
+}
+
+const TWEAK_INTENT = /\b(change|set|update|adjust|tweak|raise|lower|increase|decrease|reduce|make|switch|swap|use|tighten|loosen|widen)\b/;
+
+function nodeMatches(node: StrategyNode, kinds: string[], labelMatch?: RegExp): boolean {
+  if (kinds.includes(node.type)) return true;
+  if (labelMatch && labelMatch.test(node.label)) return true;
+  return false;
+}
+
+/** Detect tweak prompts and patch an existing graph. Returns null if the prompt isn't a tweak. */
+export function applyGraphTweak(prompt: string, ctx: GraphContext): TweakResult | null {
+  if (!ctx.nodes.length) return null;
+  const p = prompt.toLowerCase();
+  if (!TWEAK_INTENT.test(p) && !/^\s*(stop|target|tp|sl|rsi|ema|sma|atr|size|risk|timeframe|symbol|long|short)\b/.test(p)) {
+    return null;
+  }
+  // If the user names a totally different setup (a new strategy template), prefer rebuild.
+  if (/\b(strategy|setup|build|create|design)\b/.test(p) && !/\b(this|current|existing|the strategy)\b/.test(p)) {
+    return null;
+  }
+
+  const changed = new Set<string>();
+  const changes: string[] = [];
+  const nodes = ctx.nodes.map((n) => ({ ...n, data: { ...n.data } }));
+
+  const findNodes = (kinds: string[], labelMatch?: RegExp) =>
+    nodes.filter((n) => nodeMatches(n, kinds, labelMatch));
+
+  // Stop loss tweaks
+  if (/\bstop\b|\bsl\b/.test(p) || /tighten|loosen|widen/.test(p)) {
+    const stops = findNodes(["stopLoss"], /stop/i);
+    const atrMatch = p.match(/(\d+(?:\.\d+)?)\s*(?:x\s*)?atr/);
+    const pctMatch = p.match(/stop[^%\n]{0,20}(\d+(?:\.\d+)?)\s*%/);
+    const rMatch = p.match(/stop[^r\n]{0,20}(\d+(?:\.\d+)?)\s*r\b/);
+    for (const s of stops) {
+      if (atrMatch) {
+        const v = parseFloat(atrMatch[1]);
+        s.data.type = "atr_multiple"; s.data.value = v;
+        s.label = `Stop ${v}·ATR`;
+        changed.add(s.id);
+        changes.push(`Stop → ${v}·ATR`);
+      } else if (pctMatch) {
+        const v = parseFloat(pctMatch[1]);
+        s.data.type = "percent"; s.data.value = v;
+        s.label = `Stop −${v}%`;
+        changed.add(s.id);
+        changes.push(`Stop → ${v}%`);
+      } else if (rMatch) {
+        const v = parseFloat(rMatch[1]);
+        s.data.type = "r_multiple"; s.data.value = v;
+        s.label = `Stop ${v}R`;
+        changed.add(s.id);
+        changes.push(`Stop → ${v}R`);
+      }
+    }
+  }
+
+  // Take profit / target tweaks
+  if (/\btarget\b|\btake[\s-]?profit\b|\btp\b/.test(p)) {
+    const tps = findNodes(["takeProfit"], /target|profit/i);
+    const atrMatch = p.match(/(?:target|tp)[^a\n]{0,20}(\d+(?:\.\d+)?)\s*(?:x\s*)?atr/);
+    const pctMatch = p.match(/(?:target|tp)[^%\n]{0,20}(\d+(?:\.\d+)?)\s*%/);
+    const rMatch = p.match(/(?:target|tp)[^r\n]{0,20}(\d+(?:\.\d+)?)\s*r\b/);
+    for (const t of tps) {
+      if (atrMatch) {
+        const v = parseFloat(atrMatch[1]);
+        t.data.type = "atr_multiple"; t.data.value = v;
+        t.label = `Target ${v}·ATR`;
+        changed.add(t.id);
+        changes.push(`Target → ${v}·ATR`);
+      } else if (pctMatch) {
+        const v = parseFloat(pctMatch[1]);
+        t.data.type = "percent"; t.data.value = v;
+        t.label = `Target +${v}%`;
+        changed.add(t.id);
+        changes.push(`Target → +${v}%`);
+      } else if (rMatch) {
+        const v = parseFloat(rMatch[1]);
+        t.data.type = "r_multiple"; t.data.value = v;
+        t.label = `Target ${v}R`;
+        changed.add(t.id);
+        changes.push(`Target → ${v}R`);
+      }
+    }
+  }
+
+  // Indicator period tweaks (RSI / EMA / SMA / ATR / BB)
+  const periodSpecs: Array<{ re: RegExp; kinds: string[]; labelRe: RegExp; abbr: string }> = [
+    { re: /rsi(?:\s*\(|\s*period|\s+to|\s+at|\s+)\s*(\d+)/, kinds: ["rsi"], labelRe: /rsi/i, abbr: "RSI" },
+    { re: /ema(?:\s*\(|\s*period|\s+to|\s+at|\s+)\s*(\d+)/, kinds: ["ema"], labelRe: /ema/i, abbr: "EMA" },
+    { re: /sma(?:\s*\(|\s*period|\s+to|\s+at|\s+)\s*(\d+)/, kinds: ["sma"], labelRe: /sma/i, abbr: "SMA" },
+    { re: /atr(?:\s*\(|\s*period|\s+to|\s+at|\s+)\s*(\d+)/, kinds: ["atr"], labelRe: /atr/i, abbr: "ATR" },
+  ];
+  for (const spec of periodSpecs) {
+    const m = p.match(spec.re);
+    if (!m) continue;
+    const v = parseInt(m[1], 10);
+    const matches = findNodes(spec.kinds, spec.labelRe);
+    for (const node of matches) {
+      node.data.period = v;
+      node.label = `${spec.abbr}(${v})`;
+      changed.add(node.id);
+      changes.push(`${spec.abbr} period → ${v}`);
+    }
+  }
+
+  // Timeframe
+  const tfMatch = p.match(/\b(1m|5m|15m|30m|1h|2h|4h|1d|daily|hourly|minute)\b/);
+  if (tfMatch && /timeframe|interval|chart|tf|switch|use|change/.test(p)) {
+    const tf = tfMatch[1] === "daily" ? "1d" : tfMatch[1] === "hourly" ? "1h" : tfMatch[1] === "minute" ? "1m" : tfMatch[1];
+    for (const node of findNodes(["price"], /price/i)) {
+      node.data.timeframe = tf;
+      const sym = (node.data.symbol as string) ?? "";
+      node.label = `Price · ${sym} ${tf}`;
+      changed.add(node.id);
+      changes.push(`Timeframe → ${tf}`);
+    }
+  }
+
+  // Symbol switch
+  const symMatch = p.match(/\b(symbol|ticker)\s+(?:to\s+)?([A-Z]{2,6}(?:-[A-Z]+)?)\b/i)
+    || p.match(/\b(?:use|switch to|change to|trade)\s+([A-Z]{2,6}(?:-[A-Z]+)?)\b/);
+  if (symMatch) {
+    const sym = (symMatch[2] ?? symMatch[1]).toUpperCase();
+    for (const node of findNodes(["price"], /price/i)) {
+      node.data.symbol = sym;
+      const tf = (node.data.timeframe as string) ?? "1h";
+      node.label = `Price · ${sym} ${tf}`;
+      changed.add(node.id);
+      changes.push(`Symbol → ${sym}`);
+    }
+  }
+
+  // Position size / risk per trade
+  const riskMatch = p.match(/(?:risk|size|position)[^%\n]{0,20}(\d+(?:\.\d+)?)\s*%/);
+  if (riskMatch) {
+    const v = parseFloat(riskMatch[1]);
+    for (const node of findNodes(["positionSize"], /size|risk/i)) {
+      node.data.type = "percent_account"; node.data.value = v;
+      node.label = `Risk ${v}%`;
+      changed.add(node.id);
+      changes.push(`Risk per trade → ${v}%`);
+    }
+  }
+
+  // Direction flip
+  if (/\b(switch|flip|change)\b.*\b(short|long)\b/.test(p) || /^(go|make it|trade)\s+(long|short)/.test(p)) {
+    const dir = /short/.test(p) ? "SHORT" : "LONG";
+    for (const node of findNodes(["entry"], /entry/i)) {
+      node.data.direction = dir;
+      node.label = `Entry ${dir}`;
+      changed.add(node.id);
+      changes.push(`Direction → ${dir}`);
+    }
+  }
+
+  if (!changed.size) return null;
+
+  return {
+    graph: { nodes, edges: ctx.edges },
+    assetClass: ctx.assetClass,
+    name: ctx.name,
+    changedNodeIds: [...changed],
+    changes,
+  };
+}
+
+/* ──────────────────────────────────────────────────────────────
    Trader-mode AI: canned, grounded "analysis" responses
    ────────────────────────────────────────────────────────────── */
 
-export interface ChatMsg { id: string; role: "user" | "assistant"; content: string; meta?: { kind?: "handoff" | "switch-mode" | "graph"; graph?: BuildResult } }
+export interface ChatMsg {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  meta?: {
+    kind?: "handoff" | "switch-mode" | "graph" | "tweak";
+    graph?: BuildResult;
+    tweak?: TweakResult;
+  };
+}
 
 export async function chatTraderAI(prompt: string): Promise<ChatMsg> {
   await new Promise((r) => setTimeout(r, 600 + Math.random() * 500));
@@ -324,7 +518,7 @@ Ask me about: risk exposure, win rate by asset class, underperforming strategies
   };
 }
 
-export async function chatStudioAI(prompt: string): Promise<ChatMsg> {
+export async function chatStudioAI(prompt: string, ctx?: GraphContext): Promise<ChatMsg> {
   await new Promise((r) => setTimeout(r, 500 + Math.random() * 400));
   const p = prompt.toLowerCase();
 
@@ -334,6 +528,19 @@ export async function chatStudioAI(prompt: string): Promise<ChatMsg> {
       content: "Trade analysis is in **Trader mode**. Want me to build a strategy instead?",
       meta: { kind: "switch-mode" },
     };
+  }
+
+  // Try a tweak first if we have an existing graph on the canvas.
+  if (ctx && ctx.nodes.length) {
+    const tweak = applyGraphTweak(prompt, ctx);
+    if (tweak) {
+      const bullets = tweak.changes.map((c) => `- ${c}`).join("\n");
+      return {
+        id: uid("m"), role: "assistant",
+        content: `Tweaking **${tweak.name}** — keeping the rest of the graph intact.\n\n${bullets}\n\nThe affected node${tweak.changedNodeIds.length === 1 ? " is" : "s are"} highlighted on the canvas.`,
+        meta: { kind: "tweak", tweak },
+      };
+    }
   }
 
   const built = buildGraphFromPrompt(prompt);

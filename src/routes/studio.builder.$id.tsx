@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
-import { Save, PlayCircle, Rocket, CheckCircle2, AlertCircle, Download, ChevronDown, ChevronUp, FileCode, Sparkles } from "lucide-react";
+import { Save, PlayCircle, Rocket, CheckCircle2, AlertCircle, Download, ChevronDown, ChevronUp, FileCode, Sparkles, ChevronsLeftRight, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { AssetClass, StrategyGraph } from "@/lib/types";
@@ -71,7 +71,36 @@ function Builder() {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [leftTab, setLeftTab] = useState<"ai" | "palette">("ai");
   const [aiHighlight, setAiHighlight] = useState<Set<string>>(new Set());
+  const [sidebarWidth, setSidebarWidth] = useState(340);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const counter = useRef(0);
+
+  // Drag-to-resize the AI / palette sidebar.
+  const dragging = useRef(false);
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!dragging.current) return;
+      const next = Math.min(820, Math.max(260, e.clientX));
+      setSidebarWidth(next);
+    };
+    const onUp = () => { dragging.current = false; document.body.style.cursor = ""; };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+  }, []);
+
+  const getCurrentGraph = useCallback(() => {
+    if (!nodes.length) return null;
+    return {
+      name,
+      assetClass,
+      nodes: nodes.map((n) => ({
+        id: n.id, type: n.data.nodeType, category: n.data.category, label: n.data.label,
+        position: n.position, data: n.data.config,
+      })),
+      edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle ?? undefined, targetHandle: e.targetHandle ?? undefined })),
+    };
+  }, [nodes, edges, name, assetClass]);
 
   const applyAIGraph = (g: NonNullable<ChatMsg["meta"]>["graph"]) => {
     if (!g) return;
@@ -97,6 +126,24 @@ function Builder() {
       setTimeout(() => setAiHighlight(new Set()), 2500);
     }, rfNodes.length * 150 + 200);
     counter.current = rfNodes.length;
+  };
+
+  /** Apply an AI tweak: patch node data in place, keep positions, highlight affected nodes. */
+  const applyAITweak = (t: import("@/lib/api/agent").TweakResult) => {
+    const byId = new Map(t.graph.nodes.map((n) => [n.id, n]));
+    setName(t.name);
+    setAssetClass(t.assetClass);
+    setNodes((prev) => prev.map((rn) => {
+      const updated = byId.get(rn.id);
+      if (!updated) return rn;
+      return { ...rn, data: { ...rn.data, label: updated.label, config: updated.data } };
+    }));
+    setAiHighlight(new Set(t.changedNodeIds));
+    setLogs((l) => [
+      ...l,
+      ...t.changes.map((c) => ({ ts: new Date().toISOString(), level: "ok" as const, msg: `AI tweak: ${c}` })),
+    ]);
+    setTimeout(() => setAiHighlight(new Set()), 2500);
   };
 
 
@@ -248,40 +295,82 @@ function Builder() {
 
       {/* Workspace */}
       <div className="flex min-h-0 flex-1">
-        {/* Left sidebar: AI Builder ↔ Palette tabs */}
-        <div className="flex w-[340px] shrink-0 flex-col border-r border-border bg-sidebar">
-          <div className="flex border-b border-border bg-elevated">
-            <button
-              onClick={() => setLeftTab("ai")}
-              className={cn(
-                "flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[11px] font-mono uppercase tracking-wider transition-colors",
-                leftTab === "ai"
-                  ? "border-b-2 border-violet bg-violet/5 text-violet"
-                  : "border-b-2 border-transparent text-muted-foreground hover:text-foreground",
-              )}
+        {/* Left sidebar: AI Builder ↔ Palette tabs (resizable) */}
+        {!sidebarCollapsed && (
+          <>
+            <div
+              className="flex shrink-0 flex-col border-r border-border bg-sidebar"
+              style={{ width: sidebarWidth }}
             >
-              <Sparkles className="size-3.5" /> AI Builder
-            </button>
-            <button
-              onClick={() => setLeftTab("palette")}
-              className={cn(
-                "flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[11px] font-mono uppercase tracking-wider transition-colors",
-                leftTab === "palette"
-                  ? "border-b-2 border-cyan bg-cyan/5 text-cyan"
-                  : "border-b-2 border-transparent text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <FileCode className="size-3.5" /> Palette
-            </button>
-          </div>
-          <div className="min-h-0 flex-1 overflow-hidden">
-            {leftTab === "ai" ? (
-              <AgentChat mode="studio" compact onGraph={(g) => g && applyAIGraph(g)} />
-            ) : (
-              <NodePalette onAdd={addNodeFromPalette} />
-            )}
-          </div>
-        </div>
+              <div className="flex items-center border-b border-border bg-elevated">
+                <button
+                  onClick={() => setLeftTab("ai")}
+                  className={cn(
+                    "flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[11px] font-mono uppercase tracking-wider transition-colors",
+                    leftTab === "ai"
+                      ? "border-b-2 border-violet bg-violet/5 text-violet"
+                      : "border-b-2 border-transparent text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <Sparkles className="size-3.5" /> AI Builder
+                </button>
+                <button
+                  onClick={() => setLeftTab("palette")}
+                  className={cn(
+                    "flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[11px] font-mono uppercase tracking-wider transition-colors",
+                    leftTab === "palette"
+                      ? "border-b-2 border-cyan bg-cyan/5 text-cyan"
+                      : "border-b-2 border-transparent text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <FileCode className="size-3.5" /> Palette
+                </button>
+                <button
+                  onClick={() => setSidebarWidth((w) => (w < 600 ? 720 : 340))}
+                  title="Expand / shrink"
+                  className="px-2 py-2.5 text-muted-foreground hover:text-foreground"
+                >
+                  <ChevronsLeftRight className="size-3.5" />
+                </button>
+                <button
+                  onClick={() => setSidebarCollapsed(true)}
+                  title="Collapse sidebar"
+                  className="px-2 py-2.5 text-muted-foreground hover:text-foreground"
+                >
+                  <PanelLeftClose className="size-3.5" />
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-hidden">
+                {leftTab === "ai" ? (
+                  <AgentChat
+                    mode="studio"
+                    compact
+                    getCurrentGraph={getCurrentGraph}
+                    onGraph={(g) => g && applyAIGraph(g)}
+                    onTweak={(t) => applyAITweak(t)}
+                  />
+                ) : (
+                  <NodePalette onAdd={addNodeFromPalette} />
+                )}
+              </div>
+            </div>
+            {/* drag handle */}
+            <div
+              onMouseDown={() => { dragging.current = true; document.body.style.cursor = "col-resize"; }}
+              className="w-1 shrink-0 cursor-col-resize bg-border hover:bg-violet/40"
+              title="Drag to resize"
+            />
+          </>
+        )}
+        {sidebarCollapsed && (
+          <button
+            onClick={() => setSidebarCollapsed(false)}
+            className="flex w-8 shrink-0 items-center justify-center border-r border-border bg-sidebar text-muted-foreground hover:text-foreground"
+            title="Expand sidebar"
+          >
+            <PanelLeftOpen className="size-4" />
+          </button>
+        )}
 
         {/* Canvas + console */}
         <div className="flex min-w-0 flex-1 flex-col">
