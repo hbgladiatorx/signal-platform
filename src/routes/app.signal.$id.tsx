@@ -12,9 +12,20 @@ import { DirectionPill } from "@/components/common/DirectionPill";
 import { StatusPill } from "@/components/common/StatusPill";
 import { Disclaimer } from "@/components/common/Disclaimer";
 import { TradingViewChart } from "@/components/common/TradingViewChart";
+import { DraggableLevelsOverlay } from "@/components/common/DraggableLevelsOverlay";
+import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Share2, Bitcoin } from "lucide-react";
+
+const TIMEFRAMES = [
+  { key: "1", label: "1m" },
+  { key: "5", label: "5m" },
+  { key: "15", label: "15m" },
+  { key: "60", label: "1h" },
+  { key: "D", label: "1D" },
+  { key: "W", label: "1W" },
+];
 
 export const Route = createFileRoute("/app/signal/$id")({
   head: ({ params }) => ({ meta: [{ title: `Signal ${params.id} — Bayn` }] }),
