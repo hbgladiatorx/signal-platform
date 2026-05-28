@@ -467,6 +467,3 @@ function TerminalValueCard({ run }: { run: BacktestRun }) {
     </Card>
   );
 }
-
-  };
-}
