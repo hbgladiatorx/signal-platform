@@ -39,7 +39,7 @@ function PricingPage() {
             <Button variant="ghost" asChild><Link to="/auth">Sign in</Link></Button>
             <Button asChild className="text-brand-cream"
               style={{ background: "var(--gradient-emerald)", boxShadow: "var(--shadow-emerald)" }}>
-              <Link to="/onboarding">Get started <ArrowRight className="ml-1.5 size-4" /></Link>
+              <Link to="/auth">Get started <ArrowRight className="ml-1.5 size-4" /></Link>
             </Button>
           </div>
         </div>
@@ -111,7 +111,7 @@ function PricingPage() {
               </div>
               <Button asChild className="text-brand-cream"
                 style={{ background: "var(--gradient-emerald)", boxShadow: "var(--shadow-emerald)" }}>
-                <Link to="/onboarding">Activate free strategies <ArrowRight className="ml-1.5 size-4" /></Link>
+                <Link to="/auth">Activate free strategies <ArrowRight className="ml-1.5 size-4" /></Link>
               </Button>
             </div>
           </div>

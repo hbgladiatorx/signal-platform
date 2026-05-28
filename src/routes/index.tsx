@@ -229,7 +229,7 @@ function Landing() {
               className="text-brand-cream"
               style={{ background: "var(--gradient-emerald)", boxShadow: "var(--shadow-emerald)" }}
             >
-              <Link to="/onboarding">
+              <Link to="/auth">
                 Start free <ArrowRight className="ml-1.5 size-4" />
               </Link>
             </Button>
@@ -278,7 +278,7 @@ function Landing() {
                 className="h-12 px-6 text-base text-brand-cream"
                 style={{ background: "var(--gradient-emerald)", boxShadow: "var(--shadow-emerald)" }}
               >
-                <Link to="/onboarding">
+                <Link to="/auth">
                   <LineChart className="mr-1.5 size-4" /> Browse the catalog
                 </Link>
               </Button>
@@ -427,7 +427,7 @@ function Landing() {
                 className="mt-7 h-11 w-full text-brand-cream sm:w-auto"
                 style={{ background: "var(--gradient-emerald)", boxShadow: "var(--shadow-emerald)" }}
               >
-                <Link to="/onboarding">
+                <Link to="/auth">
                   Open the catalog <ArrowRight className="ml-1.5 size-4" />
                 </Link>
               </Button>
@@ -594,7 +594,7 @@ function Landing() {
                 asChild
                 className="h-12 bg-brand-cream px-6 text-base font-semibold text-emerald-deep hover:bg-brand-cream/90"
               >
-                <Link to="/onboarding">
+                <Link to="/auth">
                   <Search className="mr-1.5 size-4" /> Browse the catalog
                 </Link>
               </Button>
