@@ -1,11 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import {
-  getFollowedStrategies, getMarketOverview, getRecentSignals, getUserPerformance,
+  getFollowedStrategies, getRecentSignals, getUserPerformance,
   getEffectiveFollowedIds,
 } from "@/lib/api";
+import { getQuotes } from "@/lib/api/finnhub.functions";
 import { useFollowedOverlay } from "@/lib/user-prefs";
+
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,22 +40,27 @@ const fmtPct = (n: number) => `${n >= 0 ? "+" : ""}${(n * 100).toFixed(2)}%`;
 function HomePage() {
   const [days, setDays] = useState(30);
   const { assetClass } = useAssetFilter();
+
   const [watchlist] = useWatchlist();
-  const market = useQuery({ queryKey: ["market"], queryFn: getMarketOverview });
+  const quotesFn = useServerFn(getQuotes);
+  const market = useQuery({
+    queryKey: ["finnhub-quotes", watchlist],
+    queryFn: () => quotesFn({ data: { symbols: watchlist } }),
+    enabled: watchlist.length > 0,
+    refetchInterval: 30_000,
+    staleTime: 25_000,
+  });
   const followed = useQuery({ queryKey: ["followed"], queryFn: getFollowedStrategies });
   const recent = useQuery({ queryKey: ["recent"], queryFn: () => getRecentSignals(20) });
   const perf = useQuery({ queryKey: ["perf", days], queryFn: () => getUserPerformance(days) });
 
   const tiles = useMemo(() => {
-    const all = market.data ?? [];
-    const inWatch = new Set(watchlist);
-    let arr = all.filter((t) => inWatch.has(t.symbol));
-    if (assetClass !== "all") arr = arr.filter((t) => t.assetClass === assetClass);
-    // Preserve user-defined order
-    const order = new Map(watchlist.map((s, i) => [s, i] as const));
-    arr.sort((a, b) => (order.get(a.symbol) ?? 0) - (order.get(b.symbol) ?? 0));
-    return arr;
-  }, [market.data, assetClass, watchlist]);
+    const arr = market.data ?? [];
+    const order = new Map(watchlist.map((s, i) => [s.toUpperCase(), i] as const));
+    return [...arr].sort((a, b) => (order.get(a.symbol) ?? 0) - (order.get(b.symbol) ?? 0));
+  }, [market.data, watchlist]);
+
+
 
   const followedFiltered = useMemo(() => {
     const all = followed.data ?? [];
@@ -94,40 +102,42 @@ function HomePage() {
       {/* Market wire ticker */}
       <NewsTicker />
 
-      {/* Market overview — compact, neutralized */}
+      {/* Market overview — live Finnhub quotes for watched tickers */}
       <section>
         <h2 className="mb-3 text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
           Market overview {assetClass !== "all" && <span className="text-foreground">· {assetClass}</span>}
         </h2>
-        <div className="flex gap-3 overflow-x-auto pb-2">
-          {(!market.data ? Array.from({ length: 3 }) : tiles).map((tile: any, i: number) => (
-            <Card key={tile?.symbol ?? i} className="flex w-52 shrink-0 flex-col gap-2 border-border bg-elevated p-3">
-              {tile ? (
-                <>
+        {watchlist.length === 0 ? (
+          <Card className="border-dashed border-border bg-elevated/40 p-6 text-center text-sm text-muted-foreground">
+            No tickers yet. Add some in Customize to see live quotes here.
+          </Card>
+        ) : (
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {(market.isLoading ? Array.from({ length: Math.min(watchlist.length, 4) }) : tiles).map((tile: any, i: number) => (
+              <Card key={tile?.symbol ?? i} className="flex w-52 shrink-0 flex-col gap-2 border-border bg-elevated p-3">
+                {tile ? (
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="font-mono text-sm font-semibold">{tile.symbol}</div>
-                      <div className="text-[11px] text-muted-foreground">{tile.label}</div>
+                      <div className="text-[11px] text-muted-foreground">Live</div>
                     </div>
                     <div className={tile.changePct >= 0 ? "text-cyan" : "text-danger"}>
                       <div className="text-right font-mono text-sm">{fmtMoney(tile.price)}</div>
                       <div className="text-right font-mono text-[11px]">{fmtPct(tile.changePct / 100)}</div>
                     </div>
                   </div>
-                  <div className="h-9">
-                    <Sparkline data={tile.spark} positive={tile.changePct >= 0} />
-                  </div>
-                </>
-              ) : <div className="h-20 animate-pulse rounded bg-muted/50" />}
-            </Card>
-          ))}
-          {market.data && tiles.length === 0 && (
-            <Card className="w-full border-dashed border-border bg-elevated/40 p-6 text-center text-sm text-muted-foreground">
-              No market tiles yet. Add tickers in Customize to populate this section.
-            </Card>
-          )}
-        </div>
+                ) : <div className="h-12 animate-pulse rounded bg-muted/50" />}
+              </Card>
+            ))}
+            {!market.isLoading && tiles.length === 0 && (
+              <Card className="w-full border-dashed border-border bg-elevated/40 p-6 text-center text-sm text-muted-foreground">
+                Quotes unavailable right now. Try again shortly.
+              </Card>
+            )}
+          </div>
+        )}
       </section>
+
 
 
       {/* My strategies */}
