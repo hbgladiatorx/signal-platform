@@ -4,7 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { getFollowedStrategies, getSignals } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Activity, ArrowUpRight } from "lucide-react";
+import { Activity, ArrowUpRight, Inbox } from "lucide-react";
 import { useAssetFilter } from "@/lib/asset-filter";
 import { DirectionPill } from "./DirectionPill";
 import { TradingViewChart } from "./TradingViewChart";
@@ -22,15 +22,6 @@ const TIMEFRAMES: Array<{ key: string; label: string }> = [
   { key: "D", label: "1D" },
   { key: "W", label: "1W" },
 ];
-
-/** Default representative symbol when the user has no followed signals for a class. */
-const FALLBACK_SYMBOL: Record<AssetClass | "all", { symbol: string; cls: AssetClass }> = {
-  all:     { symbol: "SPY", cls: "stocks" },
-  stocks:  { symbol: "SPY", cls: "stocks" },
-  crypto:  { symbol: "BTC", cls: "crypto" },
-  options: { symbol: "SPY", cls: "options" },
-  futures: { symbol: "ES",  cls: "futures" },
-};
 
 /** Hero chart that tracks the live signal(s) from the user's followed strategies. */
 export function LiveTrackerChart() {
@@ -54,22 +45,20 @@ export function LiveTrackerChart() {
   const [interval, setIntervalKey] = useState<string>("60");
 
   if (!active) {
-    const fb = FALLBACK_SYMBOL[assetClass];
     return (
-      <Card className="overflow-hidden border-border bg-elevated">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-background/40 px-4 py-3">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Activity className="size-3.5" />
-            <span>No followed signals for {assetClass === "all" ? "any class" : assetClass} yet · showing {fb.symbol}</span>
+      <Card className="grid min-h-[320px] place-items-center border-dashed border-border bg-elevated/50 p-8 text-center">
+        <div className="max-w-sm space-y-3">
+          <Inbox className="mx-auto size-9 text-muted-foreground" />
+          <div>
+            <h3 className="font-semibold">No live tracking yet</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Follow a strategy from the catalog to populate this area with real signals. New accounts do not show sample charts.
+            </p>
           </div>
-          <div className="flex items-center gap-2">
-            <TimeframeBar value={interval} onChange={setIntervalKey} />
-            <Button asChild size="sm" className="h-7 bg-cyan text-cyan-foreground hover:bg-cyan/90">
-              <Link to="/app/catalog">Browse catalog</Link>
-            </Button>
-          </div>
+          <Button asChild size="sm" className="bg-cyan text-cyan-foreground hover:bg-cyan/90">
+            <Link to="/app/catalog">Browse catalog</Link>
+          </Button>
         </div>
-        <TradingViewChart symbol={fb.symbol} assetClass={fb.cls} interval={interval} height={420} />
       </Card>
     );
   }
