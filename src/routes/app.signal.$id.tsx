@@ -1,7 +1,8 @@
 import { createFileRoute, useParams, notFound, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { getSignalById, getStrategyById } from "@/lib/api";
+import { getSignalById, getStrategyById, getEffectiveFollowedIds, subscribeToStrategy } from "@/lib/api";
+import { useFollowedOverlay } from "@/lib/user-prefs";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +17,11 @@ import { DraggableLevelsOverlay } from "@/components/common/DraggableLevelsOverl
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { Share2, Bitcoin } from "lucide-react";
+import { Share2, Bitcoin, Lock, Check } from "lucide-react";
+
+/** Per-strategy unlock price — matches the extra-strategy-slot add-on. */
+const STRATEGY_UNLOCK_PRICE = 99;
+
 
 const TIMEFRAMES = [
   { key: "1", label: "1m" },
@@ -41,14 +46,104 @@ function SignalDetail() {
   const [showTaken, setShowTaken] = useState(false);
   const [fillPrice, setFillPrice] = useState<string>("");
   const [interval, setIntervalKey] = useState<string>("60");
+  useFollowedOverlay();
+  const qc = useQueryClient();
+  const subscribe = useMutation({
+    mutationFn: subscribeToStrategy,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["followed"] });
+      toast.success("Strategy unlocked — signal details now available");
+    },
+  });
 
   if (sig.isFetched && !sig.data) throw notFound();
   const s = sig.data;
   if (!s) return <div className="p-6 text-muted-foreground">Loading…</div>;
 
+  const isFollowed = new Set(getEffectiveFollowedIds()).has(s.strategyId);
+
+  if (!isFollowed) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-5 p-4 md:p-6">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <AssetClassBadge assetClass={s.assetClass} hideIcon />
+            <span>{strat.data?.name ?? s.strategyName}</span>
+          </div>
+          <h1 className="font-mono text-3xl tracking-tight blur-sm select-none">{s.symbol}</h1>
+        </div>
+
+        <Card className="relative overflow-hidden border-cyan/30 bg-elevated p-6">
+          <div className="pointer-events-none absolute -right-12 -top-12 size-40 rounded-full bg-cyan/20 blur-3xl" />
+          <div className="relative space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="grid size-10 place-items-center rounded-full bg-cyan/15 text-cyan">
+                <Lock className="size-5" />
+              </div>
+              <div>
+                <div className="text-sm font-semibold">Locked signal</div>
+                <div className="text-xs text-muted-foreground">
+                  This signal is from <span className="text-foreground">{s.strategyName}</span> — a strategy you don't follow yet.
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border bg-background/40 p-4">
+              <div className="flex items-end justify-between">
+                <div>
+                  <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-muted-foreground">
+                    Unlock {s.strategyName}
+                  </div>
+                  <div className="mt-1 font-mono text-3xl">
+                    ${STRATEGY_UNLOCK_PRICE}
+                    <span className="ml-1 text-sm text-muted-foreground">/ mo</span>
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Live signals, entries/stops/targets, full reasoning. Cancel anytime.
+                  </div>
+                </div>
+                {strat.data?.stats && (
+                  <div className="text-right text-xs text-muted-foreground">
+                    <div><span className="font-mono text-foreground">{strat.data.stats.sharpe.toFixed(2)}</span> Sharpe</div>
+                    <div><span className="font-mono text-foreground">{(strat.data.stats.winRate * 100).toFixed(0)}%</span> win rate</div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <ul className="space-y-1.5 text-xs text-muted-foreground">
+              <li className="flex items-center gap-2"><Check className="size-3.5 text-cyan" /> Every signal cleared Bayn's 5-stage edge pipeline</li>
+              <li className="flex items-center gap-2"><Check className="size-3.5 text-cyan" /> Counts as 1 premium strategy slot on your plan</li>
+              <li className="flex items-center gap-2"><Check className="size-3.5 text-cyan" /> Track performance + share verified trades</li>
+            </ul>
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                disabled={subscribe.isPending}
+                onClick={() => subscribe.mutate(s.strategyId)}
+                className="bg-cyan text-cyan-foreground hover:bg-cyan/90"
+              >
+                {subscribe.isPending ? "Unlocking…" : `Unlock for $${STRATEGY_UNLOCK_PRICE}/mo`}
+              </Button>
+              <Button asChild variant="outline">
+                <Link to="/app/strategy/$id" params={{ id: s.strategyId }}>See strategy details</Link>
+              </Button>
+              <Button asChild variant="ghost">
+                <Link to="/app/pricing">Upgrade plan for unlimited</Link>
+              </Button>
+            </div>
+          </div>
+        </Card>
+
+        <Disclaimer variant="banner" />
+      </div>
+    );
+  }
+
   const riskPerShare = Math.abs(s.entry - s.stop);
   const dollarsRisked = accountSize * 0.01;
   const positionSize = Math.floor(dollarsRisked / Math.max(0.0001, riskPerShare));
+
 
   return (
     <div className="space-y-5 p-4 md:p-6">

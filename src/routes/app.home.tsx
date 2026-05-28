@@ -3,7 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import {
   getFollowedStrategies, getMarketOverview, getRecentSignals, getUserPerformance,
+  getEffectiveFollowedIds,
 } from "@/lib/api";
+import { useFollowedOverlay } from "@/lib/user-prefs";
+
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -55,9 +58,13 @@ function HomePage() {
     return assetClass === "all" ? all : all.filter((s) => s.assetClass === assetClass);
   }, [followed.data, assetClass]);
 
+  useFollowedOverlay();
   const recentFiltered = useMemo(() => {
     const all = recent.data ?? [];
-    return (assetClass === "all" ? all : all.filter((s) => s.assetClass === assetClass)).slice(0, 10);
+    const followed = new Set(getEffectiveFollowedIds());
+    return (assetClass === "all" ? all : all.filter((s) => s.assetClass === assetClass))
+      .filter((s) => followed.has(s.strategyId))
+      .slice(0, 10);
   }, [recent.data, assetClass]);
 
   return (

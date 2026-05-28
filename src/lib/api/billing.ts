@@ -189,10 +189,11 @@ export type CurrentPlan = {
 
 const mock: CurrentPlan = {
   trader: "trader-edge",
-  developer: "studio-builder",
+  developer: null,
   billing: "annual",
   activeAddOns: ["trader-history-export"],
 };
+
 
 export function getCurrentPlan(): CurrentPlan {
   return mock;
