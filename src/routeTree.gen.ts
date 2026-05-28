@@ -21,7 +21,6 @@ import { Route as StudioHomeRouteImport } from './routes/studio.home'
 import { Route as StudioEarningsRouteImport } from './routes/studio.earnings'
 import { Route as StudioDocsRouteImport } from './routes/studio.docs'
 import { Route as StudioBacktestsRouteImport } from './routes/studio.backtests'
-import { Route as StudioAgentRouteImport } from './routes/studio.agent'
 import { Route as AppSignalsRouteImport } from './routes/app.signals'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as AppPerformanceRouteImport } from './routes/app.performance'
@@ -93,11 +92,6 @@ const StudioDocsRoute = StudioDocsRouteImport.update({
 const StudioBacktestsRoute = StudioBacktestsRouteImport.update({
   id: '/backtests',
   path: '/backtests',
-  getParentRoute: () => StudioRoute,
-} as any)
-const StudioAgentRoute = StudioAgentRouteImport.update({
-  id: '/agent',
-  path: '/agent',
   getParentRoute: () => StudioRoute,
 } as any)
 const AppSignalsRoute = AppSignalsRouteImport.update({
@@ -173,7 +167,6 @@ export interface FileRoutesByFullPath {
   '/app/performance': typeof AppPerformanceRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/signals': typeof AppSignalsRoute
-  '/studio/agent': typeof StudioAgentRoute
   '/studio/backtests': typeof StudioBacktestsRouteWithChildren
   '/studio/docs': typeof StudioDocsRoute
   '/studio/earnings': typeof StudioEarningsRoute
@@ -200,7 +193,6 @@ export interface FileRoutesByTo {
   '/app/performance': typeof AppPerformanceRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/signals': typeof AppSignalsRoute
-  '/studio/agent': typeof StudioAgentRoute
   '/studio/backtests': typeof StudioBacktestsRouteWithChildren
   '/studio/docs': typeof StudioDocsRoute
   '/studio/earnings': typeof StudioEarningsRoute
@@ -228,7 +220,6 @@ export interface FileRoutesById {
   '/app/performance': typeof AppPerformanceRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/signals': typeof AppSignalsRoute
-  '/studio/agent': typeof StudioAgentRoute
   '/studio/backtests': typeof StudioBacktestsRouteWithChildren
   '/studio/docs': typeof StudioDocsRoute
   '/studio/earnings': typeof StudioEarningsRoute
@@ -257,7 +248,6 @@ export interface FileRouteTypes {
     | '/app/performance'
     | '/app/settings'
     | '/app/signals'
-    | '/studio/agent'
     | '/studio/backtests'
     | '/studio/docs'
     | '/studio/earnings'
@@ -284,7 +274,6 @@ export interface FileRouteTypes {
     | '/app/performance'
     | '/app/settings'
     | '/app/signals'
-    | '/studio/agent'
     | '/studio/backtests'
     | '/studio/docs'
     | '/studio/earnings'
@@ -311,7 +300,6 @@ export interface FileRouteTypes {
     | '/app/performance'
     | '/app/settings'
     | '/app/signals'
-    | '/studio/agent'
     | '/studio/backtests'
     | '/studio/docs'
     | '/studio/earnings'
@@ -419,13 +407,6 @@ declare module '@tanstack/react-router' {
       path: '/backtests'
       fullPath: '/studio/backtests'
       preLoaderRoute: typeof StudioBacktestsRouteImport
-      parentRoute: typeof StudioRoute
-    }
-    '/studio/agent': {
-      id: '/studio/agent'
-      path: '/agent'
-      fullPath: '/studio/agent'
-      preLoaderRoute: typeof StudioAgentRouteImport
       parentRoute: typeof StudioRoute
     }
     '/app/signals': {
@@ -554,7 +535,6 @@ const StudioBacktestsRouteWithChildren = StudioBacktestsRoute._addFileChildren(
 )
 
 interface StudioRouteChildren {
-  StudioAgentRoute: typeof StudioAgentRoute
   StudioBacktestsRoute: typeof StudioBacktestsRouteWithChildren
   StudioDocsRoute: typeof StudioDocsRoute
   StudioEarningsRoute: typeof StudioEarningsRoute
@@ -568,7 +548,6 @@ interface StudioRouteChildren {
 }
 
 const StudioRouteChildren: StudioRouteChildren = {
-  StudioAgentRoute: StudioAgentRoute,
   StudioBacktestsRoute: StudioBacktestsRouteWithChildren,
   StudioDocsRoute: StudioDocsRoute,
   StudioEarningsRoute: StudioEarningsRoute,
@@ -593,3 +572,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
