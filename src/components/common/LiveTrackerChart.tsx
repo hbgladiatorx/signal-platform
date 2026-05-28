@@ -5,11 +5,9 @@ import { getFollowedStrategies, getSignals } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Activity, ArrowUpRight } from "lucide-react";
-import {
-  Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
-} from "recharts";
 import { useAssetFilter } from "@/lib/asset-filter";
 import { DirectionPill } from "./DirectionPill";
+import { TradingViewChart } from "./TradingViewChart";
 import { cn } from "@/lib/utils";
 
 const fmt = (n: number) =>
