@@ -518,7 +518,7 @@ Ask me about: risk exposure, win rate by asset class, underperforming strategies
   };
 }
 
-export async function chatStudioAI(prompt: string): Promise<ChatMsg> {
+export async function chatStudioAI(prompt: string, ctx?: GraphContext): Promise<ChatMsg> {
   await new Promise((r) => setTimeout(r, 500 + Math.random() * 400));
   const p = prompt.toLowerCase();
 
@@ -528,6 +528,19 @@ export async function chatStudioAI(prompt: string): Promise<ChatMsg> {
       content: "Trade analysis is in **Trader mode**. Want me to build a strategy instead?",
       meta: { kind: "switch-mode" },
     };
+  }
+
+  // Try a tweak first if we have an existing graph on the canvas.
+  if (ctx && ctx.nodes.length) {
+    const tweak = applyGraphTweak(prompt, ctx);
+    if (tweak) {
+      const bullets = tweak.changes.map((c) => `- ${c}`).join("\n");
+      return {
+        id: uid("m"), role: "assistant",
+        content: `Tweaking **${tweak.name}** — keeping the rest of the graph intact.\n\n${bullets}\n\nThe affected node${tweak.changedNodeIds.length === 1 ? " is" : "s are"} highlighted on the canvas.`,
+        meta: { kind: "tweak", tweak },
+      };
+    }
   }
 
   const built = buildGraphFromPrompt(prompt);
