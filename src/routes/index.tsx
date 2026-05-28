@@ -22,7 +22,8 @@ import { Disclaimer } from "@/components/common/Disclaimer";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Bayn — Trading strategies, measured honestly" },
+      { title: "Bayn — Institutional trading, for everyone" },
+
       {
         name: "description",
         content:
