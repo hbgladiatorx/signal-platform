@@ -148,7 +148,8 @@ function Landing() {
 
 
       {/* HEADER */}
-      <header className="sticky top-0 z-30 bg-background/60 backdrop-blur-xl">
+      <header className="sticky top-0 z-30 bg-transparent text-foreground [&_a]:text-foreground">
+
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4 md:px-10">
           <Link to="/" className="flex items-center gap-2.5 text-base font-semibold">
             <div
