@@ -15,17 +15,10 @@ import { BillingToggle } from "@/components/billing/BillingToggle";
 import { PricingTable } from "@/components/billing/PricingTable";
 import { setCurrentPlan, type Billing, type TierId } from "@/lib/api/billing";
 import {
-  setTraderSeeded, setStudioSeeded, setOnboarded, toggleFollow,
-  setEnabledAssetClasses, setLiveTrackingStrategy,
+  setTraderSeeded, setStudioSeeded, setOnboarded,
+  setEnabledAssetClasses, setLiveTrackingStrategy, setOnboardingPath,
+  setAccountSize as persistAccountSize, setRiskPerTrade,
 } from "@/lib/user-prefs";
-
-// Map asset class → the free verified strategy id activated for new traders.
-const FREE_STRATEGY_BY_ASSET: Record<Asset, string> = {
-  stocks: "s-meanrev-spy",
-  crypto: "s-btc-hourly-mr",
-  options: "s-spy-otm-put",
-  futures: "s-mes-orb",
-};
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({ meta: [{ title: "Welcome to Bayn" }] }),
@@ -48,23 +41,21 @@ function OnboardingPage() {
   const [authChecked, setAuthChecked] = useState(false);
   const [step, setStep] = useState(1);
   const [path, setPath] = useState<Path>("trader");
-  const [assets, setAssets] = useState<Asset[]>(["stocks", "crypto"]);
-  const [experience, setExperience] = useState<Experience>("active");
-  const [accountSize, setAccountSize] = useState("100000");
-  const [riskPct, setRiskPct] = useState("1");
-  const [goals, setGoals] = useState<string[]>(["consistent income"]);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [experience, setExperience] = useState<Experience | null>(null);
+  const [accountSize, setAccountSize] = useState("");
+  const [riskPct, setRiskPct] = useState("");
+  const [goals, setGoals] = useState<string[]>([]);
   const [billing, setBilling] = useState<Billing>("annual");
 
-  // After step 6, developers get the Studio intro (step 7), then land.
-  const totalSteps = path === "trader" ? 7 : 8;
+  const totalSteps = path === "developer" ? 6 : 7;
 
   const activateTrader = () => {
-    // Add the user's free verified strategies to their followed list, then mark seeded.
-    const chosen = (assets.length ? assets : (ASSETS.map(a => a.key) as Asset[]));
-    chosen.forEach((a) => toggleFollow(FREE_STRATEGY_BY_ASSET[a], true));
+    const chosen = assets.length ? assets : [];
     setEnabledAssetClasses(chosen);
-    // Pin the first free strategy as the Live Tracking default.
-    if (chosen.length) setLiveTrackingStrategy(FREE_STRATEGY_BY_ASSET[chosen[0]]);
+    setLiveTrackingStrategy(null);
+    persistAccountSize(Number(accountSize) || 0);
+    setRiskPerTrade((Number(riskPct) || 0) / 100);
     setTraderSeeded(true);
   };
 
@@ -75,18 +66,18 @@ function OnboardingPage() {
   const next = () => {
     setStep((s) => {
       const nextStep = Math.min(s + 1, totalSteps);
-      if (s === 4 && (path === "trader" || path === "both")) activateTrader();
       return nextStep;
     });
   };
   const back = () => setStep((s) => Math.max(s - 1, 1));
 
   const finish = () => {
+    setOnboardingPath(path);
     if ((path === "trader" || path === "both")) activateTrader();
-    if (path === "developer" || path === "both") setStudioSeeded(true);
+    if (path === "developer" || path === "both") setStudioSeeded(false);
     setOnboarded(true);
-    if (path === "developer" || path === "both") nav({ to: "/studio/home" });
-    else nav({ to: "/app/home" });
+    if (path === "developer") nav({ to: "/studio/builder/$id", params: { id: "new" } });
+    else nav({ to: "/app/customize" });
   };
 
   // Onboarding requires an account. Anonymous visitors get bounced to /auth.
