@@ -163,8 +163,18 @@ function BacktestDetail() {
         </div>
       </Card>
 
+      {/* Drawdown curve */}
+      <DrawdownCard run={run} />
+
       {/* Monte Carlo */}
       <MonteCarloCard run={run} />
+
+      {/* Distributions */}
+      <div className="grid gap-3 lg:grid-cols-2">
+        <RDistributionCard run={run} />
+        <TerminalValueCard run={run} />
+      </div>
+
 
       {/* Monthly heatmap-ish */}
       <Card className="border-border bg-elevated p-4">
