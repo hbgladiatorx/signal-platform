@@ -67,7 +67,36 @@ function Builder() {
     { ts: new Date().toISOString(), level: "info", msg: "Builder ready. Drag nodes from the palette or load a template." },
   ]);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiHighlight, setAiHighlight] = useState<Set<string>>(new Set());
   const counter = useRef(0);
+
+  const applyAIGraph = (g: NonNullable<ChatMsg["meta"]>["graph"]) => {
+    if (!g) return;
+    setName(g.name);
+    setAssetClass(g.assetClass);
+    setNodes([]); setEdges([]);
+    const rfNodes = toRFNodes(g.graph);
+    const rfEdges = toRFEdges(g.graph);
+    const highlight = new Set<string>();
+    // staggered placement ~150ms each
+    rfNodes.forEach((n, i) => {
+      setTimeout(() => {
+        highlight.add(n.id);
+        setAiHighlight(new Set(highlight));
+        setNodes((prev) => [...prev, n]);
+        setLogs((l) => [...l, { ts: new Date().toISOString(), level: "info", msg: `AI placed ${n.data.label}` }]);
+      }, i * 150);
+    });
+    // edges after all nodes
+    setTimeout(() => {
+      setEdges(rfEdges);
+      setLogs((l) => [...l, { ts: new Date().toISOString(), level: "ok", msg: `AI built ${rfNodes.length} nodes · ${rfEdges.length} edges` }]);
+      setTimeout(() => setAiHighlight(new Set()), 2500);
+    }, rfNodes.length * 150 + 200);
+    counter.current = rfNodes.length;
+  };
+
 
   useEffect(() => {
     if (strategy) {
