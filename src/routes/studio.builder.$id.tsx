@@ -17,9 +17,12 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
-import { Save, PlayCircle, Rocket, CheckCircle2, AlertCircle, Download, ChevronDown, ChevronUp, FileCode } from "lucide-react";
+import { Save, PlayCircle, Rocket, CheckCircle2, AlertCircle, Download, ChevronDown, ChevronUp, FileCode, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import type { AssetClass, StrategyGraph } from "@/lib/types";
+import { AgentChat } from "@/components/agent/AgentChat";
+import type { ChatMsg } from "@/lib/api/agent";
+
 
 export const Route = createFileRoute("/studio/builder/$id")({
   head: () => ({ meta: [{ title: "Builder — Bayn Studio" }] }),
@@ -64,7 +67,36 @@ function Builder() {
     { ts: new Date().toISOString(), level: "info", msg: "Builder ready. Drag nodes from the palette or load a template." },
   ]);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiHighlight, setAiHighlight] = useState<Set<string>>(new Set());
   const counter = useRef(0);
+
+  const applyAIGraph = (g: NonNullable<ChatMsg["meta"]>["graph"]) => {
+    if (!g) return;
+    setName(g.name);
+    setAssetClass(g.assetClass);
+    setNodes([]); setEdges([]);
+    const rfNodes = toRFNodes(g.graph);
+    const rfEdges = toRFEdges(g.graph);
+    const highlight = new Set<string>();
+    // staggered placement ~150ms each
+    rfNodes.forEach((n, i) => {
+      setTimeout(() => {
+        highlight.add(n.id);
+        setAiHighlight(new Set(highlight));
+        setNodes((prev) => [...prev, n]);
+        setLogs((l) => [...l, { ts: new Date().toISOString(), level: "info", msg: `AI placed ${n.data.label}` }]);
+      }, i * 150);
+    });
+    // edges after all nodes
+    setTimeout(() => {
+      setEdges(rfEdges);
+      setLogs((l) => [...l, { ts: new Date().toISOString(), level: "ok", msg: `AI built ${rfNodes.length} nodes · ${rfEdges.length} edges` }]);
+      setTimeout(() => setAiHighlight(new Set()), 2500);
+    }, rfNodes.length * 150 + 200);
+    counter.current = rfNodes.length;
+  };
+
 
   useEffect(() => {
     if (strategy) {
@@ -188,6 +220,10 @@ function Builder() {
         </div>
         <div className="ml-auto flex gap-2">
           <Button size="sm" variant="ghost" onClick={() => setShowTemplates(true)}><FileCode className="mr-1 size-4" /> Templates</Button>
+          <Button size="sm" variant="ghost" onClick={() => setAiOpen((o) => !o)} className="text-violet hover:bg-violet/10 hover:text-violet">
+            <Sparkles className="mr-1 size-4" /> Build with AI
+          </Button>
+
           <Button size="sm" variant="outline" onClick={handleExport}><Download className="mr-1 size-4" /> Export JSON</Button>
           <Button size="sm" variant="outline" onClick={validate}>Validate</Button>
           <Button size="sm" variant="outline" onClick={handleSave}><Save className="mr-1 size-4" /> Save</Button>
@@ -220,7 +256,7 @@ function Builder() {
               <span className="text-violet">5·Signal</span>
             </div>
             <ReactFlow
-              nodes={nodes}
+              nodes={nodes.map((n) => aiHighlight.has(n.id) ? { ...n, className: "ai-placed" } : n)}
               edges={edges}
               nodeTypes={nodeTypes}
               onNodesChange={onNodesChange}
@@ -281,11 +317,27 @@ function Builder() {
           </div>
         </div>
 
+        {/* AI panel (toggle) */}
+        {aiOpen && (
+          <div className="flex w-[380px] shrink-0 flex-col border-l border-violet/30 bg-sidebar">
+            <div className="flex items-center justify-between border-b border-border bg-violet/5 px-3 py-2">
+              <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-violet">
+                <Sparkles className="size-3.5" /> AI Builder
+              </div>
+              <button onClick={() => setAiOpen(false)} className="rounded p-1 text-muted-foreground hover:bg-muted/30 hover:text-foreground"><X className="size-3.5" /></button>
+            </div>
+            <div className="min-h-0 flex-1">
+              <AgentChat mode="studio" compact onGraph={(g) => g && applyAIGraph(g)} />
+            </div>
+          </div>
+        )}
+
         {/* Inspector */}
         <div className="w-72 shrink-0 border-l border-border bg-sidebar">
           <NodeInspector node={selectedNode} onChange={updateNodeConfig} onDelete={deleteNode} />
         </div>
       </div>
+
 
       {/* Template picker */}
       <Dialog open={showTemplates} onOpenChange={setShowTemplates}>

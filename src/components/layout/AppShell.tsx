@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Link, Outlet, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   Home, BookOpen, BarChart3, Signal as SignalIcon, Settings, Bell, Search,
-  Wallet, FileText, User, Layers, GitBranch, Inbox as InboxIcon, ArrowRightLeft, Lock,
+  Wallet, FileText, User, Layers, GitBranch, Inbox as InboxIcon, ArrowRightLeft, Lock, Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -22,20 +22,22 @@ const traderNav: NavItem[] = [
   { to: "/app/catalog", label: "Catalog", icon: BookOpen },
   { to: "/app/signals", label: "Signals", icon: SignalIcon },
   { to: "/app/performance", label: "Perf", icon: BarChart3 },
+  { to: "/app/agent", label: "Agent", icon: Sparkles },
   { to: "/app/settings", label: "Settings", icon: Settings },
 ];
 
-// Studio nav — strictly personal: every item starts with "My"
 const studioNav: NavItem[] = [
   { to: "/studio/home", label: "My Studio", icon: Home },
   { to: "/studio/strategies", label: "Strategies", icon: Layers },
   { to: "/studio/builder/new", label: "Builder", icon: GitBranch },
+  { to: "/studio/agent", label: "AI Build", icon: Sparkles },
   { to: "/studio/backtests", label: "Backtests", icon: BarChart3 },
   { to: "/studio/signals", label: "Signals", icon: SignalIcon },
   { to: "/studio/earnings", label: "Earnings", icon: Wallet },
   { to: "/studio/submissions", label: "Submit", icon: InboxIcon },
   { to: "/studio/docs", label: "Docs", icon: FileText },
 ];
+
 
 export function AppShell({ mode = "trader" }: { mode?: "trader" | "studio" }) {
   return (

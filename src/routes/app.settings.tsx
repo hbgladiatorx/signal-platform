@@ -6,8 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { Briefcase, Bitcoin, Building2, Activity, Check } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Briefcase, Bitcoin, Building2, Activity, Check, Sparkles, Settings as SettingsIcon } from "lucide-react";
 import { toast } from "sonner";
+import { MCPConnectionSection } from "@/components/agent/AgentConnections";
+
 
 export const Route = createFileRoute("/app/settings")({
   head: () => ({ meta: [{ title: "Settings — Bayn" }] }),
@@ -26,8 +29,27 @@ function SettingsPage() {
   const [accountSize, setAccountSize] = useState(25000);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-4 md:p-6">
+    <div className="mx-auto max-w-4xl space-y-6 p-4 md:p-6">
       <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+
+      <Tabs defaultValue="general">
+        <TabsList>
+          <TabsTrigger value="general"><SettingsIcon className="mr-1.5 size-3.5" /> General</TabsTrigger>
+          <TabsTrigger value="agent"><Sparkles className="mr-1.5 size-3.5 text-violet" /> AI Agent</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="agent" className="mt-4 space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">Agentic loop</h2>
+            <p className="text-sm text-muted-foreground">
+              Bayn is the brain, Robinhood is the hands, your agent is the nervous system. Connect all three to close the loop.
+            </p>
+          </div>
+          <MCPConnectionSection />
+        </TabsContent>
+
+        <TabsContent value="general" className="mt-4 space-y-6">
+
 
       <Card className="border-border bg-elevated p-5">
         <h2 className="font-semibold">Account</h2>
@@ -88,8 +110,11 @@ function SettingsPage() {
           ))}
         </div>
       </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
+
 
 export default SettingsPage;

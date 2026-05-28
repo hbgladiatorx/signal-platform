@@ -21,11 +21,13 @@ import { Route as StudioHomeRouteImport } from './routes/studio.home'
 import { Route as StudioEarningsRouteImport } from './routes/studio.earnings'
 import { Route as StudioDocsRouteImport } from './routes/studio.docs'
 import { Route as StudioBacktestsRouteImport } from './routes/studio.backtests'
+import { Route as StudioAgentRouteImport } from './routes/studio.agent'
 import { Route as AppSignalsRouteImport } from './routes/app.signals'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as AppPerformanceRouteImport } from './routes/app.performance'
 import { Route as AppHomeRouteImport } from './routes/app.home'
 import { Route as AppCatalogRouteImport } from './routes/app.catalog'
+import { Route as AppAgentRouteImport } from './routes/app.agent'
 import { Route as StudioStrategyIdRouteImport } from './routes/studio.strategy.$id'
 import { Route as StudioBuilderIdRouteImport } from './routes/studio.builder.$id'
 import { Route as StudioBacktestsStrategyIdRouteImport } from './routes/studio.backtests.$strategyId'
@@ -93,6 +95,11 @@ const StudioBacktestsRoute = StudioBacktestsRouteImport.update({
   path: '/backtests',
   getParentRoute: () => StudioRoute,
 } as any)
+const StudioAgentRoute = StudioAgentRouteImport.update({
+  id: '/agent',
+  path: '/agent',
+  getParentRoute: () => StudioRoute,
+} as any)
 const AppSignalsRoute = AppSignalsRouteImport.update({
   id: '/signals',
   path: '/signals',
@@ -116,6 +123,11 @@ const AppHomeRoute = AppHomeRouteImport.update({
 const AppCatalogRoute = AppCatalogRouteImport.update({
   id: '/catalog',
   path: '/catalog',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAgentRoute = AppAgentRouteImport.update({
+  id: '/agent',
+  path: '/agent',
   getParentRoute: () => AppRoute,
 } as any)
 const StudioStrategyIdRoute = StudioStrategyIdRouteImport.update({
@@ -155,11 +167,13 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
   '/studio': typeof StudioRouteWithChildren
+  '/app/agent': typeof AppAgentRoute
   '/app/catalog': typeof AppCatalogRoute
   '/app/home': typeof AppHomeRoute
   '/app/performance': typeof AppPerformanceRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/signals': typeof AppSignalsRoute
+  '/studio/agent': typeof StudioAgentRoute
   '/studio/backtests': typeof StudioBacktestsRouteWithChildren
   '/studio/docs': typeof StudioDocsRoute
   '/studio/earnings': typeof StudioEarningsRoute
@@ -180,11 +194,13 @@ export interface FileRoutesByTo {
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
   '/studio': typeof StudioRouteWithChildren
+  '/app/agent': typeof AppAgentRoute
   '/app/catalog': typeof AppCatalogRoute
   '/app/home': typeof AppHomeRoute
   '/app/performance': typeof AppPerformanceRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/signals': typeof AppSignalsRoute
+  '/studio/agent': typeof StudioAgentRoute
   '/studio/backtests': typeof StudioBacktestsRouteWithChildren
   '/studio/docs': typeof StudioDocsRoute
   '/studio/earnings': typeof StudioEarningsRoute
@@ -206,11 +222,13 @@ export interface FileRoutesById {
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRoute
   '/studio': typeof StudioRouteWithChildren
+  '/app/agent': typeof AppAgentRoute
   '/app/catalog': typeof AppCatalogRoute
   '/app/home': typeof AppHomeRoute
   '/app/performance': typeof AppPerformanceRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/signals': typeof AppSignalsRoute
+  '/studio/agent': typeof StudioAgentRoute
   '/studio/backtests': typeof StudioBacktestsRouteWithChildren
   '/studio/docs': typeof StudioDocsRoute
   '/studio/earnings': typeof StudioEarningsRoute
@@ -233,11 +251,13 @@ export interface FileRouteTypes {
     | '/app'
     | '/auth'
     | '/studio'
+    | '/app/agent'
     | '/app/catalog'
     | '/app/home'
     | '/app/performance'
     | '/app/settings'
     | '/app/signals'
+    | '/studio/agent'
     | '/studio/backtests'
     | '/studio/docs'
     | '/studio/earnings'
@@ -258,11 +278,13 @@ export interface FileRouteTypes {
     | '/app'
     | '/auth'
     | '/studio'
+    | '/app/agent'
     | '/app/catalog'
     | '/app/home'
     | '/app/performance'
     | '/app/settings'
     | '/app/signals'
+    | '/studio/agent'
     | '/studio/backtests'
     | '/studio/docs'
     | '/studio/earnings'
@@ -283,11 +305,13 @@ export interface FileRouteTypes {
     | '/app'
     | '/auth'
     | '/studio'
+    | '/app/agent'
     | '/app/catalog'
     | '/app/home'
     | '/app/performance'
     | '/app/settings'
     | '/app/signals'
+    | '/studio/agent'
     | '/studio/backtests'
     | '/studio/docs'
     | '/studio/earnings'
@@ -397,6 +421,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudioBacktestsRouteImport
       parentRoute: typeof StudioRoute
     }
+    '/studio/agent': {
+      id: '/studio/agent'
+      path: '/agent'
+      fullPath: '/studio/agent'
+      preLoaderRoute: typeof StudioAgentRouteImport
+      parentRoute: typeof StudioRoute
+    }
     '/app/signals': {
       id: '/app/signals'
       path: '/signals'
@@ -430,6 +461,13 @@ declare module '@tanstack/react-router' {
       path: '/catalog'
       fullPath: '/app/catalog'
       preLoaderRoute: typeof AppCatalogRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/agent': {
+      id: '/app/agent'
+      path: '/agent'
+      fullPath: '/app/agent'
+      preLoaderRoute: typeof AppAgentRouteImport
       parentRoute: typeof AppRoute
     }
     '/studio/strategy/$id': {
@@ -478,6 +516,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppAgentRoute: typeof AppAgentRoute
   AppCatalogRoute: typeof AppCatalogRoute
   AppHomeRoute: typeof AppHomeRoute
   AppPerformanceRoute: typeof AppPerformanceRoute
@@ -489,6 +528,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAgentRoute: AppAgentRoute,
   AppCatalogRoute: AppCatalogRoute,
   AppHomeRoute: AppHomeRoute,
   AppPerformanceRoute: AppPerformanceRoute,
@@ -514,6 +554,7 @@ const StudioBacktestsRouteWithChildren = StudioBacktestsRoute._addFileChildren(
 )
 
 interface StudioRouteChildren {
+  StudioAgentRoute: typeof StudioAgentRoute
   StudioBacktestsRoute: typeof StudioBacktestsRouteWithChildren
   StudioDocsRoute: typeof StudioDocsRoute
   StudioEarningsRoute: typeof StudioEarningsRoute
@@ -527,6 +568,7 @@ interface StudioRouteChildren {
 }
 
 const StudioRouteChildren: StudioRouteChildren = {
+  StudioAgentRoute: StudioAgentRoute,
   StudioBacktestsRoute: StudioBacktestsRouteWithChildren,
   StudioDocsRoute: StudioDocsRoute,
   StudioEarningsRoute: StudioEarningsRoute,
