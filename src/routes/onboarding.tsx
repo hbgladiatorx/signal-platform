@@ -26,7 +26,8 @@ import {
   useBrokerConnections, useAgentSetup, useNotifications,
   useStudioAssetClasses, useStudioExperience, useBacktestDefaults,
   useForwardTestDefaults, useStudioAiPreferences, useStudioWorkspaceDefaults,
-  usePayoutPreference, useDefaultModeOnLogin, setOnboardingResume,
+  useDefaultModeOnLogin, setOnboardingResume,
+
 
   type BrokerId, type AgentPlatform,
   type BuilderEntry, type StudioExperience, type NodeStyle,
@@ -113,12 +114,19 @@ function OnboardingPage() {
       setOnboarded(true); // allow access; checklist surfaces remaining items
     }
     const plan = getCurrentPlan();
+    // Studio is gated by plan.developer. If a developer/both user finishes
+    // onboarding without picking a Studio plan, auto-grant the entry tier so
+    // their Studio workspace is immediately accessible (they can upgrade later).
+    if ((path === "developer" || path === "both") && !plan.developer) {
+      setCurrentPlan({ developer: "studio-builder" });
+    }
     if (path === "developer") {
-      nav({ to: plan.developer ? "/studio/home" : "/studio/pricing" });
+      nav({ to: "/studio/home" });
     } else {
       nav({ to: "/app/home" });
     }
   };
+
 
   if (!authChecked) {
     return (
@@ -165,10 +173,12 @@ function OnboardingPage() {
         {current.key === "studioMarkets" && <StepStudioMarkets />}
         {current.key === "builderExp" && <StepBuilderExp />}
         {current.key === "backtestDefaults" && <StepBacktestDefaults />}
-        {current.key === "forwardTest" && <StepForwardTest />}
+
+
         {current.key === "studioAi" && <StepStudioAi />}
         {current.key === "studioPlan" && <StepPlan billing={billing} setBilling={setBilling} audience="developer" onPick={next} />}
-        {current.key === "payout" && <StepPayout />}
+        {current.key === "forwardTest" && <StepForwardTest />}
+
         {current.key === "workspace" && <StepWorkspace />}
         {current.key === "firstStrategy" && <StepFirstStrategy />}
         {current.key === "defaultMode" && <StepDefaultMode />}
@@ -195,13 +205,15 @@ function OnboardingPage() {
   );
 }
 
+
 /* ---------------- Step graph ---------------- */
 
 type StepKey =
   | "path" | "identity" | "experience"
   | "markets" | "tickers" | "news" | "risk" | "brokers" | "agent" | "notifications" | "plan"
   | "studioMarkets" | "builderExp" | "backtestDefaults" | "forwardTest" | "studioAi"
-  | "studioPlan" | "payout" | "workspace" | "firstStrategy" | "defaultMode" | "done";
+  | "studioPlan" | "workspace" | "firstStrategy" | "defaultMode" | "done";
+
 
 function buildSteps(path: Path): { key: StepKey; label: string }[] {
   const shared: { key: StepKey; label: string }[] = [
@@ -226,10 +238,10 @@ function buildSteps(path: Path): { key: StepKey; label: string }[] {
     { key: "forwardTest", label: "Forward-test defaults" },
     { key: "studioAi", label: "Studio AI" },
     { key: "studioPlan", label: "Studio plan" },
-    { key: "payout", label: "Payout (optional)" },
     { key: "workspace", label: "Workspace defaults" },
     { key: "firstStrategy", label: "First strategy" },
   ];
+
   const studioCondensed: { key: StepKey; label: string }[] = [
     { key: "studioMarkets", label: "Build for which markets" },
     { key: "builderExp", label: "Builder experience" },
@@ -759,31 +771,78 @@ function StepStudioAi() {
   );
 }
 
-function StepPayout() {
-  const [p, setP] = usePayoutPreference();
-  const methods: { id: NonNullable<typeof p.method>; label: string }[] = [
-    { id: "ach", label: "ACH" }, { id: "wire", label: "Wire" }, { id: "stripe", label: "Stripe Connect" },
-  ];
-  return (
-    <Step title="Payout preference" sub="Only triggered if a strategy is accepted. Optional.">
-      <div className="flex gap-2">
-        {methods.map((m) => (
-          <Chip key={m.id} on={p.method === m.id} onClick={() => setP({ method: m.id })}>{m.label}</Chip>
-        ))}
-      </div>
-    </Step>
-  );
-}
-
 function StepWorkspace() {
   const [ws, setWs] = useStudioWorkspaceDefaults();
+  const views: Array<{
+    key: "grid" | "list" | "kanban";
+    label: string;
+    desc: string;
+    preview: React.ReactNode;
+  }> = [
+    {
+      key: "grid", label: "Grid", desc: "Cards in a responsive grid. Best for visual scanning.",
+      preview: (
+        <div className="grid grid-cols-3 gap-1.5">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="aspect-[4/3] rounded-sm bg-violet/25" />
+          ))}
+        </div>
+      ),
+    },
+    {
+      key: "list", label: "List", desc: "Dense rows with sortable columns. Best for comparing.",
+      preview: (
+        <div className="space-y-1.5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <div className="h-2.5 w-2.5 rounded-sm bg-violet/40" />
+              <div className="h-2 flex-1 rounded-sm bg-violet/20" />
+              <div className="h-2 w-8 rounded-sm bg-violet/30" />
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      key: "kanban", label: "Kanban", desc: "Pipeline stages as columns. Best for tracking progress.",
+      preview: (
+        <div className="grid grid-cols-3 gap-1.5">
+          {Array.from({ length: 3 }).map((_, col) => (
+            <div key={col} className="space-y-1.5 rounded-sm bg-violet/10 p-1">
+              {Array.from({ length: col === 1 ? 3 : 2 }).map((_, i) => (
+                <div key={i} className="h-4 rounded-sm bg-violet/30" />
+              ))}
+            </div>
+          ))}
+        </div>
+      ),
+    },
+  ];
   return (
     <Step title="Workspace defaults" sub="How your Studio home looks when you open it.">
       <Group label="Default strategy view">
-        <div className="flex gap-2">
-          {(["grid", "list", "kanban"] as const).map((v) => (
-            <Chip key={v} on={ws.view === v} onClick={() => setWs({ ...ws, view: v })}>{v}</Chip>
-          ))}
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          {views.map((v) => {
+            const on = ws.view === v.key;
+            return (
+              <button
+                key={v.key}
+                onClick={() => setWs({ ...ws, view: v.key })}
+                className={cn(
+                  "flex flex-col gap-3 rounded-lg border p-4 text-left transition-colors",
+                  on ? "border-violet/60 bg-violet/10" : "border-border bg-elevated hover:border-foreground/30",
+                )}
+              >
+                <div className="h-20 rounded-md border border-border bg-background/60 p-2">
+                  {v.preview}
+                </div>
+                <div>
+                  <div className="text-sm font-semibold">{v.label}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">{v.desc}</div>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </Group>
       <Group label="Default new-strategy asset class">
@@ -795,9 +854,14 @@ function StepWorkspace() {
           ))}
         </div>
       </Group>
+      <p className="mt-6 rounded-lg border border-border bg-elevated/60 p-3 text-xs text-muted-foreground">
+        Bayn never custodies funds. Your strategies execute through your connected brokerage —
+        money stays where it is. That's why we don't ask for payout details here.
+      </p>
     </Step>
   );
 }
+
 
 function StepFirstStrategy() {
   const [exp, setExp] = useStudioExperience();

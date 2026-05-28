@@ -164,6 +164,8 @@ export function AgentChat({ mode, onGraph, onTweak, compact, initialPrompt, getC
 }
 
 /** Right-side context panel showing what the trader AI is grounded on. */
+/** Right-side context panel showing what the trader AI is grounded on.
+ *  Empty by default — populates from real broker / signal data once connected. */
 export function TraderContextPanel() {
   return (
     <div className="space-y-3">
@@ -171,34 +173,27 @@ export function TraderContextPanel() {
         <div className="mb-2 flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-muted-foreground">
           <Wallet className="size-3.5 text-cyan" /> Open Positions
         </div>
-        <ul className="space-y-1.5 text-xs">
-          <li className="flex justify-between"><span>BTC-PERP · LONG</span><span className="font-mono text-success">+1.2R</span></li>
-          <li className="flex justify-between"><span>ES · LONG (2)</span><span className="font-mono text-danger">−0.4R</span></li>
-          <li className="flex justify-between"><span>AAPL · LONG</span><span className="font-mono text-success">+0.6R</span></li>
-        </ul>
+        <p className="text-xs text-muted-foreground">
+          Connect a broker to surface live positions here.
+        </p>
       </Card>
       <Card className="border-border bg-elevated p-3">
         <div className="mb-2 flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-muted-foreground">
-          <Activity className="size-3.5 text-cyan" /> Last 10 Signals
+          <Activity className="size-3.5 text-cyan" /> Recent Signals
         </div>
-        <div className="grid grid-cols-10 gap-1">
-          {["w","w","l","w","l","w","w","w","l","w"].map((r, i) => (
-            <div key={i} className={cn("h-6 rounded", r === "w" ? "bg-success/40" : "bg-danger/40")} />
-          ))}
-        </div>
-        <div className="mt-2 text-[11px] text-muted-foreground">7W / 3L · last 14 days</div>
+        <p className="text-xs text-muted-foreground">
+          No signals yet — follow a strategy to start a track record.
+        </p>
       </Card>
       <Card className="border-border bg-elevated p-3">
         <div className="mb-2 flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-muted-foreground">
-          <TrendingUp className="size-3.5 text-cyan" /> Performance (90d)
+          <TrendingUp className="size-3.5 text-cyan" /> Performance
         </div>
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          <div><div className="text-muted-foreground">Win rate</div><div className="font-mono">54%</div></div>
-          <div><div className="text-muted-foreground">Avg R</div><div className="font-mono">+0.42</div></div>
-          <div><div className="text-muted-foreground">Sharpe</div><div className="font-mono">1.31</div></div>
-          <div><div className="text-muted-foreground">Drawdown</div><div className="font-mono">−7.2%</div></div>
-        </div>
+        <p className="text-xs text-muted-foreground">
+          Performance metrics appear once you have taken signals.
+        </p>
       </Card>
     </div>
   );
 }
+
