@@ -122,29 +122,28 @@ function OnboardingPage() {
                 sub="Follow verified strategies that survived the pipeline."
               />
               <PathCard
+        {step === 1 && (
+          <Step title="Trader or Studio?"
+            sub="Pick the path that fits today — you can add the other later. Studio is paid-only; Trader has a free tier with 4 verified strategies.">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <PathCard
+                active={path === "trader"} onClick={() => setPath("trader")}
+                icon={BadgeCheck} accent="cyan" title="Trader"
+                sub="Follow verified strategies. Free tier included; upgrade for premium catalog access."
+              />
+              <PathCard
                 active={path === "developer"} onClick={() => setPath("developer")}
-                icon={Layers} accent="violet" title="I want to build"
-                sub="Desk-grade lab: node builder, backtests, forward-tests."
+                icon={Layers} accent="violet" title="Studio"
+                sub="Build your own strategies. Node editor, backtests, forward-tests. Paid plan required."
               />
               <PathCard
                 active={path === "both"} onClick={() => setPath("both")}
                 icon={Sparkles} accent="emerald" title="Both"
-                sub="Trader feed first, then Studio intro."
+                sub="Trader feed first, then Studio intro. Studio plan still required for the builder."
               />
             </div>
           </Step>
         )}
-
-        {step === 2 && (
-          <Step title="Tell us your operator profile" sub="Drives strategy recommendations and position sizing.">
-            <div className="space-y-6">
-              <Group label="Asset classes (multi-select)">
-                <div className="flex flex-wrap gap-2">
-                  {ASSETS.map((a) => {
-                    const on = assets.includes(a.key);
-                    return (
-                      <button key={a.key}
-                        onClick={() => setAssets(on ? assets.filter(x => x !== a.key) : [...assets, a.key])}
                         className={cn("rounded-full border px-3.5 py-1.5 text-sm transition-colors",
                           on ? "border-cyan/50 bg-cyan/15 text-cyan" : "border-border bg-elevated text-muted-foreground hover:text-foreground")}>
                         {a.label}
