@@ -190,6 +190,18 @@ export type CurrentPlan = {
 };
 
 const STORAGE_KEY = "bayn.billing.currentPlan";
+let billingScope = "anon";
+
+function scopedStorageKey() {
+  return `${STORAGE_KEY}.${billingScope}`;
+}
+
+export function setBillingScope(userId: string | null) {
+  const next = userId ?? "anon";
+  if (next === billingScope) return;
+  billingScope = next;
+  mock = { ...defaultPlan };
+}
 
 const defaultPlan: CurrentPlan = {
   trader: null,
@@ -203,7 +215,7 @@ let mock: CurrentPlan = { ...defaultPlan };
 function readStoredPlan(): CurrentPlan {
   if (typeof window === "undefined") return mock;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(scopedStorageKey()) ?? window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return mock;
     const stored = JSON.parse(raw) as Partial<CurrentPlan>;
     mock = { ...defaultPlan, ...stored, activeAddOns: stored.activeAddOns ?? [] };
@@ -213,7 +225,7 @@ function readStoredPlan(): CurrentPlan {
 
 function persistPlan() {
   if (typeof window === "undefined") return;
-  try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(mock)); } catch { /* noop */ }
+  try { window.localStorage.setItem(scopedStorageKey(), JSON.stringify(mock)); } catch { /* noop */ }
   window.dispatchEvent(new CustomEvent("bayn-debug-event"));
 }
 
@@ -233,6 +245,9 @@ export function resetCurrentPlan() {
   const before = { ...readStoredPlan(), activeAddOns: [...mock.activeAddOns] };
   mock = { ...defaultPlan };
   persistPlan();
+  if (typeof window !== "undefined") {
+    try { window.localStorage.removeItem(STORAGE_KEY); } catch { /* noop */ }
+  }
   logDebugEvent({ type: "reset", message: "Billing plan reset to free / no Studio", meta: { before, after: mock } });
 }
 
