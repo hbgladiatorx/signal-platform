@@ -4,13 +4,15 @@ import { Link } from "@tanstack/react-router";
 import { getFollowedStrategies, getSignals } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Activity, ArrowUpRight, Inbox } from "lucide-react";
+import { Activity, ArrowUpRight } from "lucide-react";
 import { useAssetFilter } from "@/lib/asset-filter";
+import { useWatchlist } from "@/lib/user-prefs";
 import { DirectionPill } from "./DirectionPill";
 import { TradingViewChart } from "./TradingViewChart";
 import { DraggableLevelsOverlay, type Levels } from "./DraggableLevelsOverlay";
 import { cn } from "@/lib/utils";
 import type { AssetClass } from "@/lib/types";
+
 
 const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
