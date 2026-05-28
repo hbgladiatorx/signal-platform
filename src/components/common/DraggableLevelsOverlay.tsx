@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { GripVertical, RotateCcw } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export interface Levels {
