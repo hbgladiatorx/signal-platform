@@ -17,8 +17,9 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
-import { Save, PlayCircle, Rocket, CheckCircle2, AlertCircle, Download, ChevronDown, ChevronUp, FileCode, Sparkles, X } from "lucide-react";
+import { Save, PlayCircle, Rocket, CheckCircle2, AlertCircle, Download, ChevronDown, ChevronUp, FileCode, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import type { AssetClass, StrategyGraph } from "@/lib/types";
 import { AgentChat } from "@/components/agent/AgentChat";
 import type { ChatMsg } from "@/lib/api/agent";
@@ -67,7 +68,7 @@ function Builder() {
     { ts: new Date().toISOString(), level: "info", msg: "Builder ready. Drag nodes from the palette or load a template." },
   ]);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
-  const [aiOpen, setAiOpen] = useState(false);
+  const [leftTab, setLeftTab] = useState<"ai" | "palette">("ai");
   const [aiHighlight, setAiHighlight] = useState<Set<string>>(new Set());
   const counter = useRef(0);
 
@@ -220,10 +221,6 @@ function Builder() {
         </div>
         <div className="ml-auto flex gap-2">
           <Button size="sm" variant="ghost" onClick={() => setShowTemplates(true)}><FileCode className="mr-1 size-4" /> Templates</Button>
-          <Button size="sm" variant="ghost" onClick={() => setAiOpen((o) => !o)} className="text-violet hover:bg-violet/10 hover:text-violet">
-            <Sparkles className="mr-1 size-4" /> Build with AI
-          </Button>
-
           <Button size="sm" variant="outline" onClick={handleExport}><Download className="mr-1 size-4" /> Export JSON</Button>
           <Button size="sm" variant="outline" onClick={validate}>Validate</Button>
           <Button size="sm" variant="outline" onClick={handleSave}><Save className="mr-1 size-4" /> Save</Button>
@@ -239,9 +236,39 @@ function Builder() {
 
       {/* Workspace */}
       <div className="flex min-h-0 flex-1">
-        {/* Palette */}
-        <div className="w-60 shrink-0 border-r border-border bg-sidebar">
-          <NodePalette onAdd={addNodeFromPalette} />
+        {/* Left sidebar: AI Builder ↔ Palette tabs */}
+        <div className="flex w-[340px] shrink-0 flex-col border-r border-border bg-sidebar">
+          <div className="flex border-b border-border bg-elevated">
+            <button
+              onClick={() => setLeftTab("ai")}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[11px] font-mono uppercase tracking-wider transition-colors",
+                leftTab === "ai"
+                  ? "border-b-2 border-violet bg-violet/5 text-violet"
+                  : "border-b-2 border-transparent text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Sparkles className="size-3.5" /> AI Builder
+            </button>
+            <button
+              onClick={() => setLeftTab("palette")}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-1.5 px-3 py-2.5 text-[11px] font-mono uppercase tracking-wider transition-colors",
+                leftTab === "palette"
+                  ? "border-b-2 border-cyan bg-cyan/5 text-cyan"
+                  : "border-b-2 border-transparent text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <FileCode className="size-3.5" /> Palette
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-hidden">
+            {leftTab === "ai" ? (
+              <AgentChat mode="studio" compact onGraph={(g) => g && applyAIGraph(g)} />
+            ) : (
+              <NodePalette onAdd={addNodeFromPalette} />
+            )}
+          </div>
         </div>
 
         {/* Canvas + console */}
@@ -317,20 +344,6 @@ function Builder() {
           </div>
         </div>
 
-        {/* AI panel (toggle) */}
-        {aiOpen && (
-          <div className="flex w-[380px] shrink-0 flex-col border-l border-violet/30 bg-sidebar">
-            <div className="flex items-center justify-between border-b border-border bg-violet/5 px-3 py-2">
-              <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-violet">
-                <Sparkles className="size-3.5" /> AI Builder
-              </div>
-              <button onClick={() => setAiOpen(false)} className="rounded p-1 text-muted-foreground hover:bg-muted/30 hover:text-foreground"><X className="size-3.5" /></button>
-            </div>
-            <div className="min-h-0 flex-1">
-              <AgentChat mode="studio" compact onGraph={(g) => g && applyAIGraph(g)} />
-            </div>
-          </div>
-        )}
 
         {/* Inspector */}
         <div className="w-72 shrink-0 border-l border-border bg-sidebar">

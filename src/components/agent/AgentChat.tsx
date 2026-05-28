@@ -95,14 +95,14 @@ export function AgentChat({ mode, onGraph, compact, initialPrompt }: Props) {
               </div>
               {m.meta?.kind === "switch-mode" && (
                 <Button size="sm" variant="outline" className="mt-2"
-                  onClick={() => navigate({ to: mode === "trader" ? "/studio/agent" : "/app/agent" })}>
+                  onClick={() => navigate({ to: mode === "trader" ? "/studio/builder/$id" : "/app/agent", params: mode === "trader" ? { id: "new" } : undefined as never })}>
                   <ArrowRightLeft className="mr-1 size-3" />
-                  {mode === "trader" ? "Switch to Studio" : "Switch to Trader"}
+                  {mode === "trader" ? "Open Builder" : "Switch to Trader"}
                 </Button>
               )}
               {m.meta?.kind === "handoff" && (
                 <div className="mt-2 rounded-md border border-border bg-muted/30 px-2 py-1.5 text-[11px] text-muted-foreground">
-                  Bayn never places trades. Your connected agent can route this via Robinhood Agentic with your confirmation.
+                  Bayn never places trades. Your connected agent can route this with your confirmation.
                 </div>
               )}
             </div>

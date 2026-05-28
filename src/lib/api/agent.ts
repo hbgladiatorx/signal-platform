@@ -2,7 +2,7 @@
 import type { StrategyGraph, StrategyNode, StrategyEdge, AssetClass } from "@/lib/types";
 
 export type AgentMode = "trader" | "studio";
-export type MCPTarget = "agent" | "bayn" | "robinhood";
+export type MCPTarget = "agent" | "bayn" | "broker";
 
 export type AgentPlatform =
   | "claude-code" | "claude-desktop" | "chatgpt" | "codex" | "codex-cli" | "cursor" | "other";
@@ -15,7 +15,7 @@ export interface AgentPlatformInfo {
 }
 
 export const BAYN_MCP_URL = "https://agent.bayn.app/mcp";
-export const ROBINHOOD_MCP_URL = "https://agent.robinhood.com/mcp/trading";
+export const BROKER_MCP_URL = "https://agent.broker.app/mcp/trading";
 
 export const PLATFORMS: AgentPlatformInfo[] = [
   { id: "claude-code",    name: "Claude Code",    install: `claude mcp add bayn --transport http ${BAYN_MCP_URL}` },
@@ -244,7 +244,7 @@ export async function chatTraderAI(prompt: string): Promise<ChatMsg> {
 
 **What I'd watch:** an ES gap-down would compound with BTC overnight risk. Trimming one ES contract drops worst-case to ~$1,180 (4.7%).
 
-> To act on this, your connected agent can submit the trim through **Robinhood Agentic** with your confirmation.`,
+> To act on this, your connected agent can submit the trim through **Brokerage Agent** with your confirmation.`,
       meta: { kind: "handoff" },
     };
   }
@@ -309,7 +309,7 @@ Common thread: **regime/context filters** are missing. The signals are valid in 
 
 **Net:** asymmetric but late. A trail to 61.2k locks +1.0R and keeps optionality.
 
-> To trim or trail, your connected agent can route the order via Robinhood Agentic with your confirmation.`,
+> To trim or trail, your connected agent can route the order via Brokerage Agent with your confirmation.`,
       meta: { kind: "handoff" },
     };
   }
@@ -356,10 +356,10 @@ export interface ConnectionState {
   platform: AgentPlatform | null;
   agent: boolean;
   bayn: boolean;
-  robinhood: boolean;
+  broker: boolean;
   allowSignalRead: boolean;
 }
-const DEFAULT: ConnectionState = { platform: null, agent: false, bayn: false, robinhood: false, allowSignalRead: true };
+const DEFAULT: ConnectionState = { platform: null, agent: false, bayn: false, broker: false, allowSignalRead: true };
 
 export function getConnections(): ConnectionState {
   if (typeof window === "undefined") return DEFAULT;
