@@ -21,6 +21,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         setStatus("anon");
         nav({ to: "/auth" });
         return;
+      }
       if (!getOnboarded()) {
         // Authenticated but never completed onboarding. Wipe any leftover
         // local state (stale follows, demo seeds) so the user starts blank,
@@ -31,6 +32,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         return;
       }
       setStatus("authed");
+    };
     };
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
