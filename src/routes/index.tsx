@@ -91,8 +91,8 @@ function Landing() {
       `}</style>
 
       {/* HEADER */}
-      <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 md:px-10">
+      <header className="sticky top-0 z-30 bg-background/60 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4 md:px-10">
           <Link to="/" className="flex items-center gap-2.5 text-base font-semibold">
             <div
               className="grid size-8 place-items-center rounded-lg font-bold text-brand-cream"
@@ -102,12 +102,14 @@ function Landing() {
             </div>
             <span className="landing-display tracking-tight">Bayn</span>
           </Link>
-          <nav className="hidden items-center gap-7 text-sm text-muted-foreground md:flex">
-            <a href="#pipeline" className="transition-colors hover:text-foreground">The filter</a>
-            <a href="#catalog" className="transition-colors hover:text-foreground">Catalog</a>
-            <a href="#studio" className="transition-colors hover:text-foreground">Studio</a>
-            <a href="#proof" className="transition-colors hover:text-foreground">Proof</a>
+
+          <nav className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-1 rounded-full border border-border/70 bg-background/80 px-3 py-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground backdrop-blur-xl shadow-sm">
+            <a href="#pipeline" className="rounded-full px-4 py-1.5 transition-colors hover:text-foreground">The Filter</a>
+            <a href="#catalog" className="rounded-full px-4 py-1.5 transition-colors hover:text-foreground">Catalog</a>
+            <a href="#studio" className="rounded-full px-4 py-1.5 transition-colors hover:text-foreground">Studio</a>
+            <a href="#proof" className="rounded-full px-4 py-1.5 transition-colors hover:text-foreground">Proof</a>
           </nav>
+
           <div className="flex items-center gap-2">
             <Button variant="ghost" asChild className="hidden sm:inline-flex">
               <Link to="/auth">Sign in</Link>
@@ -124,6 +126,7 @@ function Landing() {
           </div>
         </div>
       </header>
+
 
       {/* HERO */}
       <section className="relative overflow-hidden landing-hero-grad">
