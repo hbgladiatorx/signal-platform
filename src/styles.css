@@ -90,6 +90,8 @@
   --danger-foreground: oklch(0.98 0 0);
   --gold: oklch(0.78 0.13 85);
   --gold-foreground: oklch(0.15 0.02 85);
+  --success: oklch(0.78 0.17 155);
+  --warn: oklch(0.82 0.15 80);
 
   /* Asset classes — intentionally neutral. Color is reserved for state (cyan/violet/danger/gold). */
   --stocks: oklch(0.72 0.01 270);
