@@ -228,7 +228,9 @@ export const takenSignals: TakenSignal[] = signals
     outcome: s.status,
   }));
 
-export const followedStrategyIds = strategies.slice(0, 6).map((s) => s.id);
+// Brand-new accounts start with zero followed strategies. Onboarding activates
+// the four free verified strategies (one per asset class) into the overlay.
+export const followedStrategyIds: string[] = [];
 
 /* =================================================================
    STUDIO (developer-side) mock data
