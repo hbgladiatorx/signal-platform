@@ -476,8 +476,9 @@ function Landing() {
               a: "Every strategy passes backtest, out-of-sample, and forward-test on live data before publication. Live performance is tracked continuously and shown alongside the original backtest.",
             },
             {
-              q: "I'm a developer. How do I publish?",
-              a: "Build in the node-based Studio or describe a strategy in prose for the AI co-builder. Run backtests + Monte Carlo, submit for review, and earn 30% revenue share per subscriber once approved.",
+              q: "I'm a developer. What's the Studio for?",
+              a: "Build your own strategies in a node-based editor or via the AI co-builder. Backtest, run Monte Carlo + walk-forward, then deploy your strategy live and trade it yourself. You keep 100% of the upside — Bayn doesn't take a cut of what you trade.",
+
             },
           ].map(({ q, a }) => (
             <details
