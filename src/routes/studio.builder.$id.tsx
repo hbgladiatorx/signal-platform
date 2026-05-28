@@ -5,7 +5,7 @@ import ReactFlow, {
   type Connection, type Edge, type Node, type OnNodesChange, type OnEdgesChange,
 } from "reactflow";
 import { useQuery } from "@tanstack/react-query";
-import { getDevStrategy, getTemplates, saveStrategyGraph, runBacktest } from "@/lib/api/studio";
+import { getDevStrategy, getTemplates, saveStrategyGraph, runBacktest, ensureDevStrategyDraft } from "@/lib/api/studio";
 import { advanceStage } from "@/lib/strategy-stage";
 import { StrategyNode, type StrategyNodeData } from "@/components/studio/StrategyNode";
 import { NodePalette, PALETTE, type PaletteNode } from "@/components/studio/NodePalette";
