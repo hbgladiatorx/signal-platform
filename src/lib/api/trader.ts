@@ -76,6 +76,3 @@ export async function subscribeToStrategy(id: string) { await wait(); toggleFoll
 export async function unsubscribeFromStrategy(id: string) { await wait(); toggleFollow(id, false); return { ok: true }; }
 export async function markSignalTaken(_signalId: string, _fillPrice: number) { await wait(); return { ok: true }; }
 export async function sendOrderToBroker(_signalId: string, _broker: string) { await wait(400); return { ok: true }; }
-
-export async function markSignalTaken(_signalId: string, _fillPrice: number) { await wait(); return { ok: true }; }
-export async function sendOrderToBroker(_signalId: string, _broker: string) { await wait(400); return { ok: true }; }
