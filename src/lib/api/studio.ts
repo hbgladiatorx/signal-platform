@@ -2,7 +2,7 @@
 import {
   devStrategies, backtestRuns, personalSignals, studioEarnings, graphTemplates,
 } from "../mockData";
-import { getStudioSeeded, setStudioSeeded } from "../user-prefs";
+import { getStudioSeeded } from "../user-prefs";
 import type { DevStrategy, BacktestRun, PersonalSignal, StrategyGraph } from "../types";
 
 const wait = (ms = 120) => new Promise((r) => setTimeout(r, ms));
