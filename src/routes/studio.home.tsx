@@ -52,11 +52,14 @@ function StudioHome() {
               // strategies, backtests, and personal signals — only visible to you
             </p>
           </div>
-          <Button asChild className="bg-violet text-violet-foreground hover:bg-violet/90">
-            <Link to="/studio/builder/$id" params={{ id: "new" }}>
-              <Plus className="mr-2 size-4" /> New strategy
-            </Link>
-          </Button>
+          <div className="flex items-center gap-2">
+            <CustomizeButton mode="studio" />
+            <Button asChild className="bg-violet text-violet-foreground hover:bg-violet/90">
+              <Link to="/studio/builder/$id" params={{ id: "new" }}>
+                <Plus className="mr-2 size-4" /> New strategy
+              </Link>
+            </Button>
+          </div>
         </div>
       </div>
 
