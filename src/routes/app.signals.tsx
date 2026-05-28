@@ -41,15 +41,31 @@ function SignalsPage() {
   });
   const older = list.filter((s) => s.status !== "OPEN" && !today.includes(s));
 
+  const openCount = list.filter((s) => s.status === "OPEN").length;
+  const wonCount  = list.filter((s) => s.status === "HIT_TARGET").length;
+  const lostCount = list.filter((s) => s.status === "HIT_STOP").length;
+  const closed = list.filter((s) => s.status === "HIT_TARGET" || s.status === "HIT_STOP").length;
+  const winRate = closed ? wonCount / closed : 0;
+
   return (
     <div className="space-y-6 p-4 md:p-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Signals {assetClass !== "all" && <span className="text-muted-foreground">· {assetClass}</span>}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Live signals from your followed strategies, grouped by state.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Signals {assetClass !== "all" && <span className="text-muted-foreground">· {assetClass}</span>}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Live signals from your followed strategies, grouped by state.
+          </p>
+        </div>
+      </div>
+
+      {/* KPI strip */}
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+        <Kpi label="Open" value={openCount} tone="cyan" />
+        <Kpi label="Won" value={wonCount} tone="cyan" />
+        <Kpi label="Lost" value={lostCount} tone="danger" />
+        <Kpi label="Win rate" value={closed ? `${(winRate * 100).toFixed(0)}%` : "—"} />
       </div>
 
       <div className="flex flex-wrap gap-2">
