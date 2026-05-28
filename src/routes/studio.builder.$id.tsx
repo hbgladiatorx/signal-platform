@@ -176,9 +176,11 @@ function Builder() {
 
   const handleRunBacktest = async (params: any) => {
     setLogs((l) => [...l, { ts: new Date().toISOString(), level: "info", msg: `Backtest started: ${params.startDate} → ${params.endDate}, $${params.capital}` }]);
-    await runBacktest(id, params);
-    setLogs((l) => [...l, { ts: new Date().toISOString(), level: "ok", msg: `Backtest completed. Open Backtests tab to view results.` }]);
-    toast.success("Backtest finished");
+    const run = await runBacktest(id, params);
+    advanceStage(id, "backtested");
+    setLogs((l) => [...l, { ts: new Date().toISOString(), level: "ok", msg: `Backtest ${run.id} completed. Opening results…` }]);
+    toast.success("Backtest finished — opening results");
+    return run;
   };
 
   const handleExport = () => {
