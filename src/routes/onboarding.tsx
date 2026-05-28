@@ -1,12 +1,11 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  ArrowRight, ArrowLeft, Sparkles, BadgeCheck, Layers, BarChart3,
+  ArrowRight, ArrowLeft, Sparkles, BadgeCheck, Layers, BarChart3, Loader2,
   ShieldCheck, Wand2, Workflow,
 } from "lucide-react";
 import { toast } from "sonner";
