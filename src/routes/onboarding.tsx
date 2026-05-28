@@ -6,14 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  ArrowRight, ArrowLeft, Check, Sparkles, BadgeCheck, Layers, BarChart3,
-  Bot, Zap, ShieldCheck, LineChart, Wand2, Workflow,
+  ArrowRight, ArrowLeft, Sparkles, BadgeCheck, Layers, BarChart3,
+  ShieldCheck, Wand2, Workflow,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { BillingToggle } from "@/components/billing/BillingToggle";
 import { PricingTable } from "@/components/billing/PricingTable";
-import { setCurrentPlan, type Billing, type TierId } from "@/lib/api/billing";
+import { getCurrentPlan, setCurrentPlan, type Billing, type TierId } from "@/lib/api/billing";
 import {
   setTraderSeeded, setStudioSeeded, setOnboarded,
   setEnabledAssetClasses, setLiveTrackingStrategy, setOnboardingPath,
@@ -48,7 +47,7 @@ function OnboardingPage() {
   const [goals, setGoals] = useState<string[]>([]);
   const [billing, setBilling] = useState<Billing>("annual");
 
-  const totalSteps = path === "developer" ? 6 : 7;
+  const totalSteps = path === "both" ? 5 : 4;
 
   const activateTrader = () => {
     const chosen = assets.length ? assets : [];
@@ -76,7 +75,12 @@ function OnboardingPage() {
     if ((path === "trader" || path === "both")) activateTrader();
     if (path === "developer" || path === "both") setStudioSeeded(false);
     setOnboarded(true);
-    if (path === "developer") nav({ to: "/studio/builder/$id", params: { id: "new" } });
+    const plan = getCurrentPlan();
+    if (path === "developer") {
+      if (plan.developer) nav({ to: "/studio/builder/$id", params: { id: "new" } });
+      else nav({ to: "/studio/pricing" });
+      return;
+    }
     else nav({ to: "/app/customize" });
   };
 
@@ -109,9 +113,7 @@ function OnboardingPage() {
               style={{ background: "var(--gradient-emerald)", boxShadow: "var(--shadow-emerald)" }}>B</div>
             <span style={{ fontFamily: "var(--font-landing-display)", letterSpacing: "-0.02em" }}>Bayn</span>
           </Link>
-          <button onClick={finish} className="text-xs text-muted-foreground hover:text-foreground">
-            Skip onboarding
-          </button>
+          <span className="text-xs text-muted-foreground">Guided setup</span>
         </div>
         <div className="mx-auto max-w-5xl px-6 pb-4 md:px-10">
           <ProgressBar step={step} total={totalSteps} />
@@ -124,22 +126,22 @@ function OnboardingPage() {
       <main className="mx-auto max-w-3xl px-6 py-10 md:px-10 md:py-16">
         {step === 1 && (
           <Step title="Trader or Studio?"
-            sub="Pick the path that fits today — you can add the other later. Studio is paid-only; Trader has a free tier with 4 verified strategies.">
+            sub="Choose the workspace you want to customize first. New accounts start blank; nothing is followed or preloaded for you.">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <PathCard
                 active={path === "trader"} onClick={() => setPath("trader")}
                 icon={BadgeCheck} accent="cyan" title="Trader"
-                sub="Follow verified strategies. Free tier included; upgrade for premium catalog access."
+                sub="Build a clean trader dashboard: markets, risk defaults, news, and strategy follows."
               />
               <PathCard
                 active={path === "developer"} onClick={() => setPath("developer")}
                 icon={Layers} accent="violet" title="Studio"
-                sub="Build your own strategies. Node editor, backtests, forward-tests. Paid plan required."
+                sub="Set up a blank private strategy lab. Studio access appears only with a Studio plan."
               />
               <PathCard
                 active={path === "both"} onClick={() => setPath("both")}
                 icon={Sparkles} accent="emerald" title="Both"
-                sub="Trader feed first, then Studio intro. Studio plan still required for the builder."
+                sub="Customize Trader first, then add Studio access if your plan includes it."
               />
             </div>
           </Step>
