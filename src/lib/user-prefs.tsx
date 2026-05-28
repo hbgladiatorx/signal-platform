@@ -344,3 +344,33 @@ export type OnboardingPath = "trader" | "developer" | "both";
 export function getOnboardingPath() { return read<OnboardingPath | null>("onboarding.path", null); }
 export function setOnboardingPath(v: OnboardingPath) { write("onboarding.path", v); logDebugEvent({ type: "onboarding", message: `Onboarding path selected: ${v}` }); }
 export function useOnboardingPath() { return usePref<OnboardingPath | null>("onboarding.path", null); }
+
+/** Wipe local prefs — used on sign-out so the next account starts blank. */
+export function resetAllPrefs() {
+  const keys = [
+    "watchlist", "news.categories", "news.sources", "news.onlyWatched",
+    "follows", "assetClasses", "liveTracking", "home.layout", "home.hidden",
+    "trading.accountSize", "trading.riskPerTrade", "trading.timeframe",
+    "trading.chartType", "trading.maxConcurrent", "trading.dailyLossLimit",
+    "notifications", "identity", "experience",
+    "brokers.connections", "brokers.defaultByAssetClass",
+    "agent.setup",
+    "studio.assetClasses", "studio.experience", "studio.backtestDefaults",
+    "studio.forwardTestDefaults", "studio.aiPrefs", "studio.workspaceDefaults",
+    "studio.payout",
+    "defaultModeOnLogin", "onboarding.resume", "checklist.dismissed",
+    "traderSeeded", "studioSeeded", "onboarded", "onboarding.path",
+  ];
+  for (const k of keys) {
+    inMemory.delete(k);
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.removeItem(storageKey(k));
+        window.localStorage.removeItem(STORAGE_PREFIX + k);
+      } catch { /* noop */ }
+    }
+    notify(k);
+  }
+  logDebugEvent({ type: "reset", message: "All onboarding and preference state reset" });
+}
+
