@@ -379,8 +379,8 @@ function Builder() {
       </Dialog>
 
       <BacktestRunModal open={showBacktest} onOpenChange={setShowBacktest} onRun={async (p) => {
-        await handleRunBacktest(p);
-        navigate({ to: "/studio/backtests" });
+        const run = await handleRunBacktest(p);
+        navigate({ to: "/studio/backtests/$strategyId", params: { strategyId: id }, search: { runId: run.id } as never });
       }} />
     </div>
   );
