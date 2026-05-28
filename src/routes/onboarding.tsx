@@ -201,7 +201,8 @@ function OnboardingPage() {
       </main>
     </div>
   );
-}
+  | "studioPlan" | "workspace" | "firstStrategy" | "defaultMode" | "done";
+
 
 /* ---------------- Step graph ---------------- */
 
