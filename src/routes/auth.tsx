@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Loader2, ShieldCheck, Mail, Lock, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { getOnboarded } from "@/lib/user-prefs";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -28,12 +29,13 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // If already signed in, bounce into the app.
+  // If already signed in, bounce into the app (or onboarding if not yet completed).
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) nav({ to: "/app/home" });
+      if (data.session) nav({ to: getOnboarded() ? "/app/home" : "/onboarding" });
     });
   }, [nav]);
+
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,8 +44,9 @@ function AuthPage() {
     setLoading(false);
     if (error) return toast.error(error.message);
     toast.success("Welcome back");
-    nav({ to: "/app/home" });
+    nav({ to: getOnboarded() ? "/app/home" : "/onboarding" });
   };
+
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();

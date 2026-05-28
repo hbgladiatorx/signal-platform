@@ -12,6 +12,15 @@ import { cn } from "@/lib/utils";
 import { BillingToggle } from "@/components/billing/BillingToggle";
 import { PricingTable } from "@/components/billing/PricingTable";
 import { setCurrentPlan, type Billing, type TierId } from "@/lib/api/billing";
+import { setTraderSeeded, setStudioSeeded, setOnboarded, toggleFollow } from "@/lib/user-prefs";
+
+// Map asset class → the free verified strategy id activated for new traders.
+const FREE_STRATEGY_BY_ASSET: Record<Asset, string> = {
+  stocks: "s-meanrev-spy",
+  crypto: "s-btc-hourly-mr",
+  options: "s-spy-otm-put",
+  futures: "s-mes-orb",
+};
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({ meta: [{ title: "Welcome to Bayn" }] }),
@@ -43,13 +52,32 @@ function OnboardingPage() {
   // After step 6, developers get the Studio intro (step 7), then land.
   const totalSteps = path === "trader" ? 7 : 8;
 
-  const next = () => setStep((s) => Math.min(s + 1, totalSteps));
+  const activateTrader = () => {
+    // Add the user's free verified strategies to their followed list, then mark seeded.
+    const chosen = (assets.length ? assets : (ASSETS.map(a => a.key) as Asset[]));
+    chosen.forEach((a) => toggleFollow(FREE_STRATEGY_BY_ASSET[a], true));
+    setTraderSeeded(true);
+  };
+
+  const next = () => {
+    setStep((s) => {
+      const nextStep = Math.min(s + 1, totalSteps);
+      // After activation step, seed the trader account.
+      if (s === 4 && (path === "trader" || path === "both")) activateTrader();
+      return nextStep;
+    });
+  };
   const back = () => setStep((s) => Math.max(s - 1, 1));
 
   const finish = () => {
+    // Trader-only paths still need their free strategies if they skipped past step 4.
+    if ((path === "trader" || path === "both")) activateTrader();
+    if (path === "developer" || path === "both") setStudioSeeded(true);
+    setOnboarded(true);
     if (path === "developer" || path === "both") nav({ to: "/studio/home" });
     else nav({ to: "/app/home" });
   };
+
 
   return (
     <div className="min-h-screen bg-background text-foreground" style={{ fontFamily: "var(--font-landing-body)" }}>

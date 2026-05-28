@@ -3,7 +3,7 @@ import {
   strategies, signals, marketTiles, getEquityCurve, getUserEquityCurve,
   takenSignals, followedStrategyIds, marketNews,
 } from "../mockData";
-import { readFollowedOverlay, toggleFollow } from "../user-prefs";
+import { readFollowedOverlay, toggleFollow, getTraderSeeded } from "../user-prefs";
 import type { Strategy, Signal } from "../types";
 
 const wait = (ms = 120) => new Promise((r) => setTimeout(r, ms));
@@ -19,14 +19,17 @@ export async function getStrategyById(id: string) {
   return strategies.find((s) => s.id === id);
 }
 
-/** Effective followed ids = defaults ∪ overlay.added − overlay.removed */
+/** Effective followed ids = (seeded defaults) ∪ overlay.added − overlay.removed.
+ *  Brand-new accounts (!traderSeeded) start with zero follows. */
 export function getEffectiveFollowedIds(): string[] {
   const overlay = readFollowedOverlay();
-  const set = new Set<string>(followedStrategyIds);
+  const base = getTraderSeeded() ? followedStrategyIds : [];
+  const set = new Set<string>(base);
   overlay.added.forEach((id) => set.add(id));
   overlay.removed.forEach((id) => set.delete(id));
   return [...set];
 }
+
 
 export async function getFollowedStrategies() {
   await wait();
@@ -52,6 +55,13 @@ export async function getStrategyEquity(strategyId: string, days = 30) {
 }
 export async function getUserPerformance(days = 30) {
   await wait();
+  if (getEffectiveFollowedIds().length === 0) {
+    return {
+      equity: [] as ReturnType<typeof getUserEquityCurve>,
+      taken: [] as typeof takenSignals,
+      kpis: { totalTaken: 0, winRate: 0, avgR: 0, maxDrawdown: 0 },
+    };
+  }
   const equity = getUserEquityCurve(days);
   const taken = takenSignals;
   const wins = taken.filter((t) => t.outcome === "HIT_TARGET").length;
