@@ -1,78 +1,55 @@
-// Trader-side API. Mock now → Supabase later.
-import {
-  strategies, signals, marketTiles, getEquityCurve, getUserEquityCurve,
-  takenSignals, followedStrategyIds, marketNews,
-} from "../mockData";
-import { readFollowedOverlay, toggleFollow, getTraderSeeded } from "../user-prefs";
-import type { Strategy, Signal } from "../types";
+// Trader-side API. Live data via Finnhub server functions; user-data
+// (followed strategies, performance) returns empty until a real backend
+// wires them up — we never seed mock content.
+import { readFollowedOverlay, toggleFollow } from "../user-prefs";
+import type { Strategy, Signal, MarketTile, EquityPoint, TakenSignal } from "../types";
 
-const wait = (ms = 120) => new Promise((r) => setTimeout(r, ms));
+const wait = (ms = 80) => new Promise((r) => setTimeout(r, ms));
 
-export async function getMarketNews() { await wait(60); return marketNews; }
-
-export async function getStrategies(): Promise<Strategy[]> {
-  await wait();
-  return strategies;
-}
-export async function getStrategyById(id: string) {
-  await wait();
-  return strategies.find((s) => s.id === id);
-}
-
-/** Effective followed ids = (seeded defaults) ∪ overlay.added − overlay.removed.
- *  Brand-new accounts (!traderSeeded) start with zero follows. */
+/** Effective followed ids = overlay.added − overlay.removed.
+ *  Brand-new accounts start with zero follows; no mock seeding. */
 export function getEffectiveFollowedIds(): string[] {
   const overlay = readFollowedOverlay();
-  const base = getTraderSeeded() ? followedStrategyIds : [];
-  const set = new Set<string>(base);
+  const set = new Set<string>();
   overlay.added.forEach((id) => set.add(id));
   overlay.removed.forEach((id) => set.delete(id));
   return [...set];
 }
 
+// Strategy catalog is backend-driven. Until a real catalog backend exists,
+// these return empty so the UI shows real empty states (no mock data).
+export async function getStrategies(): Promise<Strategy[]> { await wait(); return []; }
+export async function getStrategyById(_id: string): Promise<Strategy | undefined> { await wait(); return undefined; }
+export async function getFollowedStrategies(): Promise<Strategy[]> { await wait(); return []; }
 
-export async function getFollowedStrategies() {
+export async function getSignals(_opts?: { strategyId?: string; limit?: number }): Promise<Signal[]> {
   await wait();
-  const ids = new Set(getEffectiveFollowedIds());
-  return strategies.filter((s) => ids.has(s.id));
+  return [];
 }
-export async function getSignals(opts?: { strategyId?: string; limit?: number }): Promise<Signal[]> {
+export async function getSignalById(_id: string): Promise<Signal | undefined> { await wait(); return undefined; }
+export async function getRecentSignals(_limit = 10): Promise<Signal[]> { return []; }
+
+/** Legacy shim — Home / sidebar still expect this shape but they should
+ *  source live quotes via Finnhub. Always empty here. */
+export async function getMarketOverview(): Promise<MarketTile[]> { await wait(); return []; }
+/** Legacy shim — NewsTicker now calls Finnhub directly. */
+export async function getMarketNews(): Promise<never[]> { await wait(); return []; }
+
+export async function getStrategyEquity(_strategyId: string, _days = 30): Promise<EquityPoint[]> {
   await wait();
-  let list = [...signals].sort((a, b) => +new Date(b.firedAt) - +new Date(a.firedAt));
-  if (opts?.strategyId) list = list.filter((s) => s.strategyId === opts.strategyId);
-  if (opts?.limit) list = list.slice(0, opts.limit);
-  return list;
+  return [];
 }
-export async function getSignalById(id: string) {
+
+export async function getUserPerformance(_days = 30) {
   await wait();
-  return signals.find((s) => s.id === id);
+  return {
+    equity: [] as EquityPoint[],
+    taken: [] as TakenSignal[],
+    kpis: { totalTaken: 0, winRate: 0, avgR: 0, maxDrawdown: 0 },
+  };
 }
-export async function getRecentSignals(limit = 10) { return getSignals({ limit }); }
-export async function getMarketOverview() { await wait(60); return marketTiles; }
-export async function getStrategyEquity(strategyId: string, days = 30) {
-  await wait();
-  return getEquityCurve(strategyId, days);
-}
-export async function getUserPerformance(days = 30) {
-  await wait();
-  if (getEffectiveFollowedIds().length === 0) {
-    return {
-      equity: [] as ReturnType<typeof getUserEquityCurve>,
-      taken: [] as typeof takenSignals,
-      kpis: { totalTaken: 0, winRate: 0, avgR: 0, maxDrawdown: 0 },
-    };
-  }
-  const equity = getUserEquityCurve(days);
-  const taken = takenSignals;
-  const wins = taken.filter((t) => t.outcome === "HIT_TARGET").length;
-  const total = taken.length;
-  const winRate = total ? wins / total : 0;
-  const avgR = taken.reduce((s, t) => s + (t.pnlR ?? 0), 0) / Math.max(1, total);
-  let peak = -Infinity, maxDD = 0;
-  for (const p of equity) { peak = Math.max(peak, p.equity); const dd = (p.equity - peak) / peak; if (dd < maxDD) maxDD = dd; }
-  return { equity, taken, kpis: { totalTaken: total, winRate, avgR, maxDrawdown: maxDD } };
-}
+
 export async function subscribeToStrategy(id: string) { await wait(); toggleFollow(id, true); return { ok: true }; }
 export async function unsubscribeFromStrategy(id: string) { await wait(); toggleFollow(id, false); return { ok: true }; }
 export async function markSignalTaken(_signalId: string, _fillPrice: number) { await wait(); return { ok: true }; }
-export async function sendOrderToBroker(_signalId: string, _broker: string) { await wait(400); return { ok: true }; }
+export async function sendOrderToBroker(_signalId: string, _broker: string) { await wait(); return { ok: true }; }

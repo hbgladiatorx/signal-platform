@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getMarketOverview } from "@/lib/api";
+import { useServerFn } from "@tanstack/react-start";
+import { getQuotes } from "@/lib/api/finnhub.functions";
 import { TrendingUp, TrendingDown, Settings2 } from "lucide-react";
-import { useWatchlist, DEFAULT_WATCHLIST } from "@/lib/user-prefs";
+import { useWatchlist } from "@/lib/user-prefs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,31 +13,38 @@ const fmt = (n: number) =>
   n >= 1000 ? n.toLocaleString(undefined, { maximumFractionDigits: 0 })
             : n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
-/** Bloomberg-style horizontal scrolling price strip with customization. */
+/** Bloomberg-style horizontal scrolling price strip — live Finnhub quotes. */
 export function MarketTicker() {
-  const { data } = useQuery({ queryKey: ["market"], queryFn: getMarketOverview });
   const [watchlist, setWatchlist] = useWatchlist();
-  const all = data ?? [];
+  const quotesFn = useServerFn(getQuotes);
+  const { data } = useQuery({
+    queryKey: ["quotes", watchlist],
+    queryFn: () => quotesFn({ data: { symbols: watchlist } }),
+    enabled: watchlist.length > 0,
+    refetchInterval: 30_000,
+    staleTime: 25_000,
+  });
+
   const tiles = useMemo(() => {
-    const order = new Map(watchlist.map((s, i) => [s, i] as const));
-    return all
-      .filter((t) => order.has(t.symbol))
+    const order = new Map(watchlist.map((s, i) => [s.toUpperCase(), i] as const));
+    return (data ?? [])
+      .slice()
       .sort((a, b) => (order.get(a.symbol) ?? 0) - (order.get(b.symbol) ?? 0));
-  }, [all, watchlist]);
+  }, [data, watchlist]);
 
   const loop = tiles.length ? [...tiles, ...tiles] : [];
 
   return (
     <div className="marquee-pause relative flex items-center border-y border-border bg-elevated/60">
-      <WatchlistMenu
-        all={all.map((t) => t.symbol)}
-        selected={watchlist}
-        onChange={setWatchlist}
-      />
+      <WatchlistMenu selected={watchlist} onChange={setWatchlist} />
       <div className="relative flex-1 overflow-hidden">
-        {!tiles.length ? (
+        {!watchlist.length ? (
           <div className="px-3 py-2 font-mono text-[11px] text-muted-foreground">
             No tickers selected — click the gear to add symbols.
+          </div>
+        ) : !tiles.length ? (
+          <div className="px-3 py-2 font-mono text-[11px] text-muted-foreground">
+            Loading live quotes…
           </div>
         ) : (
           <div className="marquee-track items-center gap-7 py-1.5 font-mono text-[11px] tracking-tight">
@@ -64,23 +72,37 @@ export function MarketTicker() {
 }
 
 function WatchlistMenu({
-  all, selected, onChange,
-}: { all: string[]; selected: string[]; onChange: (next: string[]) => void }) {
+  selected, onChange,
+}: { selected: string[]; onChange: (next: string[]) => void }) {
   const [custom, setCustom] = useState("");
+  const [status, setStatus] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const set = new Set(selected);
-  const toggle = (sym: string) => {
-    const next = new Set(set);
-    next.has(sym) ? next.delete(sym) : next.add(sym);
-    onChange([...next]);
-  };
-  const addCustom = () => {
+
+  const validateAndAdd = async () => {
     const sym = custom.trim().toUpperCase();
     if (!sym) return;
-    if (set.has(sym)) return setCustom("");
-    onChange([...selected, sym]);
-    setCustom("");
+    if (set.has(sym)) { setCustom(""); return; }
+    setBusy(true);
+    setStatus(null);
+    try {
+      const { validateTicker } = await import("@/lib/api/finnhub.functions");
+      const fn = validateTicker;
+      const res = await fn({ data: { symbol: sym } });
+      if (res.valid) {
+        onChange([...selected, res.symbol]);
+        setCustom("");
+        setStatus(null);
+      } else {
+        setStatus(`"${sym}" not found`);
+      }
+    } catch {
+      setStatus("Validation failed");
+    } finally {
+      setBusy(false);
+    }
   };
-  const universe = Array.from(new Set([...all, ...selected])).sort();
+
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -99,38 +121,44 @@ function WatchlistMenu({
           </span>
           <button
             className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground"
-            onClick={() => onChange(DEFAULT_WATCHLIST)}
+            onClick={() => onChange([])}
           >
-            reset
+            clear
           </button>
         </div>
-        <div className="mb-3 flex gap-1.5">
+        <div className="mb-1 flex gap-1.5">
           <Input
             value={custom}
-            onChange={(e) => setCustom(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addCustom()}
+            onChange={(e) => { setCustom(e.target.value); setStatus(null); }}
+            onKeyDown={(e) => e.key === "Enter" && validateAndAdd()}
             placeholder="Add ticker…"
             className="h-7 bg-background font-mono text-xs"
+            disabled={busy}
           />
-          <Button size="sm" className="h-7 px-2 text-xs" onClick={addCustom}>Add</Button>
+          <Button size="sm" className="h-7 px-2 text-xs" onClick={validateAndAdd} disabled={busy}>
+            {busy ? "…" : "Add"}
+          </Button>
         </div>
+        {status && <div className="mb-2 text-[10px] text-danger">{status}</div>}
         <div className="max-h-64 space-y-0.5 overflow-y-auto">
-          {universe.map((sym) => {
-            const on = set.has(sym);
-            return (
-              <button
-                key={sym}
-                onClick={() => toggle(sym)}
-                className={cn(
-                  "flex w-full items-center justify-between rounded px-2 py-1 text-left font-mono text-xs transition-colors",
-                  on ? "bg-cyan/10 text-cyan" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
-                )}
-              >
-                <span>{sym}</span>
-                <span className="text-[10px]">{on ? "ON" : "OFF"}</span>
-              </button>
-            );
-          })}
+          {selected.length === 0 && (
+            <div className="px-2 py-3 text-center text-[11px] text-muted-foreground">
+              No symbols yet.
+            </div>
+          )}
+          {selected.map((sym) => (
+            <button
+              key={sym}
+              onClick={() => onChange(selected.filter((s) => s !== sym))}
+              className={cn(
+                "flex w-full items-center justify-between rounded px-2 py-1 text-left font-mono text-xs transition-colors",
+                "bg-cyan/10 text-cyan hover:bg-danger/15 hover:text-danger",
+              )}
+            >
+              <span>{sym}</span>
+              <span className="text-[10px]">remove</span>
+            </button>
+          ))}
         </div>
       </PopoverContent>
     </Popover>
