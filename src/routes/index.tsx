@@ -148,7 +148,8 @@ function Landing() {
 
 
       {/* HEADER */}
-      <header className="sticky top-0 z-30 bg-background/60 backdrop-blur-xl">
+      <header className="sticky top-0 z-30 bg-transparent text-foreground [&_a]:text-foreground">
+
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4 md:px-10">
           <Link to="/" className="flex items-center gap-2.5 text-base font-semibold">
             <div
@@ -159,8 +160,8 @@ function Landing() {
             </div>
             <span className="landing-display tracking-tight">Bayn</span>
           </Link>
+          <nav className="landing-display hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-1 rounded-full border border-foreground/25 bg-transparent px-3 py-2 text-xs font-medium uppercase tracking-[0.18em] text-foreground/80">
 
-          <nav className="landing-display hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-1 rounded-full border border-border/70 bg-transparent px-3 py-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
             <a href="#pipeline" className="rounded-full px-4 py-1.5 transition-colors hover:text-foreground">The Filter</a>
             <a href="#catalog" className="rounded-full px-4 py-1.5 transition-colors hover:text-foreground">Catalog</a>
             <a href="#studio" className="rounded-full px-4 py-1.5 transition-colors hover:text-foreground">Studio</a>
