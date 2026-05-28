@@ -145,12 +145,13 @@ function Landing() {
             <span className="landing-display tracking-tight">Bayn</span>
           </Link>
 
-          <nav className="landing-display hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-1 rounded-full border border-foreground/25 bg-transparent px-3 py-2 text-xs font-medium uppercase tracking-[0.18em] text-foreground/80">
+          <nav className="nav-pill landing-display hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-1 rounded-full px-3 py-2 text-xs font-medium uppercase tracking-[0.18em] text-foreground/80">
             <a href="#how" className="rounded-full px-4 py-1.5 transition-colors hover:text-foreground">How it works</a>
             <a href="#traders" className="rounded-full px-4 py-1.5 transition-colors hover:text-foreground">For Traders</a>
             <a href="#devs" className="rounded-full px-4 py-1.5 transition-colors hover:text-foreground">For Devs</a>
             <a href="#faq" className="rounded-full px-4 py-1.5 transition-colors hover:text-foreground">FAQ</a>
           </nav>
+
 
           <div className="flex items-center gap-2">
             <Button variant="ghost" asChild className="hidden sm:inline-flex">
