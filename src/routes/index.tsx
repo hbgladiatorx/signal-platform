@@ -173,7 +173,8 @@ function Landing() {
         @keyframes navSheen {
           0% { background-position: 200% 0; }
           100% { background-position: -100% 0; }
-        }
+        .nav-pill:hover { background: color-mix(in oklab, var(--background) 55%, transparent); }
+
         .nav-pill:hover { transform: translate(-50%, -1px); }
 
 
