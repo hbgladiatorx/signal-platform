@@ -36,7 +36,11 @@ export const Route = createFileRoute("/app/home")({
 
 const fmtMoney = (n: number) => n.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: n > 1000 ? 0 : 2 });
 const fmtPct = (n: number) => `${n >= 0 ? "+" : ""}${(n * 100).toFixed(2)}%`;
+
+function HomePage() {
+  const [days, setDays] = useState(30);
   const { assetClass } = useAssetFilter();
+
   const [watchlist] = useWatchlist();
   const quotesFn = useServerFn(getQuotes);
   const market = useQuery({
