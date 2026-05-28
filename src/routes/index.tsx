@@ -22,13 +22,15 @@ import { Disclaimer } from "@/components/common/Disclaimer";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Bayn — Trading strategies, measured honestly" },
+      { title: "Bayn — Institutional trading, for everyone" },
+
       {
         name: "description",
         content:
           "Bayn is a marketplace where quants ship backtested strategies and traders follow only the ones that survived. Walk-forward tested, monitored live.",
       },
-      { property: "og:title", content: "Bayn — Trading strategies, measured honestly" },
+      { property: "og:title", content: "Bayn — Institutional trading, for everyone" },
+
       {
         property: "og:description",
         content:
@@ -125,7 +127,8 @@ function Landing() {
           background-clip: padding-box;
           isolation: isolate;
           overflow: hidden;
-          transition: transform 400ms cubic-bezier(0.22, 1, 0.36, 1), background 300ms;
+          transition: background 300ms, border-color 300ms;
+
         }
         .nav-pill::before {
           content: "";
@@ -172,7 +175,8 @@ function Landing() {
         @keyframes navSheen {
           0% { background-position: 200% 0; }
           100% { background-position: -100% 0; }
-        }
+        .nav-pill:hover { background: color-mix(in oklab, var(--background) 55%, transparent); }
+
         .nav-pill:hover { transform: translate(-50%, -1px); }
 
 
@@ -252,7 +256,8 @@ function Landing() {
               className="hero-rise landing-display text-balance text-5xl font-bold leading-[1.04] md:text-7xl"
               style={{ ["--rise-delay" as any]: "100ms" }}
             >
-              Trading strategies, <span className="landing-grad-text hero-shimmer">measured honestly</span>.
+              Institutional trading, <span className="landing-grad-text hero-shimmer">for everyone</span>.
+
             </h1>
             <p
               className="hero-rise mx-auto mt-7 max-w-2xl text-balance text-lg text-muted-foreground md:text-xl"
