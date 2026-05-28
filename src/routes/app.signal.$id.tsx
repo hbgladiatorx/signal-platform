@@ -24,7 +24,7 @@ export const Route = createFileRoute("/app/signal/$id")({
 });
 
 function SignalDetail() {
-  const { id } = useParams({ from: "/_app/signal/$id" });
+  const { id } = useParams({ from: "/app/signal/$id" });
   const sig = useQuery({ queryKey: ["signal", id], queryFn: () => getSignalById(id) });
   const strat = useQuery({ queryKey: ["sig-strat", sig.data?.strategyId], queryFn: () => getStrategyById(sig.data!.strategyId), enabled: !!sig.data });
   const [accountSize] = useState(25000);
@@ -55,8 +55,10 @@ function SignalDetail() {
         <div className="flex items-center gap-2">
           <DirectionPill direction={s.direction} />
           <StatusPill status={s.status} />
-          <Button variant="ghost" size="icon" onClick={() => { navigator.clipboard?.writeText(window.location.href); toast("Link copied"); }}>
-            <Share2 className="size-4" />
+          <Button asChild variant="outline" size="sm">
+            <Link to="/app/share/$cardId" params={{ cardId: s.id }}>
+              <Share2 className="mr-1.5 size-3.5" /> Share trade
+            </Link>
           </Button>
         </div>
       </div>

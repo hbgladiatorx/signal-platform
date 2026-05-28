@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getSignals } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { AssetClassBadge } from "@/components/common/AssetClassBadge";
@@ -9,37 +9,51 @@ import { StatusPill } from "@/components/common/StatusPill";
 import { Sparkline } from "@/components/common/Sparkline";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
-import type { AssetClass } from "@/lib/types";
+import { useAssetFilter } from "@/lib/asset-filter";
+import type { SignalStatus } from "@/lib/types";
 
 export const Route = createFileRoute("/app/signals")({
   head: () => ({ meta: [{ title: "Signals — Bayn" }] }),
   component: SignalsPage,
 });
 
-const filters: Array<{ key: "all" | AssetClass; label: string }> = [
-  { key: "all", label: "All" },
-  { key: "stocks", label: "Stocks" },
-  { key: "crypto", label: "Crypto" },
-  { key: "options", label: "Options" },
-  { key: "futures", label: "Futures" },
+const statusFilters: Array<{ key: "all" | SignalStatus; label: string }> = [
+  { key: "all", label: "All status" },
+  { key: "OPEN", label: "Open" },
+  { key: "HIT_TARGET", label: "Won" },
+  { key: "HIT_STOP", label: "Lost" },
+  { key: "EXPIRED", label: "Expired" },
 ];
 
 function SignalsPage() {
-  const [filter, setFilter] = useState<"all" | AssetClass>("all");
+  const { assetClass } = useAssetFilter();
+  const [status, setStatus] = useState<"all" | SignalStatus>("all");
   const { data } = useQuery({ queryKey: ["signals-all"], queryFn: () => getSignals() });
-  const list = (data ?? []).filter((s) => filter === "all" || s.assetClass === filter);
+
+  // Reset status filter if asset class change makes it irrelevant
+  useEffect(() => { setStatus("all"); }, [assetClass]);
+
+  const list = useMemo(() => {
+    return (data ?? [])
+      .filter((s) => assetClass === "all" || s.assetClass === assetClass)
+      .filter((s) => status === "all" || s.status === status);
+  }, [data, assetClass, status]);
 
   return (
     <div className="space-y-5 p-4 md:p-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Signals</h1>
-        <p className="text-sm text-muted-foreground">Every signal from your followed strategies.</p>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Signals {assetClass !== "all" && <span className="text-muted-foreground">· {assetClass}</span>}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          Every signal from your followed strategies. Asset filter above scopes the feed.
+        </p>
       </div>
       <div className="flex flex-wrap gap-2">
-        {filters.map((f) => (
-          <button key={f.key} onClick={() => setFilter(f.key)}
+        {statusFilters.map((f) => (
+          <button key={f.key} onClick={() => setStatus(f.key)}
             className={cn("rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-              filter === f.key ? "border-cyan/40 bg-cyan/15 text-cyan" : "border-border bg-elevated text-muted-foreground hover:text-foreground")}>
+              status === f.key ? "border-cyan/40 bg-cyan/15 text-cyan" : "border-border bg-elevated text-muted-foreground hover:text-foreground")}>
             {f.label}
           </button>
         ))}
@@ -61,6 +75,11 @@ function SignalsPage() {
               <div className="col-span-2 h-8"><Sparkline data={sig.priceSeries.slice(-30).map((p) => p.price)} positive={sig.direction === "LONG"} /></div>
             </Link>
           ))}
+          {list.length === 0 && (
+            <div className="px-4 py-10 text-center text-sm text-muted-foreground">
+              No signals match these filters.
+            </div>
+          )}
         </div>
       </Card>
     </div>
