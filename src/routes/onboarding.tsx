@@ -15,8 +15,9 @@ import { getCurrentPlan, setCurrentPlan, type Billing, type TierId } from "@/lib
 import {
   setTraderSeeded, setStudioSeeded, setOnboarded,
   setEnabledAssetClasses, setLiveTrackingStrategy, setOnboardingPath,
-  setAccountSize as persistAccountSize, setRiskPerTrade,
+  setAccountSize as persistAccountSize, setRiskPerTrade, setPreferenceScope,
 } from "@/lib/user-prefs";
+import { setBillingScope } from "@/lib/api/billing";
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({ meta: [{ title: "Welcome to Bayn" }] }),
@@ -89,7 +90,11 @@ function OnboardingPage() {
     supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
       if (!data.session) nav({ to: "/auth" });
-      else setAuthChecked(true);
+      else {
+        setPreferenceScope(data.session.user.id);
+        setBillingScope(data.session.user.id);
+        setAuthChecked(true);
+      }
     });
     return () => { active = false; };
   }, [nav]);
