@@ -147,7 +147,7 @@ function OnboardingPage() {
           </Step>
         )}
 
-        {step === 2 && (
+        {step === 2 && (path === "trader" || path === "both") && (
           <Step title="Tell us your operator profile" sub="Drives strategy recommendations and position sizing.">
             <div className="space-y-6">
               <Group label="Asset classes (multi-select)">
@@ -195,9 +195,13 @@ function OnboardingPage() {
           </Step>
         )}
 
-        {step === 3 && (
+        {step === 2 && path === "developer" && (
+          <StudioPlanStep billing={billing} setBilling={setBilling} next={next} />
+        )}
+
+        {step === 3 && (path === "trader" || path === "both") && (
           <Step title="Risk & position sizing"
-            sub="Powers the suggested position size on every signal. You can change this later in Settings.">
+            sub="Leave blank if you want to decide later. Your dashboard stays empty until you add real preferences.">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Group label="Account size (USD)">
                 <Input value={accountSize} onChange={(e) => setAccountSize(e.target.value.replace(/[^0-9]/g, ""))}
@@ -215,78 +219,30 @@ function OnboardingPage() {
           </Step>
         )}
 
-        {step === 4 && (
-          <Step title="Your free verified strategies are live"
-            sub="One per asset class — the foundation tier of the catalog. Real, tracked, free forever.">
-            <FreeStrategyActivation assets={assets.length ? assets : ASSETS.map(a => a.key)} />
-          </Step>
-        )}
-
-        {step === 5 && (
-          <Step title="Connect your agent" sub="Optional. Hook up an AI agent + Robinhood Agentic to run the full loop.">
-            <AgentLoopDiagram />
-            <div className="mt-6 rounded-xl border border-border bg-elevated p-5">
-              <div className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">Install command</div>
-              <pre className="overflow-x-auto rounded-md bg-background p-3 text-xs font-mono text-foreground">
-                <code>{`npx @bayn/mcp install --target=claude --token=YOUR_TOKEN`}</code>
-              </pre>
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                Or skip — you can connect from Settings → Agent anytime.
-              </p>
-            </div>
-          </Step>
-        )}
-
-        {step === 6 && (
-          <Step title="Pick a plan"
-            sub={path === "developer"
-              ? "Studio is paid only. Pick a tier to enter the builder."
-              : "Your 4 free verified strategies are already active. Upgrade to unlock premium catalog strategies and the full agentic loop."}>
-            <div className="mb-6 flex justify-center">
-              <BillingToggle value={billing} onChange={setBilling}
-                accent={path === "developer" ? "violet" : "cyan"} />
-            </div>
-            <PricingTable
-              audience={path === "developer" ? "developer" : "trader"}
-              billing={billing}
-              onSelect={(id: TierId) => {
-                if (id.startsWith("studio")) setCurrentPlan({ developer: id, billing });
-                else setCurrentPlan({ trader: id, billing });
-                toast.success("Plan selected");
-                next();
-              }}
-            />
-            {path !== "developer" && (
-              <div className="mt-8 rounded-xl border border-border bg-elevated p-4 text-center">
-                <Button variant="ghost" onClick={() => { setCurrentPlan({ trader: null }); next(); }}>
-                  Continue on Free — keep my 4 verified strategies
-                </Button>
-              </div>
-            )}
-          </Step>
-        )}
-
-        {step === 7 && (path === "developer" || path === "both") && (
+        {step === 3 && path === "developer" && (
           <Step title="The Studio loop"
-            sub="Three-step build cycle. The same workflow institutional research desks run — operated by you alone.">
+            sub="Your Studio opens blank. Start by describing your first strategy or drag nodes onto the canvas yourself.">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <StudioStep icon={Wand2} title="Describe" body="Tell the AI co-builder what edge you want. It places the right nodes on the canvas." />
               <StudioStep icon={Workflow} title="Build" body="Refine the graph. Wire indicators, filters, risk and execution nodes." />
               <StudioStep icon={BarChart3} title="Backtest & deploy" body="Walk-forward, Monte Carlo, then forward-test live for your own signal feed." />
             </div>
-            <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2">
-              <Button asChild className="h-11" style={{ background: "var(--violet)", color: "var(--violet-foreground)" }}>
-                <Link to="/studio/builder/$id" params={{ id: "new" }}>Describe a first strategy <ArrowRight className="ml-1.5 size-4" /></Link>
-              </Button>
-              <Button asChild variant="outline" className="h-11">
-                <Link to="/studio/strategies">Start from a template</Link>
-              </Button>
-            </div>
           </Step>
         )}
 
-        {step === 7 && path === "trader" && <LandingChecklist mode="trader" onFinish={finish} />}
-        {step === 8 && <LandingChecklist mode={path === "developer" ? "developer" : "trader"} onFinish={finish} />}
+        {step === 4 && path === "both" && (
+          <StudioPlanStep billing={billing} setBilling={setBilling} next={next} />
+        )}
+
+        {((step === 4 && path === "trader") || (step === 4 && path === "developer") || (step === 5 && path === "both")) && (
+          <Step title="Start with a blank workspace" sub="After this, Bayn takes you to the right customization surface. Add tickers, choose news, follow strategies, or build your first Studio strategy yourself.">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <StudioStep icon={BadgeCheck} title="No auto-follows" body="No mock strategies are added to your account during onboarding." />
+              <StudioStep icon={BarChart3} title="No fake performance" body="Performance and signals stay empty until you take real actions." />
+              <StudioStep icon={Sparkles} title="Guided next step" body={path === "developer" ? "Open a blank Studio builder." : "Open Customize to finish your dashboard."} />
+            </div>
+          </Step>
+        )}
 
         {/* Nav */}
         <div className="mt-10 flex items-center justify-between">
