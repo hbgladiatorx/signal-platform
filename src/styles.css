@@ -162,6 +162,19 @@
 .react-flow__node {
   font-family: ui-sans-serif, system-ui, sans-serif;
 }
+.react-flow__node.ai-placed {
+  animation: ai-pop 0.45s ease-out, ai-pulse 1.6s ease-in-out 2;
+  filter: drop-shadow(0 0 12px color-mix(in oklab, var(--violet) 60%, transparent));
+}
+@keyframes ai-pop {
+  from { transform: scale(0.6); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+@keyframes ai-pulse {
+  0%, 100% { filter: drop-shadow(0 0 4px color-mix(in oklab, var(--violet) 50%, transparent)); }
+  50%      { filter: drop-shadow(0 0 16px color-mix(in oklab, var(--violet) 90%, transparent)); }
+}
+
 .react-flow__handle {
   background: var(--violet);
   border: 2px solid var(--background);
