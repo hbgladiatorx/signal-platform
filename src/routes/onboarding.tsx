@@ -172,7 +172,8 @@ function OnboardingPage() {
         {current.key === "studioMarkets" && <StepStudioMarkets />}
         {current.key === "builderExp" && <StepBuilderExp />}
         {current.key === "backtestDefaults" && <StepBacktestDefaults />}
-        {current.key === "forwardTest" && <StepForwardTest />}
+
+
         {current.key === "studioAi" && <StepStudioAi />}
         {current.key === "studioPlan" && <StepPlan billing={billing} setBilling={setBilling} audience="developer" onPick={next} />}
         {current.key === "payout" && <StepPayout />}
