@@ -67,7 +67,7 @@ export async function getPersonalSignals(_opts?: { strategyId?: string; limit?: 
   return [];
 }
 
-export async function getEarnings() {
+export async function getEarnings(): Promise<StudioEarning[]> {
   await wait();
   return [];
 }
