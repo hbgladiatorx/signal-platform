@@ -113,23 +113,23 @@ function OnboardingPage() {
 
       <main className="mx-auto max-w-3xl px-6 py-10 md:px-10 md:py-16">
         {step === 1 && (
-          <Step title="Choose your path"
-            sub="Both is fine — most operators start as traders and graduate to building.">
+          <Step title="Trader or Studio?"
+            sub="Pick the path that fits today — you can add the other later. Studio is paid-only; Trader has a free tier with 4 verified strategies.">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <PathCard
                 active={path === "trader"} onClick={() => setPath("trader")}
-                icon={BadgeCheck} accent="cyan" title="I want signals"
-                sub="Follow verified strategies that survived the pipeline."
+                icon={BadgeCheck} accent="cyan" title="Trader"
+                sub="Follow verified strategies. Free tier included; upgrade for premium catalog access."
               />
               <PathCard
                 active={path === "developer"} onClick={() => setPath("developer")}
-                icon={Layers} accent="violet" title="I want to build"
-                sub="Desk-grade lab: node builder, backtests, forward-tests."
+                icon={Layers} accent="violet" title="Studio"
+                sub="Build your own strategies. Node editor, backtests, forward-tests. Paid plan required."
               />
               <PathCard
                 active={path === "both"} onClick={() => setPath("both")}
                 icon={Sparkles} accent="emerald" title="Both"
-                sub="Trader feed first, then Studio intro."
+                sub="Trader feed first, then Studio intro. Studio plan still required for the builder."
               />
             </div>
           </Step>

@@ -8,7 +8,6 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { Toaster } from "@/components/ui/sonner";
-import { DebugPanel } from "@/components/debug/DebugPanel";
 
 import appCss from "../styles.css?url";
 
@@ -116,7 +115,6 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <Outlet />
       <Toaster theme="dark" position="bottom-right" />
-      <DebugPanel />
     </QueryClientProvider>
   );
 }
