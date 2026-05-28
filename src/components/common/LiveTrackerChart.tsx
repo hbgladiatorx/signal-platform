@@ -149,3 +149,16 @@ function Kv({ label, value, tone }: { label: string; value: string; tone?: "pos"
     </div>
   );
 }
+
+function LevelChip({ label, value, tone }: { label: string; value: string; tone: "cyan" | "gold" | "danger" }) {
+  const cls =
+    tone === "cyan"   ? "border-cyan/40 bg-cyan/15 text-cyan"
+    : tone === "gold" ? "border-gold/40 bg-gold/15 text-gold"
+                      : "border-danger/40 bg-danger/15 text-danger";
+  return (
+    <span className={`pointer-events-auto inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 backdrop-blur ${cls}`}>
+      <span className="text-[9px] tracking-[0.18em]">{label}</span>
+      <span className="font-semibold">{value}</span>
+    </span>
+  );
+}
