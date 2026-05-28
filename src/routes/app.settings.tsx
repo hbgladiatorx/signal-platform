@@ -29,7 +29,7 @@ const brokers = [
 
 function SettingsPage() {
   const [connected, setConnected] = useState<Record<string, boolean>>({ coinbase: true });
-  const [connected, setConnected] = useState<Record<string, boolean>>({ coinbase: true });
+
   const [accountSize, setAccountSize] = useState(25000);
   const [plan, setPlan] = useState(getCurrentPlan());
   const traderTier = plan.trader ? getTier(plan.trader) : null;
