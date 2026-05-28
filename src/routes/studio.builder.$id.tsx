@@ -211,6 +211,14 @@ function Builder() {
         {/* Canvas + console */}
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="relative flex-1">
+            {/* Flow legend */}
+            <div className="pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-1.5 rounded-md border border-border bg-elevated/90 px-2.5 py-1.5 text-[10px] font-mono uppercase tracking-wider shadow-sm backdrop-blur">
+              <span className="text-stocks">1·Data</span><span className="text-muted-foreground">→</span>
+              <span className="text-futures">2·Indicator</span><span className="text-muted-foreground">→</span>
+              <span className="text-gold">3·Logic</span><span className="text-muted-foreground">→</span>
+              <span className="text-crypto">4·Risk</span><span className="text-muted-foreground">→</span>
+              <span className="text-violet">5·Signal</span>
+            </div>
             <ReactFlow
               nodes={nodes}
               edges={edges}
@@ -221,6 +229,8 @@ function Builder() {
               onNodeClick={(_, n) => setSelectedId(n.id)}
               onPaneClick={() => setSelectedId(null)}
               fitView
+              defaultEdgeOptions={{ animated: true, style: { stroke: "var(--violet)", strokeWidth: 2 } }}
+              connectionLineStyle={{ stroke: "var(--violet)", strokeWidth: 2 }}
               proOptions={{ hideAttribution: true }}
             >
               <Background gap={16} size={1} color="oklch(1 0 0 / 5%)" />
@@ -230,7 +240,25 @@ function Builder() {
                 return cat === "signal" ? "#8b5cf6" : cat === "risk" ? "#f59e0b" : cat === "logic" ? "#eab308" : cat === "indicator" ? "#22c55e" : "#3b82f6";
               }} maskColor="oklch(0.145 0.005 270 / 70%)" />
             </ReactFlow>
+            {nodes.length === 0 && (
+              <div className="pointer-events-none absolute inset-0 grid place-items-center">
+                <div className="pointer-events-auto max-w-md rounded-xl border border-dashed border-border bg-elevated/80 p-6 text-center backdrop-blur">
+                  <div className="mb-2 text-sm font-semibold">Build your strategy in 5 steps</div>
+                  <ol className="mb-4 space-y-1 text-left text-xs text-muted-foreground">
+                    <li><span className="text-stocks">1.</span> Add a <b className="text-foreground">Data</b> source from the left palette</li>
+                    <li><span className="text-futures">2.</span> Add an <b className="text-foreground">Indicator</b> and drag from its right dot to the data node</li>
+                    <li><span className="text-gold">3.</span> Add a <b className="text-foreground">Logic</b> node to compare values</li>
+                    <li><span className="text-crypto">4.</span> Add <b className="text-foreground">Risk</b> rules (stop, target, size)</li>
+                    <li><span className="text-violet">5.</span> Connect into an <b className="text-foreground">Entry Signal</b> — then Run Backtest</li>
+                  </ol>
+                  <Button size="sm" onClick={() => setShowTemplates(true)} className="bg-violet text-violet-foreground hover:bg-violet/90">
+                    <FileCode className="mr-1 size-4" /> Start from a template
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
+
 
           {/* Console */}
           <div className="border-t border-border bg-elevated">

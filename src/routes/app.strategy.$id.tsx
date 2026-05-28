@@ -22,7 +22,7 @@ export const Route = createFileRoute("/app/strategy/$id")({
 });
 
 function StrategyDetail() {
-  const { id } = useParams({ from: "/_app/strategy/$id" });
+  const { id } = useParams({ from: "/app/strategy/$id" });
   const [subscribed, setSubscribed] = useState(false);
   const strat = useQuery({ queryKey: ["strategy", id], queryFn: () => getStrategyById(id) });
   const equity = useQuery({ queryKey: ["equity", id], queryFn: () => getStrategyEquity(id, 90) });
