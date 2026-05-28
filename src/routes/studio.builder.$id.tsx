@@ -389,7 +389,7 @@ function Builder() {
 
       <BacktestRunModal open={showBacktest} onOpenChange={setShowBacktest} onRun={async (p) => {
         const run = await handleRunBacktest(p);
-        navigate({ to: "/studio/backtests/$strategyId", params: { strategyId: id }, search: { runId: run.id } as never });
+        navigate({ to: "/studio/backtests/$strategyId", params: { strategyId: run.strategyId }, search: { runId: run.id } as never });
       }} />
     </div>
   );
