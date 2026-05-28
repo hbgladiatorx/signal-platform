@@ -92,74 +92,22 @@ export function LiveTrackerChart() {
         </div>
       </div>
 
-      {/* Chart */}
-      <div className="relative h-72">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={series} margin={{ top: 16, right: 16, bottom: 0, left: 0 }}>
-            <defs>
-              <linearGradient id="liveg" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--cyan)" stopOpacity={0.35} />
-                <stop offset="100%" stopColor="var(--cyan)" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid stroke="oklch(1 0 0 / 6%)" vertical={false} />
-            <XAxis
-              dataKey="t"
-              tickFormatter={(v) => new Date(v).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-              tick={{ fontSize: 10, fill: "var(--muted-foreground)", fontFamily: "var(--font-mono)" }}
-              axisLine={false}
-              tickLine={false}
-              minTickGap={48}
-            />
-            <YAxis
-              domain={["auto", "auto"]}
-              tick={{ fontSize: 10, fill: "var(--muted-foreground)", fontFamily: "var(--font-mono)" }}
-              axisLine={false}
-              tickLine={false}
-              tickFormatter={(v) => fmt(v)}
-              width={56}
-              orientation="right"
-            />
-            <Tooltip
-              contentStyle={{
-                background: "var(--popover)",
-                border: "1px solid var(--border)",
-                borderRadius: 8,
-                fontSize: 12,
-                fontFamily: "var(--font-mono)",
-              }}
-              labelFormatter={(v) => new Date(v).toLocaleString()}
-              formatter={(v: number) => [fmt(v), "Price"]}
-            />
-            <ReferenceLine
-              y={active.target}
-              stroke="var(--cyan)"
-              strokeDasharray="4 4"
-              label={{ value: `TARGET ${fmt(active.target)}`, position: "insideTopRight", fill: "var(--cyan)", fontSize: 10, fontFamily: "var(--font-mono)" }}
-            />
-            <ReferenceLine
-              y={active.entry}
-              stroke="var(--gold)"
-              strokeDasharray="2 4"
-              label={{ value: `ENTRY ${fmt(active.entry)}`, position: "insideTopRight", fill: "var(--gold)", fontSize: 10, fontFamily: "var(--font-mono)" }}
-            />
-            <ReferenceLine
-              y={active.stop}
-              stroke="var(--danger)"
-              strokeDasharray="4 4"
-              label={{ value: `STOP ${fmt(active.stop)}`, position: "insideBottomRight", fill: "var(--danger)", fontSize: 10, fontFamily: "var(--font-mono)" }}
-            />
-            <Area
-              type="monotone"
-              dataKey="price"
-              stroke="var(--cyan)"
-              strokeWidth={2}
-              fill="url(#liveg)"
-              isAnimationActive={false}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+      {/* TradingView chart with overlaid level chips */}
+      <div className="relative">
+        <TradingViewChart
+          symbol={active.symbol}
+          assetClass={active.assetClass}
+          interval="60"
+          height={420}
+        />
+        {/* Floating strategy level chips — entry / stop / target */}
+        <div className="pointer-events-none absolute right-3 top-3 z-10 flex flex-col items-end gap-1.5 font-mono text-[10px]">
+          <LevelChip label="TARGET" value={fmt(active.target)} tone="cyan" />
+          <LevelChip label="ENTRY"  value={fmt(active.entry)}  tone="gold" />
+          <LevelChip label="STOP"   value={fmt(active.stop)}   tone="danger" />
+        </div>
       </div>
+
 
       {/* Strategy switcher */}
       {candidates.length > 1 && (
