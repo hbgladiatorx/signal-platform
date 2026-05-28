@@ -63,32 +63,33 @@ function SignalDetail() {
 
       <div className="grid gap-5 lg:grid-cols-3">
         {/* Chart */}
-        <Card className="border-border bg-elevated p-4 lg:col-span-2">
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={s.priceSeries}>
-                <defs>
-                  <linearGradient id="px" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--cyan)" stopOpacity={0.25} />
-                    <stop offset="100%" stopColor="var(--cyan)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="oklch(1 0 0 / 8%)" vertical={false} />
-                <XAxis dataKey="t" tickFormatter={(v) => format(new Date(v), "HH:mm")} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                <YAxis domain={["auto", "auto"]} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} labelFormatter={(v) => format(new Date(v), "PP p")} />
-                <Area type="monotone" dataKey="price" stroke="var(--cyan)" strokeWidth={2} fill="url(#px)" />
-                <ReferenceLine y={s.entry}  stroke="var(--foreground)" strokeDasharray="3 3" label={{ value: `Entry ${s.entry}`, position: "right", fill: "var(--foreground)", fontSize: 11 }} />
-                <ReferenceLine y={s.stop}   stroke="var(--danger)"     strokeDasharray="3 3" label={{ value: `Stop ${s.stop}`,   position: "right", fill: "var(--danger)",     fontSize: 11 }} />
-                <ReferenceLine y={s.target} stroke="var(--futures)"    strokeDasharray="3 3" label={{ value: `Target ${s.target}`, position: "right", fill: "var(--futures)",  fontSize: 11 }} />
-              </ComposedChart>
-            </ResponsiveContainer>
+        <Card className="border-border bg-elevated p-3 lg:col-span-2">
+          <div className="relative">
+            <TradingViewChart
+              symbol={s.symbol}
+              assetClass={s.assetClass}
+              interval="60"
+              height={420}
+              withDrawingTools
+            />
+            <div className="pointer-events-none absolute right-3 top-3 z-10 flex flex-col items-end gap-1.5 font-mono text-[10px]">
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-cyan/40 bg-cyan/15 px-2 py-0.5 text-cyan backdrop-blur">
+                <span className="tracking-[0.18em]">TARGET</span><span className="font-semibold">{s.target}</span>
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-gold/40 bg-gold/15 px-2 py-0.5 text-gold backdrop-blur">
+                <span className="tracking-[0.18em]">ENTRY</span><span className="font-semibold">{s.entry}</span>
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-danger/40 bg-danger/15 px-2 py-0.5 text-danger backdrop-blur">
+                <span className="tracking-[0.18em]">STOP</span><span className="font-semibold">{s.stop}</span>
+              </span>
+            </div>
           </div>
-          <Card className="mt-4 border-border bg-background/40 p-4">
+          <Card className="mt-3 border-border bg-background/40 p-4">
             <h3 className="mb-1 text-sm font-semibold">Strategy reasoning</h3>
             <p className="text-sm text-muted-foreground">{s.reasoning}</p>
           </Card>
         </Card>
+
 
         {/* Order ticket */}
         <Card className="space-y-4 border-border bg-elevated p-5">
