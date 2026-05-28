@@ -10,29 +10,29 @@ import { Button } from "@/components/ui/button";
 import { AssetClassBadge } from "@/components/common/AssetClassBadge";
 import { PipelineBadge } from "@/components/common/PipelineBadge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users, Check, Plus } from "lucide-react";
+import { Users, Check, Plus, Lock } from "lucide-react";
 import { useAssetFilter } from "@/lib/asset-filter";
-import { useFollowedOverlay } from "@/lib/user-prefs";
+import { useFollowedOverlay, useEnabledAssetClasses } from "@/lib/user-prefs";
+import { checkSlotAvailability, isFreeStrategy } from "@/lib/api/billing";
+import { PaywallModal } from "@/components/billing/PaywallModal";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/catalog")({
   head: () => ({ meta: [{ title: "Strategy catalog — Bayn" }, { name: "description", content: "Browse verified trading strategies across stocks, crypto, options and futures." }] }),
   component: CatalogPage,
-});
-
 function CatalogPage() {
   const { assetClass } = useAssetFilter();
+  const [enabledClasses] = useEnabledAssetClasses();
   const [sort, setSort] = useState("subs");
   const [q, setQ] = useState("");
+  const [paywallId, setPaywallId] = useState<string | null>(null);
   const { data } = useQuery({ queryKey: ["strategies"], queryFn: getStrategies });
   const queryClient = useQueryClient();
 
-  // Subscribe to overlay changes so the Follow/Following pill stays in sync
   useFollowedOverlay();
-  const followedIds = useMemo(() => new Set(getEffectiveFollowedIds()), []);
-  // re-derive on every render — getEffectiveFollowedIds reads localStorage which the overlay hook keeps live
   const followedNow = new Set(getEffectiveFollowedIds());
+  const followedNonFree = [...followedNow].filter((id) => !isFreeStrategy(id));
 
   const subscribe = useMutation({
     mutationFn: subscribeToStrategy,
@@ -51,8 +51,17 @@ function CatalogPage() {
     },
   });
 
+  const tryFollow = (id: string) => {
+    const check = checkSlotAvailability(id, followedNonFree);
+    if (check.ok) subscribe.mutate(id);
+    else setPaywallId(id);
+  };
+
   const list = useMemo(() => {
     let arr = data ?? [];
+    // Master asset-class cascade.
+    const enabled = new Set(enabledClasses);
+    arr = arr.filter((s) => enabled.has(s.assetClass));
     if (assetClass !== "all") arr = arr.filter((s) => s.assetClass === assetClass);
     if (q) arr = arr.filter((s) => (s.name + " " + s.description).toLowerCase().includes(q.toLowerCase()));
     arr = [...arr].sort((a, b) => {
@@ -62,9 +71,8 @@ function CatalogPage() {
       return +new Date(b.createdAt) - +new Date(a.createdAt);
     });
     return arr;
-  }, [data, assetClass, sort, q]);
+  }, [data, assetClass, sort, q, enabledClasses]);
 
-  void followedIds; // suppress unused
 
   return (
     <div className="space-y-6 p-4 md:p-6">

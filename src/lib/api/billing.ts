@@ -181,44 +181,103 @@ export function priceFor(tier: Tier, billing: Billing): { perMonth: number; annu
 /* ---------------- Mock current plan + usage ---------------- */
 
 export type CurrentPlan = {
-  trader: TierId | null;     // null = explorer / no paid trader plan
+  trader: TierId | null;     // null = free / no paid trader plan
   developer: TierId | null;  // null = no studio access
   billing: Billing;
   activeAddOns: string[];
 };
 
+// Brand-new accounts have NO paid plan. Onboarding step 6 fills these in.
 const mock: CurrentPlan = {
-  trader: "trader-edge",
+  trader: null,
   developer: null,
   billing: "annual",
-  activeAddOns: ["trader-history-export"],
+  activeAddOns: [],
 };
 
+export function getCurrentPlan(): CurrentPlan { return mock; }
+export function setCurrentPlan(next: Partial<CurrentPlan>) { Object.assign(mock, next); }
 
-export function getCurrentPlan(): CurrentPlan {
-  return mock;
+/* ---------------- Slot system (mock) ---------------- */
+/**
+ * Free strategies (one per asset class) never count against the slot quota.
+ * Every other premium catalog strategy consumes one slot from the user's
+ * tier allotment + any add-on slots they've purchased.
+ */
+export const FREE_STRATEGY_IDS = new Set<string>([
+  "s-meanrev-spy", "s-btc-hourly-mr", "s-spy-otm-put", "s-mes-orb",
+]);
+
+export function isFreeStrategy(id: string) { return FREE_STRATEGY_IDS.has(id); }
+
+/** Count how many add-on slots the user has purchased. */
+export function getAddOnSlotCount(): number {
+  let n = 0;
+  for (const a of mock.activeAddOns) {
+    if (a === "trader-extra-strategy") n += 1;
+    if (a === "trader-strategy-pack-5") n += 5;
+  }
+  return n;
 }
-export function setCurrentPlan(next: Partial<CurrentPlan>) {
-  Object.assign(mock, next);
+
+/** Total premium slots = tier allotment + add-ons. -1 = unlimited. */
+export function getTotalSlots(): number {
+  const tier = mock.trader ? getTier(mock.trader) : null;
+  const base = tier?.includedSlots ?? 0;
+  if (base === -1) return -1;
+  return base + getAddOnSlotCount();
+}
+
+export type SlotCheck =
+  | { ok: true; reason: "free" | "available"; used: number; total: number }
+  | { ok: false; reason: "no-plan" | "slot-limit"; used: number; total: number };
+
+/**
+ * Decide whether a user can follow this strategy right now.
+ * `followedNonFreeIds` is the set of currently-followed premium strategy ids.
+ */
+export function checkSlotAvailability(strategyId: string, followedNonFreeIds: string[]): SlotCheck {
+  if (isFreeStrategy(strategyId)) {
+    return { ok: true, reason: "free", used: followedNonFreeIds.length, total: getTotalSlots() };
+  }
+  const total = getTotalSlots();
+  const used = followedNonFreeIds.length;
+  if (total === -1) return { ok: true, reason: "available", used, total };
+  if (total === 0) return { ok: false, reason: "no-plan", used, total };
+  if (used >= total) return { ok: false, reason: "slot-limit", used, total };
+  return { ok: true, reason: "available", used, total };
+}
+
+/** Mock purchase: append an add-on id to active list. */
+export function purchaseAddOn(addOnId: "trader-extra-strategy" | "trader-strategy-pack-5") {
+  if (!mock.activeAddOns.includes(addOnId)) {
+    mock.activeAddOns = [...mock.activeAddOns, addOnId];
+  }
+}
+
+/** Mock upgrade: set the trader tier directly. */
+export function upgradePlan(tier: TierId) {
+  if (tier.startsWith("studio")) mock.developer = tier;
+  else mock.trader = tier;
 }
 
 export type UsageKey = "trader-slots" | "studio-strategies" | "studio-backtests" | "studio-live" | "trader-ai";
 export type Usage = { key: UsageKey; label: string; current: number; limit: number; period?: string };
 
-export function getUsage(): Usage[] {
+export function getUsage(followedNonFreeCount = 0): Usage[] {
   const trader = mock.trader ? getTier(mock.trader) : null;
   const studio = mock.developer ? getTier(mock.developer) : null;
   return [
     { key: "trader-slots", label: "Premium strategy slots",
-      current: 7, limit: trader?.includedSlots ?? 0 },
+      current: followedNonFreeCount, limit: getTotalSlots() },
     { key: "trader-ai", label: "Trader-mode AI queries",
-      current: 32, limit: trader?.id === "trader-signal" ? 50 : -1, period: "this month" },
+      current: 0, limit: trader?.id === "trader-signal" ? 50 : trader ? -1 : 0, period: "this month" },
     { key: "studio-strategies", label: "Active strategies",
-      current: 3, limit: studio?.includedSlots ?? 0 },
+      current: 0, limit: studio?.includedSlots ?? 0 },
     { key: "studio-backtests", label: "Backtest runs",
-      current: 32, limit: studio?.meta?.backtestRuns ?? 0, period: "this month" },
+      current: 0, limit: studio?.meta?.backtestRuns ?? 0, period: "this month" },
     { key: "studio-live", label: "Live forward-tests",
-      current: 1, limit: studio?.meta?.liveStrategies ?? 0 },
+      current: 0, limit: studio?.meta?.liveStrategies ?? 0 },
   ];
 }
 

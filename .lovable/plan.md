@@ -1,89 +1,97 @@
-# Where to host this and how to wire the backend
+# Trader Personalization Pass
 
-Short answer: **don't move to Lightsail.** Keep Lovable as the frontend editor, push to GitHub, deploy to **Vercel**, and use **Supabase** (hosted) as the database + auth + storage. All the "backend" code lives inside this same TanStack Start app as server functions — you don't need a separate Express/Node server on Ubuntu.
+This is a large, trader-side-only rewrite. Studio stays untouched. Below is the build order so nothing breaks mid-way.
 
----
+## 0. Onboarding-once fix (first, small)
+Today `AuthGate` calls `resetAllPrefs()` every time it sees `!onboarded`, which can wipe progress mid-flow. Change:
+- `setOnboarded(true)` as soon as the user enters step 1 of `/onboarding` (or move it to the start). The "finished" state we actually care about is now `traderSeeded` / `studioSeeded`.
+- `AuthGate`: redirect to `/onboarding` only if `!onboarded`. Never `resetAllPrefs()` from the gate.
+- Sign-out is the only place that calls `resetAllPrefs()`.
 
-## Why not AWS Lightsail
+## 1. Single preferences store
+New `src/lib/userPreferences.ts` — typed store + React hook + imperative read/write, localStorage-backed (Supabase-ready shape):
 
-Lightsail = a raw Ubuntu VM. You'd have to:
-- run Node/PM2/Nginx yourself
-- configure HTTPS + auto-renew certs
-- handle deploys (CI/CD, zero-downtime restarts)
-- patch the OS
-- size and pay for it even when idle
-
-TanStack Start is built for serverless edge runtimes (Vercel, Netlify, Cloudflare). You'd be fighting the framework on a VM. Lightsail makes sense only if you need a long-running custom daemon — you don't.
-
-## Recommended stack
-
-```text
-Lovable (edit frontend)
-   │  git commit
-   ▼
-GitHub repo  ─────────►  Vercel  (auto-deploy on push)
-                            │
-                            ▼
-                     Supabase (DB + Auth + Storage + Realtime)
+```
+{
+  enabledAssetClasses, watchedTickers[], newsSources[], newsTopics[],
+  followedStrategies[], liveTrackingStrategyId, homeLayout[],
+  hiddenSections[], defaultTimeframe, defaultChartType,
+  accountSize, riskPerTrade, onlyNewsForWatched, notifications{}
+}
 ```
 
-- **Lovable** → visual edits, AI scaffolding
-- **GitHub** → source of truth, lets you also edit in Cursor/VS Code locally
-- **Vercel** → hosting, SSL, preview URLs per PR, zero config
-- **Supabase** → Postgres + Auth + Storage + Row Level Security + Realtime, all behind one client SDK
+Replaces the scattered helpers in `user-prefs.tsx` for trader surfaces. Old `user-prefs.tsx` is kept as a thin shim that delegates so existing imports keep working during migration.
 
-You already have GitHub sync available in Lovable — flip it on and you're done with step 1.
+## 2. Strip the mock defaults (trader side only)
+In `src/lib/mockData.ts`:
+- `marketTiles`, `marketNews`, `followedStrategyIds`, `takenSignals`, default open signals — keep arrays defined (catalog/storefront still needs `strategies` and the firing `signals` pool) but no longer auto-seed any trader surface.
+- API layer (`src/lib/api/trader.ts`, `news.ts`) reads from preferences only. No fallbacks to mock arrays.
 
-## Where "the backend" actually lives
+Catalog keeps showing all 16 strategies — it's the storefront.
 
-You do **not** need a separate backend project. TanStack Start has two server primitives that ship inside this same repo and deploy with the frontend:
+## 3. Reusable components
+- `EmptyState` (icon, headline, body, CTA)
+- `TickerPicker` modal (search by symbol, asset class detect)
+- `StrategyPicker` modal (filter by followed/all)
+- `PaywallModal` (3 paths: upgrade / add slot / swap)
+- `SlotBadge`, `LockedTabOverlay`, `HomeLayoutEditor`, `CustomizeShell`
 
-1. **`createServerFn`** — typed RPC functions you call from the React app
-   - `src/lib/*.functions.ts`
-   - perfect for: fetching from DB, writing data, calling third-party APIs with secret keys, business logic
-2. **Server routes** — `src/routes/api/*.ts`
-   - perfect for: webhooks (Stripe, etc.), public REST endpoints, cron targets
+## 4. `/app/customize` hub
+New route with tabs: Markets & Tickers · News · Strategies · Home Layout · Trading Defaults · Notifications. Tab routed via `?tab=...`. Added to sidebar between Settings and Agent.
 
-Both run on Vercel's serverless/edge runtime automatically — no DevOps.
+## 5. Inline controls
+- Market overview bar: trailing `+` button, per-tile context menu (remove/move)
+- Live Tracking card header: strategy dropdown + unpin
+- My Strategies header: "Manage" → `/app/customize?tab=strategies`
+- Market Wire: "Filter sources" chip → inline popover
+- Home header: pencil → side sheet with `HomeLayoutEditor`
 
-For Supabase you get three pre-wired clients:
-- `@/integrations/supabase/client` — browser, respects RLS
-- `requireSupabaseAuth` middleware — server fns acting as the logged-in user
-- `@/integrations/supabase/client.server` — server-only admin client (bypasses RLS, for webhooks/cron only)
+## 6. Strategy paywall & slot system
+`src/lib/api/billing.ts` gains:
+- `checkSlotAvailability(strategyId)` → `{ ok, reason, freeSlots, paidSlots, addOnSlots }`
+- `consumeSlot(strategyId)`, `releaseSlot(strategyId)`
+- `purchaseAddOn('extra-slot' | 'slot-bundle-5')`
+- `upgradePlan(tier)`
 
-## How auth + data will work end to end
+Catalog + strategy detail follow buttons read state and switch label: **Follow / Upgrade to follow / Add slot to follow**. Free strategies (one per asset class) are exempt.
 
-Your current `/auth` page already has the form. Once Supabase is wired:
-1. Form calls `supabase.auth.signInWithPassword(...)` (or Google via Lovable's broker)
-2. A root `onAuthStateChange` listener invalidates the router/cache
-3. Protected routes live under `src/routes/_authenticated/*`
-4. Server functions use `requireSupabaseAuth` and Postgres RLS enforces per-user access
-5. Strategies, signals, backtests etc. become Postgres tables with RLS policies
+Locked strategy detail: signal feed + recent signals tabs blurred with `LockedTabOverlay`; backtest / OOS / forward stay open.
 
-## Recommended path forward (in order)
+## 7. Surface migration
+Touch every trader page so it reads `userPreferences` + falls back to `EmptyState`:
+- `/app/home` (every zone) · `/app/catalog` (storefront, no change to data, but filter chips respect `enabledAssetClasses`) · `/app/signal/$id` · `/app/strategy/$id` · `/app/performance` · `/app/agent`
+- `MarketTicker`, `NewsTicker`, market overview, live tracking — all driven by preferences.
 
-1. **Enable GitHub sync** in Lovable → pick a repo
-2. **Sign up for Vercel** → "Import Git Repository" → pick that repo → deploy. Done. You now get a live URL on every push.
-3. **Decide on Supabase**:
-   - Easiest: enable **Lovable Cloud** here — it provisions a Supabase project for you and auto-injects every env var, generated client, and auth helper. You can later "eject" to your own Supabase if needed.
-   - Or: create your own Supabase project, paste `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` into Vercel env vars (and into Lovable's secrets if you want to keep editing here).
-4. **Model the data** in Supabase (tables: `profiles`, `strategies`, `subscriptions`, `signals`, `backtests`, …) with RLS policies scoped to `auth.uid()`
-5. **Replace the mocked `/auth` submit** with a real `supabase.auth.*` call (and wire Google via Lovable's broker if you want OAuth)
-6. **Replace the mock catalog/signals data** with server functions that query Supabase
-7. **For paid plans** on `/pricing` — add Stripe via webhook server route (`src/routes/api/public/stripe-webhook.ts`)
+## 8. Asset-class master toggle cascade
+A single source — `enabledAssetClasses` — gates: asset filter chips, ticker tape, catalog chips, signal feed asset filter, performance breakdown. Tickers of disabled classes are hidden but kept in prefs (banner: "X tickers hidden — re-enable to see them").
 
-## When you'd actually edit "locally on Ubuntu"
+## Files
 
-You don't need a server for this. After step 1:
-```text
-git clone <your-repo>          # on your laptop, not Lightsail
-bun install
-bun run dev
-```
-Edit in Cursor/VS Code, push, Vercel redeploys, Lovable picks up the same commits. Lovable + Cursor + Vercel all read/write the same git history.
+**New**
+- `src/lib/userPreferences.ts`
+- `src/lib/api/news.ts`
+- `src/components/common/EmptyState.tsx`
+- `src/components/common/TickerPicker.tsx`
+- `src/components/common/StrategyPicker.tsx`
+- `src/components/common/SlotBadge.tsx`
+- `src/components/common/LockedTabOverlay.tsx`
+- `src/components/billing/PaywallModal.tsx`
+- `src/components/customize/HomeLayoutEditor.tsx`
+- `src/components/customize/CustomizeShell.tsx`
+- `src/routes/app.customize.tsx`
 
-## TL;DR recommendation
+**Edited**
+- `src/components/AuthGate.tsx` (no more reset)
+- `src/routes/onboarding.tsx` (mark onboarded early)
+- `src/lib/user-prefs.tsx` (delegate to new store)
+- `src/lib/mockData.ts` (drop trader-side defaults)
+- `src/lib/api/trader.ts` + `src/lib/api/billing.ts`
+- `src/lib/api.ts` (re-exports)
+- `src/components/layout/AppShell.tsx` (sidebar entry, asset-class cascade)
+- `src/components/common/MarketTicker.tsx`, `NewsTicker.tsx`
+- `src/routes/app.home.tsx`, `app.catalog.tsx`, `app.signals.tsx`, `app.signal.$id.tsx`, `app.strategy.$id.tsx`, `app.performance.tsx`
 
-> **Lovable → GitHub → Vercel → Supabase.** Skip Lightsail. All backend logic stays inside this same TanStack Start app via `createServerFn` and server routes. Start by enabling Lovable Cloud (fastest path to a real DB + auth + storage), and turn on GitHub sync so you can also edit in Cursor whenever you want.
+## Scope confirmation
+Studio (`/studio/*`) is untouched. The four free verified strategies per asset class remain free-forever and bypass paywall checks.
 
-If you approve, the next build-mode steps would be: enable Lovable Cloud, wire the real auth flow on `/auth`, and design the first tables (`profiles`, `strategies`, `subscriptions`).
+This is a one-shot rewrite — no half-state. Reply **approve** to proceed and I'll ship it all in one pass.
