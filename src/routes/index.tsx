@@ -191,25 +191,35 @@ function Landing() {
         <div className="mx-auto max-w-7xl px-6 pb-16 pt-20 md:px-10 md:pt-28">
           <div className="mx-auto max-w-4xl text-center">
             <div
-              className="mx-auto mb-7 inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs"
+              className="hero-rise mx-auto mb-7 inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs"
               style={{
                 borderColor: "color-mix(in oklab, var(--brand-gold) 40%, transparent)",
                 background: "color-mix(in oklab, var(--brand-gold) 10%, transparent)",
                 color: "var(--brand-gold)",
+                ["--rise-delay" as any]: "0ms",
               }}
             >
               <BadgeCheck className="size-3.5" />
               <span className="font-medium">A two-sided market for verified trading edge</span>
             </div>
-            <h1 className="landing-display text-balance text-5xl font-bold leading-[1.05] md:text-7xl lg:text-[5.5rem]">
-              <span className="landing-grad-text">Trade</span> the signal.{" "}
-              <span className="landing-grad-text">Build</span> the signal.
+            <h1
+              className="hero-rise landing-display text-balance text-5xl font-bold leading-[1.05] md:text-7xl lg:text-[5.5rem]"
+              style={{ ["--rise-delay" as any]: "120ms" }}
+            >
+              <span className="landing-grad-text hero-shimmer">Trade</span> the signal.{" "}
+              <span className="landing-grad-text hero-shimmer">Build</span> the signal.
             </h1>
-            <p className="mx-auto mt-7 max-w-2xl text-balance text-lg text-muted-foreground md:text-xl">
+            <p
+              className="hero-rise mx-auto mt-7 max-w-2xl text-balance text-lg text-muted-foreground md:text-xl"
+              style={{ ["--rise-delay" as any]: "260ms" }}
+            >
               Bayn is the marketplace where quants ship verified strategies and traders follow them.
               <span className="text-foreground"> One filter. Both sides win.</span>
             </p>
-            <div className="mt-9 grid gap-3 sm:grid-cols-2 sm:gap-4">
+            <div
+              className="hero-rise mt-9 grid gap-3 sm:grid-cols-2 sm:gap-4"
+              style={{ ["--rise-delay" as any]: "380ms" }}
+            >
               <Button
                 size="lg"
                 asChild
@@ -236,7 +246,10 @@ function Landing() {
                 </Link>
               </Button>
             </div>
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
+            <div
+              className="hero-rise mt-6 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-muted-foreground"
+              style={{ ["--rise-delay" as any]: "500ms" }}
+            >
               <span className="flex items-center gap-1.5"><Lock className="size-3.5" /> No auto-trading</span>
               <span className="opacity-50">·</span>
               <span className="flex items-center gap-1.5"><Zap className="size-3.5" /> Free to start</span>
@@ -244,6 +257,7 @@ function Landing() {
               <span className="flex items-center gap-1.5"><Users className="size-3.5" /> 4,200+ traders · 380+ devs</span>
             </div>
           </div>
+
 
 
           {/* Live ticker */}
