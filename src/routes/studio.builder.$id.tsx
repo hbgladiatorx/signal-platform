@@ -6,6 +6,7 @@ import ReactFlow, {
 } from "reactflow";
 import { useQuery } from "@tanstack/react-query";
 import { getDevStrategy, getTemplates, saveStrategyGraph, runBacktest } from "@/lib/api/studio";
+import { advanceStage } from "@/lib/strategy-stage";
 import { StrategyNode, type StrategyNodeData } from "@/components/studio/StrategyNode";
 import { NodePalette, PALETTE, type PaletteNode } from "@/components/studio/NodePalette";
 import { NodeInspector } from "@/components/studio/NodeInspector";
@@ -176,9 +177,11 @@ function Builder() {
 
   const handleRunBacktest = async (params: any) => {
     setLogs((l) => [...l, { ts: new Date().toISOString(), level: "info", msg: `Backtest started: ${params.startDate} → ${params.endDate}, $${params.capital}` }]);
-    await runBacktest(id, params);
-    setLogs((l) => [...l, { ts: new Date().toISOString(), level: "ok", msg: `Backtest completed. Open Backtests tab to view results.` }]);
-    toast.success("Backtest finished");
+    const run = await runBacktest(id, params);
+    advanceStage(id, "backtested");
+    setLogs((l) => [...l, { ts: new Date().toISOString(), level: "ok", msg: `Backtest ${run.id} completed. Opening results…` }]);
+    toast.success("Backtest finished — opening results");
+    return run;
   };
 
   const handleExport = () => {
@@ -376,8 +379,8 @@ function Builder() {
       </Dialog>
 
       <BacktestRunModal open={showBacktest} onOpenChange={setShowBacktest} onRun={async (p) => {
-        await handleRunBacktest(p);
-        navigate({ to: "/studio/backtests" });
+        const run = await handleRunBacktest(p);
+        navigate({ to: "/studio/backtests/$strategyId", params: { strategyId: id }, search: { runId: run.id } as never });
       }} />
     </div>
   );

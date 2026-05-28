@@ -13,7 +13,7 @@ export function BacktestRunModal({
 }: {
   open: boolean;
   onOpenChange: (b: boolean) => void;
-  onRun: (params: { startDate: string; endDate: string; capital: number; commissionBps: number; slippageBps: number; commissionModel: string }) => Promise<void>;
+  onRun: (params: { startDate: string; endDate: string; capital: number; commissionBps: number; slippageBps: number; commissionModel: string }) => Promise<unknown>;
 }) {
   const [running, setRunning] = useState(false);
   const [params, setParams] = useState({
