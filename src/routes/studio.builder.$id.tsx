@@ -6,6 +6,7 @@ import ReactFlow, {
 } from "reactflow";
 import { useQuery } from "@tanstack/react-query";
 import { getDevStrategy, getTemplates, saveStrategyGraph, runBacktest } from "@/lib/api/studio";
+import { advanceStage } from "@/lib/strategy-stage";
 import { StrategyNode, type StrategyNodeData } from "@/components/studio/StrategyNode";
 import { NodePalette, PALETTE, type PaletteNode } from "@/components/studio/NodePalette";
 import { NodeInspector } from "@/components/studio/NodeInspector";
