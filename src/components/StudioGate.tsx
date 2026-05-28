@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { Lock, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,8 @@ import { getCurrentPlan } from "@/lib/api/billing";
  */
 export function StudioGate({ children }: { children: React.ReactNode }) {
   const plan = getCurrentPlan();
+  const pathname = useRouterState({ select: (r) => r.location.pathname });
+  if (pathname === "/studio/pricing") return <>{children}</>;
   if (plan.developer) return <>{children}</>;
 
   return (
