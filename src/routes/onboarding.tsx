@@ -12,6 +12,15 @@ import { cn } from "@/lib/utils";
 import { BillingToggle } from "@/components/billing/BillingToggle";
 import { PricingTable } from "@/components/billing/PricingTable";
 import { setCurrentPlan, type Billing, type TierId } from "@/lib/api/billing";
+import { setTraderSeeded, setStudioSeeded, setOnboarded, toggleFollow } from "@/lib/user-prefs";
+
+// Map asset class → the free verified strategy id activated for new traders.
+const FREE_STRATEGY_BY_ASSET: Record<Asset, string> = {
+  stocks: "s-meanrev-spy",
+  crypto: "s-btc-hourly-mr",
+  options: "s-spy-otm-put",
+  futures: "s-mes-orb",
+};
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({ meta: [{ title: "Welcome to Bayn" }] }),
