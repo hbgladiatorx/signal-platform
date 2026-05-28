@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
 import {
   getFollowedStrategies, getMarketOverview, getRecentSignals, getUserPerformance,
 } from "@/lib/api";
@@ -12,11 +13,11 @@ import { StatusPill } from "@/components/common/StatusPill";
 import { Sparkline } from "@/components/common/Sparkline";
 import { PipelineBadge } from "@/components/common/PipelineBadge";
 import { formatDistanceToNow } from "date-fns";
-import { useState } from "react";
 import {
   Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid,
 } from "recharts";
 import { TrendingUp, Inbox } from "lucide-react";
+import { useAssetFilter } from "@/lib/asset-filter";
 
 export const Route = createFileRoute("/app/home")({
   head: () => ({ meta: [{ title: "Home — Bayn" }] }),
@@ -28,18 +29,37 @@ const fmtPct = (n: number) => `${n >= 0 ? "+" : ""}${(n * 100).toFixed(2)}%`;
 
 function HomePage() {
   const [days, setDays] = useState(30);
+  const { assetClass } = useAssetFilter();
   const market = useQuery({ queryKey: ["market"], queryFn: getMarketOverview });
   const followed = useQuery({ queryKey: ["followed"], queryFn: getFollowedStrategies });
-  const recent = useQuery({ queryKey: ["recent"], queryFn: () => getRecentSignals(10) });
+  const recent = useQuery({ queryKey: ["recent"], queryFn: () => getRecentSignals(20) });
   const perf = useQuery({ queryKey: ["perf", days], queryFn: () => getUserPerformance(days) });
+
+  const tiles = useMemo(() => {
+    const all = market.data ?? [];
+    if (assetClass === "all") return all;
+    return all.filter((t) => t.assetClass === assetClass);
+  }, [market.data, assetClass]);
+
+  const followedFiltered = useMemo(() => {
+    const all = followed.data ?? [];
+    return assetClass === "all" ? all : all.filter((s) => s.assetClass === assetClass);
+  }, [followed.data, assetClass]);
+
+  const recentFiltered = useMemo(() => {
+    const all = recent.data ?? [];
+    return (assetClass === "all" ? all : all.filter((s) => s.assetClass === assetClass)).slice(0, 10);
+  }, [recent.data, assetClass]);
 
   return (
     <div className="space-y-8 p-4 md:p-6">
       {/* Market overview */}
       <section>
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-muted-foreground">Market overview</h2>
+        <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-muted-foreground">
+          Market overview {assetClass !== "all" && <span className="text-foreground">· {assetClass}</span>}
+        </h2>
         <div className="flex gap-3 overflow-x-auto pb-2">
-          {(market.data ?? Array.from({ length: 6 })).map((tile: any, i: number) => (
+          {(tiles.length ? tiles : Array.from({ length: 6 })).map((tile: any, i: number) => (
             <Card key={tile?.symbol ?? i} className="flex w-56 shrink-0 flex-col gap-2 border-border bg-elevated p-4">
               {tile ? (
                 <>
@@ -69,11 +89,15 @@ function HomePage() {
           <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">My strategies</h2>
           <Button variant="ghost" size="sm" asChild><Link to="/app/catalog">Browse catalog →</Link></Button>
         </div>
-        {followed.data?.length === 0 ? (
-          <EmptyState icon={Inbox} title="You're not following any strategies yet" cta={<Button asChild><Link to="/app/catalog">Explore catalog</Link></Button>} />
+        {followedFiltered.length === 0 ? (
+          <EmptyState
+            icon={Inbox}
+            title={assetClass === "all" ? "You're not following any strategies yet" : `No followed ${assetClass} strategies`}
+            cta={<Button asChild><Link to="/app/catalog">Explore catalog</Link></Button>}
+          />
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {(followed.data ?? []).map((s) => (
+            {followedFiltered.map((s) => (
               <Link key={s.id} to="/app/strategy/$id" params={{ id: s.id }}>
                 <Card className="group h-full border-border bg-elevated p-4 transition-colors hover:border-cyan/30">
                   <div className="mb-2 flex items-start justify-between gap-2">
@@ -106,7 +130,7 @@ function HomePage() {
         <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-muted-foreground">Recent signals</h2>
         <Card className="border-border bg-elevated">
           <div className="divide-y divide-border">
-            {(recent.data ?? []).map((sig) => (
+            {recentFiltered.map((sig) => (
               <Link key={sig.id} to="/app/signal/$id" params={{ id: sig.id }} className="grid grid-cols-12 items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30">
                 <div className="col-span-2 text-xs text-muted-foreground">
                   {formatDistanceToNow(new Date(sig.firedAt), { addSuffix: true })}
@@ -128,6 +152,11 @@ function HomePage() {
             {!recent.data && Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="h-12 animate-pulse bg-muted/20" />
             ))}
+            {recent.data && recentFiltered.length === 0 && (
+              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                No recent {assetClass} signals.
+              </div>
+            )}
           </div>
         </Card>
       </section>

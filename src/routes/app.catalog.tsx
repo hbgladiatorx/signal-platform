@@ -8,32 +8,23 @@ import { Button } from "@/components/ui/button";
 import { AssetClassBadge } from "@/components/common/AssetClassBadge";
 import { PipelineBadge } from "@/components/common/PipelineBadge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import type { AssetClass } from "@/lib/types";
-import { cn } from "@/lib/utils";
 import { Users } from "lucide-react";
+import { useAssetFilter } from "@/lib/asset-filter";
 
 export const Route = createFileRoute("/app/catalog")({
   head: () => ({ meta: [{ title: "Strategy catalog — Bayn" }, { name: "description", content: "Browse verified trading strategies across stocks, crypto, options and futures." }] }),
   component: CatalogPage,
 });
 
-const filters: Array<{ key: "all" | AssetClass; label: string }> = [
-  { key: "all", label: "All" },
-  { key: "stocks", label: "Stocks" },
-  { key: "crypto", label: "Crypto" },
-  { key: "options", label: "Options" },
-  { key: "futures", label: "Futures" },
-];
-
 function CatalogPage() {
-  const [filter, setFilter] = useState<"all" | AssetClass>("all");
+  const { assetClass } = useAssetFilter();
   const [sort, setSort] = useState("subs");
   const [q, setQ] = useState("");
   const { data } = useQuery({ queryKey: ["strategies"], queryFn: getStrategies });
 
   const list = useMemo(() => {
     let arr = data ?? [];
-    if (filter !== "all") arr = arr.filter((s) => s.assetClass === filter);
+    if (assetClass !== "all") arr = arr.filter((s) => s.assetClass === assetClass);
     if (q) arr = arr.filter((s) => (s.name + " " + s.description).toLowerCase().includes(q.toLowerCase()));
     arr = [...arr].sort((a, b) => {
       if (sort === "subs") return b.stats.subscribers - a.stats.subscribers;
@@ -42,37 +33,29 @@ function CatalogPage() {
       return +new Date(b.createdAt) - +new Date(a.createdAt);
     });
     return arr;
-  }, [data, filter, sort, q]);
+  }, [data, assetClass, sort, q]);
 
   return (
     <div className="space-y-6 p-4 md:p-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Strategy catalog</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Strategy catalog {assetClass !== "all" && <span className="text-muted-foreground">· {assetClass}</span>}
+        </h1>
         <p className="text-sm text-muted-foreground">Every strategy here has cleared Bayn's 5-stage edge pipeline.</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        {filters.map((f) => (
-          <button key={f.key} onClick={() => setFilter(f.key)}
-            className={cn(
-              "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-              filter === f.key ? "border-cyan/40 bg-cyan/15 text-cyan" : "border-border bg-elevated text-muted-foreground hover:text-foreground",
-            )}>
-            {f.label}
-          </button>
-        ))}
-        <div className="ml-auto flex w-full items-center gap-2 md:w-auto">
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" className="h-9 bg-elevated md:w-64" />
-          <Select value={sort} onValueChange={setSort}>
-            <SelectTrigger className="h-9 w-44 bg-elevated"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="subs">Most followed</SelectItem>
-              <SelectItem value="sharpe">Highest Sharpe</SelectItem>
-              <SelectItem value="new">Newest</SelectItem>
-              <SelectItem value="dd">Lowest drawdown</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search strategies…" className="h-9 bg-elevated md:w-64" />
+        <Select value={sort} onValueChange={setSort}>
+          <SelectTrigger className="h-9 w-44 bg-elevated"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="subs">Most followed</SelectItem>
+            <SelectItem value="sharpe">Highest Sharpe</SelectItem>
+            <SelectItem value="new">Newest</SelectItem>
+            <SelectItem value="dd">Lowest drawdown</SelectItem>
+          </SelectContent>
+        </Select>
+        <div className="ml-auto text-xs text-muted-foreground">{list.length} strategies</div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -100,6 +83,11 @@ function CatalogPage() {
             </Card>
           </Link>
         ))}
+        {list.length === 0 && (
+          <Card className="col-span-full border-dashed border-border bg-elevated/50 p-10 text-center text-sm text-muted-foreground">
+            No {assetClass !== "all" ? assetClass + " " : ""}strategies match your search.
+          </Card>
+        )}
       </div>
     </div>
   );
