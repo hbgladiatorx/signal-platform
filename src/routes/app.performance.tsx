@@ -136,3 +136,14 @@ function PerformancePage() {
     </div>
   );
 }
+
+function Kpi({ label, value, tone }: { label: string; value: React.ReactNode; tone?: "cyan" | "danger" }) {
+  return (
+    <div className="rounded-lg border border-border bg-elevated p-3">
+      <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
+      <div className={`mt-1 font-mono text-2xl ${tone === "cyan" ? "text-cyan" : tone === "danger" ? "text-danger" : ""}`}>
+        {value}
+      </div>
+    </div>
+  );
+}
