@@ -45,28 +45,12 @@ const ASSETS: { key: Asset; label: string }[] = [
 
 function OnboardingPage() {
   const nav = useNavigate();
-  const [step, setStep] = useState(1);
-  const [path, setPath] = useState<Path>("trader");
-function OnboardingPage() {
-  const nav = useNavigate();
   const [authChecked, setAuthChecked] = useState(false);
   const [step, setStep] = useState(1);
-
-  // Onboarding requires an account. Bounce anonymous visitors to /auth
-  // (signup tab) before they can configure anything.
-  useEffect(() => {
-    let active = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (!active) return;
-      if (!data.session) {
-        nav({ to: "/auth" });
-      } else {
-        setAuthChecked(true);
-      }
-    });
-    return () => { active = false; };
-  }, [nav]);
-
+  const [path, setPath] = useState<Path>("trader");
+  const [assets, setAssets] = useState<Asset[]>(["stocks", "crypto"]);
+  const [experience, setExperience] = useState<Experience>("active");
+  const [accountSize, setAccountSize] = useState("100000");
   const [riskPct, setRiskPct] = useState("1");
   const [goals, setGoals] = useState<string[]>(["consistent income"]);
   const [billing, setBilling] = useState<Billing>("annual");
