@@ -11,13 +11,12 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { PricingTable } from "@/components/billing/PricingTable";
-import { getCurrentPlan, setCurrentPlan, type Billing, type TierId } from "@/lib/api/billing";
+import { getCurrentPlan, setBillingScope, setCurrentPlan, type Billing, type TierId } from "@/lib/api/billing";
 import {
   setTraderSeeded, setStudioSeeded, setOnboarded,
   setEnabledAssetClasses, setLiveTrackingStrategy, setOnboardingPath,
   setAccountSize as persistAccountSize, setRiskPerTrade, setPreferenceScope,
 } from "@/lib/user-prefs";
-import { setBillingScope } from "@/lib/api/billing";
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({ meta: [{ title: "Welcome to Bayn" }] }),

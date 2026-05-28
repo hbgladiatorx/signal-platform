@@ -91,7 +91,7 @@ function HomePage() {
           Market overview {assetClass !== "all" && <span className="text-foreground">· {assetClass}</span>}
         </h2>
         <div className="flex gap-3 overflow-x-auto pb-2">
-          {(tiles.length ? tiles : Array.from({ length: 6 })).map((tile: any, i: number) => (
+          {(!market.data ? Array.from({ length: 3 }) : tiles).map((tile: any, i: number) => (
             <Card key={tile?.symbol ?? i} className="flex w-52 shrink-0 flex-col gap-2 border-border bg-elevated p-3">
               {tile ? (
                 <>
@@ -112,6 +112,11 @@ function HomePage() {
               ) : <div className="h-20 animate-pulse rounded bg-muted/50" />}
             </Card>
           ))}
+          {market.data && tiles.length === 0 && (
+            <Card className="w-full border-dashed border-border bg-elevated/40 p-6 text-center text-sm text-muted-foreground">
+              No market tiles yet. Add tickers in Customize to populate this section.
+            </Card>
+          )}
         </div>
       </section>
 
