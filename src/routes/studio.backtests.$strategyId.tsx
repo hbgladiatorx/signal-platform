@@ -295,7 +295,7 @@ function MonteCarloCard({ run }: { run: BacktestRun }) {
     <Card className="border-border bg-elevated p-4">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-sm font-medium">
-          <Sparkles className="size-4 text-violet" /> Monte Carlo · 200 simulations
+          <Sparkles className="size-4 text-violet" /> Monte Carlo · {sims.paths.length} simulations
         </div>
         <div className="flex items-center gap-3 font-mono text-[11px] text-muted-foreground">
           <span>p5 <span className="text-foreground">{fmtPct(sims.p5)}</span></span>
@@ -304,19 +304,28 @@ function MonteCarloCard({ run }: { run: BacktestRun }) {
           <span>Risk of ruin <span className={cn(sims.ruin > 0.05 ? "text-danger" : "text-success")}>{(sims.ruin * 100).toFixed(1)}%</span></span>
         </div>
       </div>
-      <div className="h-60">
+      <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={sims.chart}>
             <CartesianGrid stroke="oklch(1 0 0 / 6%)" vertical={false} />
             <XAxis dataKey="i" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-            <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
+            <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} formatter={(v: number) => `$${Math.round(v).toLocaleString()}`} />
             {sims.paths.map((_, k) => (
-              <Line key={k} type="monotone" dataKey={`p${k}`} stroke="var(--violet)" strokeOpacity={0.06} strokeWidth={1} dot={false} isAnimationActive={false} />
+              <Line
+                key={k}
+                type="monotone"
+                dataKey={`p${k}`}
+                stroke={`hsl(${(k * 137.508) % 360} 85% 60%)`}
+                strokeOpacity={0.55}
+                strokeWidth={1}
+                dot={false}
+                isAnimationActive={false}
+              />
             ))}
-            <Line type="monotone" dataKey="median" stroke="var(--violet)" strokeWidth={2.5} dot={false} />
-            <Line type="monotone" dataKey="p5" stroke="var(--danger)" strokeWidth={1.5} strokeDasharray="3 3" dot={false} />
-            <Line type="monotone" dataKey="p95" stroke="var(--cyan)" strokeWidth={1.5} strokeDasharray="3 3" dot={false} />
+            <Line type="monotone" dataKey="median" stroke="var(--foreground)" strokeWidth={2.5} dot={false} isAnimationActive={false} />
+            <Line type="monotone" dataKey="p5" stroke="var(--foreground)" strokeOpacity={0.7} strokeWidth={1.5} strokeDasharray="4 3" dot={false} isAnimationActive={false} />
+            <Line type="monotone" dataKey="p95" stroke="var(--foreground)" strokeOpacity={0.7} strokeWidth={1.5} strokeDasharray="4 3" dot={false} isAnimationActive={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -326,28 +335,27 @@ function MonteCarloCard({ run }: { run: BacktestRun }) {
 
 function generateMonteCarlo(run: BacktestRun) {
   const rets = run.trades.map((t) => t.pnlR * 0.01); // approximate per-trade return
-  const N = 200;
-  const T = Math.min(rets.length, 120);
+  const N = 250;
+  const T = Math.min(Math.max(rets.length, 40), 120);
   const paths: number[][] = [];
   for (let i = 0; i < N; i++) {
     const p: number[] = [run.params.capital];
     let v = run.params.capital;
     for (let t = 0; t < T; t++) {
-      const r = rets[Math.floor(Math.random() * rets.length)] ?? 0;
+      const r = rets.length ? rets[Math.floor(Math.random() * rets.length)] : 0;
       v = Math.max(v * (1 + r), 0);
       p.push(v);
     }
     paths.push(p);
   }
-  // build chart rows
+  // build chart rows — include every path so the spaghetti plot fans out like the reference
   const chart = Array.from({ length: T + 1 }).map((_, i) => {
     const row: Record<string, number> = { i };
     const col = paths.map((p) => p[i]).sort((a, b) => a - b);
     row.p5 = col[Math.floor(0.05 * N)];
     row.median = col[Math.floor(0.5 * N)];
     row.p95 = col[Math.floor(0.95 * N)];
-    // include a sampled subset of raw paths for visual density
-    paths.forEach((p, k) => { if (k % 4 === 0) row[`p${k}`] = p[i]; });
+    paths.forEach((p, k) => { row[`p${k}`] = p[i]; });
     return row;
   });
   const finals = paths.map((p) => p[p.length - 1]).sort((a, b) => a - b);
@@ -355,13 +363,14 @@ function generateMonteCarlo(run: BacktestRun) {
   const ruin = finals.filter((f) => f <= cap * 0.5).length / N;
   return {
     chart,
-    paths: paths.filter((_, k) => k % 4 === 0),
+    paths,
     p5: (finals[Math.floor(0.05 * N)] - cap) / cap,
     p50: (finals[Math.floor(0.5 * N)] - cap) / cap,
     p95: (finals[Math.floor(0.95 * N)] - cap) / cap,
     ruin,
   };
 }
+
 
 
 function DrawdownCard({ run }: { run: BacktestRun }) {
