@@ -133,7 +133,7 @@ export function AgentChat({ mode, onGraph, onTweak, compact, initialPrompt, getC
 
       <div className="border-t border-border px-3 pb-3 pt-2">
         <div className="mb-2 flex flex-wrap gap-1.5">
-          {(mode === "trader" ? TRADER_CHIPS : STUDIO_CHIPS).map((c) => (
+          {(mode === "trader" ? TRADER_CHIPS : hasGraph ? STUDIO_TWEAK_CHIPS : STUDIO_CHIPS).map((c) => (
             <button key={c} onClick={() => send(c)} disabled={busy}
               className={cn(
                 "rounded-full border px-2.5 py-1 text-[11px] transition-colors",
