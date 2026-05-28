@@ -12,9 +12,20 @@ import { DirectionPill } from "@/components/common/DirectionPill";
 import { StatusPill } from "@/components/common/StatusPill";
 import { Disclaimer } from "@/components/common/Disclaimer";
 import { TradingViewChart } from "@/components/common/TradingViewChart";
+import { DraggableLevelsOverlay } from "@/components/common/DraggableLevelsOverlay";
+import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Share2, Bitcoin } from "lucide-react";
+
+const TIMEFRAMES = [
+  { key: "1", label: "1m" },
+  { key: "5", label: "5m" },
+  { key: "15", label: "15m" },
+  { key: "60", label: "1h" },
+  { key: "D", label: "1D" },
+  { key: "W", label: "1W" },
+];
 
 export const Route = createFileRoute("/app/signal/$id")({
   head: ({ params }) => ({ meta: [{ title: `Signal ${params.id} — Bayn` }] }),
@@ -29,6 +40,7 @@ function SignalDetail() {
   const [showBroker, setShowBroker] = useState(false);
   const [showTaken, setShowTaken] = useState(false);
   const [fillPrice, setFillPrice] = useState<string>("");
+  const [interval, setIntervalKey] = useState<string>("60");
 
   if (sig.isFetched && !sig.data) throw notFound();
   const s = sig.data;
@@ -64,15 +76,40 @@ function SignalDetail() {
       <div className="grid gap-5 lg:grid-cols-3">
         {/* Chart */}
         <Card className="border-border bg-elevated p-3 lg:col-span-2">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="flex items-center gap-0.5 rounded-md border border-border bg-background/60 p-0.5">
+              {TIMEFRAMES.map((tf) => (
+                <button
+                  key={tf.key}
+                  onClick={() => setIntervalKey(tf.key)}
+                  className={cn(
+                    "rounded px-2 py-1 font-mono text-[10px] uppercase tracking-wider transition-colors",
+                    interval === tf.key
+                      ? "bg-cyan/15 text-cyan"
+                      : "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+                  )}
+                >
+                  {tf.label}
+                </button>
+              ))}
+            </div>
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Drag plan rows to adjust levels
+            </span>
+          </div>
           <div className="relative">
             <TradingViewChart
+              key={`${s.symbol}-${interval}`}
               symbol={s.symbol}
               assetClass={s.assetClass}
-              interval="60"
+              interval={interval}
               height={420}
               withDrawingTools
             />
-            <SignalPlanOverlay entry={s.entry} stop={s.stop} target={s.target} direction={s.direction} />
+            <DraggableLevelsOverlay
+              initial={{ entry: s.entry, stop: s.stop, target: s.target }}
+              direction={s.direction}
+            />
           </div>
           <Card className="mt-3 border-border bg-background/40 p-4">
             <h3 className="mb-1 text-sm font-semibold">Strategy reasoning</h3>
@@ -157,48 +194,4 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-/** Compact strategy plan card overlaid on the live chart. Uses % offsets from
- *  entry so the levels stay readable next to real TradingView prices. */
-function SignalPlanOverlay({
-  entry, stop, target, direction,
-}: { entry: number; stop: number; target: number; direction: "LONG" | "SHORT" }) {
-  const targetPct = ((target - entry) / entry) * 100;
-  const stopPct = ((stop - entry) / entry) * 100;
-  const rr = Math.abs(targetPct / stopPct);
-  const sign = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
-  const fmtP = (n: number) =>
-    n >= 1000 ? n.toLocaleString(undefined, { maximumFractionDigits: 0 })
-              : n.toLocaleString(undefined, { maximumFractionDigits: 2 });
-  return (
-    <div className="pointer-events-none absolute right-3 top-3 z-10 w-[200px] rounded-lg border border-border/80 bg-background/85 p-2.5 font-mono text-[10px] backdrop-blur-md shadow-lg">
-      <div className="mb-1.5 flex items-center justify-between">
-        <span className="tracking-[0.18em] text-muted-foreground">STRATEGY PLAN</span>
-        <span className={direction === "LONG" ? "text-cyan" : "text-danger"}>{direction}</span>
-      </div>
-      <PlanRow label="Target" pct={sign(targetPct)} price={fmtP(target)} tone="cyan" />
-      <PlanRow label="Entry"  pct="—"               price={fmtP(entry)}  tone="gold" />
-      <PlanRow label="Stop"   pct={sign(stopPct)}   price={fmtP(stop)}   tone="danger" />
-      <div className="mt-1.5 flex items-center justify-between border-t border-border/60 pt-1.5 text-muted-foreground">
-        <span>R:R</span>
-        <span className="text-foreground">{isFinite(rr) ? rr.toFixed(2) : "—"}</span>
-      </div>
-      <div className="mt-1 text-[9px] leading-tight text-muted-foreground">
-        % shown vs entry · live price may differ
-      </div>
-    </div>
-  );
-}
-
-function PlanRow({ label, pct, price, tone }: { label: string; pct: string; price: string; tone: "cyan" | "gold" | "danger" }) {
-  const cls = tone === "cyan" ? "text-cyan" : tone === "gold" ? "text-gold" : "text-danger";
-  return (
-    <div className="flex items-center justify-between py-0.5">
-      <span className={cls}>{label}</span>
-      <span className="flex items-baseline gap-2">
-        <span className={cls}>{pct}</span>
-        <span className="text-muted-foreground">{price}</span>
-      </span>
-    </div>
-  );
-}
 

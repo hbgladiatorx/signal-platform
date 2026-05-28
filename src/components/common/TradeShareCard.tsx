@@ -2,9 +2,7 @@ import { Card } from "@/components/ui/card";
 import { AssetClassBadge } from "./AssetClassBadge";
 import { DirectionPill } from "./DirectionPill";
 import { Disclaimer } from "./Disclaimer";
-import {
-  Area, AreaChart, ReferenceLine, ResponsiveContainer,
-} from "recharts";
+import { TradingViewChart } from "./TradingViewChart";
 import { format } from "date-fns";
 import type { Signal } from "@/lib/types";
 
@@ -80,22 +78,15 @@ export function TradeShareCard({ signal: s, strategyName, badge }: Props) {
           </div>
         </div>
 
-        {/* chart */}
-        <div className="h-24 rounded-lg border border-border bg-background/40 p-1">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={s.priceSeries}>
-              <defs>
-                <linearGradient id={`tcg-${s.id}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={accentVar} stopOpacity={0.4} />
-                  <stop offset="100%" stopColor={accentVar} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <ReferenceLine y={s.entry}  stroke="var(--foreground)" strokeOpacity={0.4} strokeDasharray="2 3" />
-              <ReferenceLine y={s.stop}   stroke="var(--danger)"  strokeOpacity={0.7} strokeDasharray="2 3" />
-              <ReferenceLine y={s.target} stroke="var(--futures)" strokeOpacity={0.7} strokeDasharray="2 3" />
-              <Area type="monotone" dataKey="price" stroke={accentVar} strokeWidth={1.6} fill={`url(#tcg-${s.id})`} />
-            </AreaChart>
-          </ResponsiveContainer>
+        {/* Live TradingView snapshot — embeds a real-time chart so posts look credible */}
+        <div className="overflow-hidden rounded-lg border border-border bg-background/40">
+          <TradingViewChart
+            symbol={s.symbol}
+            assetClass={s.assetClass}
+            interval="60"
+            style={3 /* area */}
+            height={180}
+          />
         </div>
 
         {/* levels */}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { getFollowedStrategies, getSignals } from "@/lib/api";
@@ -8,18 +8,35 @@ import { Activity, ArrowUpRight } from "lucide-react";
 import { useAssetFilter } from "@/lib/asset-filter";
 import { DirectionPill } from "./DirectionPill";
 import { TradingViewChart } from "./TradingViewChart";
+import { DraggableLevelsOverlay, type Levels } from "./DraggableLevelsOverlay";
 import { cn } from "@/lib/utils";
+import type { AssetClass } from "@/lib/types";
 
-const fmt = (n: number) =>
-  n >= 1000 ? n.toLocaleString(undefined, { maximumFractionDigits: 2 })
-            : n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
-/** Hero chart that tracks the live signal(s) from the user's followed strategies.
- *  Shows entry / stop / target reference lines and a widget badge for the strategy. */
+const TIMEFRAMES: Array<{ key: string; label: string }> = [
+  { key: "1", label: "1m" },
+  { key: "5", label: "5m" },
+  { key: "15", label: "15m" },
+  { key: "60", label: "1h" },
+  { key: "D", label: "1D" },
+  { key: "W", label: "1W" },
+];
+
+/** Default representative symbol when the user has no followed signals for a class. */
+const FALLBACK_SYMBOL: Record<AssetClass | "all", { symbol: string; cls: AssetClass }> = {
+  all:     { symbol: "SPY", cls: "stocks" },
+  stocks:  { symbol: "SPY", cls: "stocks" },
+  crypto:  { symbol: "BTC", cls: "crypto" },
+  options: { symbol: "SPY", cls: "options" },
+  futures: { symbol: "ES",  cls: "futures" },
+};
+
+/** Hero chart that tracks the live signal(s) from the user's followed strategies. */
 export function LiveTrackerChart() {
   const { assetClass } = useAssetFilter();
   const followed = useQuery({ queryKey: ["followed"], queryFn: getFollowedStrategies });
-  const signals = useQuery({ queryKey: ["recent"], queryFn: () => getSignals({ limit: 30 }) });
+  const signals  = useQuery({ queryKey: ["recent"], queryFn: () => getSignals({ limit: 30 }) });
 
   const candidates = useMemo(() => {
     const followedIds = new Set((followed.data ?? []).map((s) => s.id));
@@ -30,18 +47,29 @@ export function LiveTrackerChart() {
   }, [followed.data, signals.data, assetClass]);
 
   const [activeId, setActiveId] = useState<string | null>(null);
+  // Reset active selection whenever the asset filter changes so symbol updates instantly.
+  useEffect(() => { setActiveId(null); }, [assetClass]);
+
   const active = candidates.find((c) => c.id === activeId) ?? candidates[0];
+  const [interval, setIntervalKey] = useState<string>("60");
 
   if (!active) {
+    const fb = FALLBACK_SYMBOL[assetClass];
     return (
-      <Card className="border-dashed border-border bg-elevated/40 p-8 text-center">
-        <Activity className="mx-auto mb-3 size-6 text-muted-foreground" />
-        <div className="text-sm text-muted-foreground">
-          Follow a strategy from the catalog to see its live tracking chart here.
+      <Card className="overflow-hidden border-border bg-elevated">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-background/40 px-4 py-3">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Activity className="size-3.5" />
+            <span>No followed signals for {assetClass === "all" ? "any class" : assetClass} yet · showing {fb.symbol}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <TimeframeBar value={interval} onChange={setIntervalKey} />
+            <Button asChild size="sm" className="h-7 bg-cyan text-cyan-foreground hover:bg-cyan/90">
+              <Link to="/app/catalog">Browse catalog</Link>
+            </Button>
+          </div>
         </div>
-        <Button asChild className="mt-4 bg-cyan text-cyan-foreground hover:bg-cyan/90">
-          <Link to="/app/catalog">Browse catalog</Link>
-        </Button>
+        <TradingViewChart symbol={fb.symbol} assetClass={fb.cls} interval={interval} height={420} />
       </Card>
     );
   }
@@ -52,6 +80,8 @@ export function LiveTrackerChart() {
   const inWinDir = isLong ? last >= active.entry : last <= active.entry;
   const distToTarget = Math.abs((active.target - last) / last) * 100;
   const distToStop = Math.abs((active.stop - last) / last) * 100;
+
+  const initialLevels: Levels = { entry: active.entry, stop: active.stop, target: active.target };
 
   return (
     <Card className="overflow-hidden border-border bg-elevated">
@@ -78,36 +108,37 @@ export function LiveTrackerChart() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4 font-mono text-xs">
+        <div className="flex flex-wrap items-center gap-3 font-mono text-xs">
           <Kv label="Symbol" value={active.symbol} />
           <DirectionPill direction={active.direction} />
           <Kv label="Last" value={fmt(last)} tone={inWinDir ? "pos" : "neg"} />
           <Kv label="To target" value={`${distToTarget.toFixed(2)}%`} tone="pos" />
           <Kv label="To stop" value={`${distToStop.toFixed(2)}%`} tone="neg" />
-          <Button asChild variant="ghost" size="sm" className="h-7 gap-1 text-cyan">
-            <Link to="/app/signal/$id" params={{ id: active.id }}>
-              Open <ArrowUpRight className="size-3.5" />
-            </Link>
-          </Button>
         </div>
       </div>
 
-      {/* TradingView chart with overlaid level chips (% offsets) */}
-      <div className="relative">
-        <TradingViewChart
-          symbol={active.symbol}
-          assetClass={active.assetClass}
-          interval="60"
-          height={420}
-        />
-        <PlanCard
-          entry={active.entry}
-          stop={active.stop}
-          target={active.target}
-          direction={active.direction}
-        />
+      {/* Toolbar: timeframe + open-signal */}
+      <div className="flex items-center justify-between gap-2 border-b border-border bg-background/20 px-3 py-2">
+        <TimeframeBar value={interval} onChange={setIntervalKey} />
+        <Button asChild variant="ghost" size="sm" className="h-7 gap-1 text-cyan">
+          <Link to="/app/signal/$id" params={{ id: active.id }}>
+            Open signal <ArrowUpRight className="size-3.5" />
+          </Link>
+        </Button>
       </div>
 
+      {/* TradingView chart with drag-to-adjust strategy plan overlay */}
+      <div className="relative">
+        <TradingViewChart
+          // re-key so chart fully reinitialises when symbol/interval changes
+          key={`${active.symbol}-${interval}`}
+          symbol={active.symbol}
+          assetClass={active.assetClass}
+          interval={interval}
+          height={420}
+        />
+        <DraggableLevelsOverlay initial={initialLevels} direction={active.direction} />
+      </div>
 
       {/* Strategy switcher */}
       {candidates.length > 1 && (
@@ -139,6 +170,27 @@ export function LiveTrackerChart() {
   );
 }
 
+function TimeframeBar({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="flex items-center gap-0.5 rounded-md border border-border bg-background/60 p-0.5">
+      {TIMEFRAMES.map((tf) => (
+        <button
+          key={tf.key}
+          onClick={() => onChange(tf.key)}
+          className={cn(
+            "rounded px-2 py-1 font-mono text-[10px] uppercase tracking-wider transition-colors",
+            value === tf.key
+              ? "bg-cyan/15 text-cyan"
+              : "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+          )}
+        >
+          {tf.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function Kv({ label, value, tone }: { label: string; value: string; tone?: "pos" | "neg" }) {
   return (
     <div className="flex items-baseline gap-1.5">
@@ -149,49 +201,3 @@ function Kv({ label, value, tone }: { label: string; value: string; tone?: "pos"
     </div>
   );
 }
-
-/** Strategy plan overlay. Shows entry/stop/target as % offsets from entry,
- *  so the levels remain meaningful next to a live TradingView price (which
- *  may differ from the mock entry). */
-function PlanCard({
-  entry, stop, target, direction,
-}: {
-  entry: number; stop: number; target: number; direction: "LONG" | "SHORT";
-}) {
-  const targetPct = ((target - entry) / entry) * 100;
-  const stopPct = ((stop - entry) / entry) * 100;
-  const rr = Math.abs(targetPct / stopPct);
-  const sign = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
-  const fmtP = (n: number) =>
-    n >= 1000 ? n.toLocaleString(undefined, { maximumFractionDigits: 0 })
-              : n.toLocaleString(undefined, { maximumFractionDigits: 2 });
-  return (
-    <div className="pointer-events-none absolute right-3 top-3 z-10 w-[180px] rounded-lg border border-border/80 bg-background/85 p-2.5 font-mono text-[10px] backdrop-blur-md shadow-lg">
-      <div className="mb-1.5 flex items-center justify-between">
-        <span className="tracking-[0.18em] text-muted-foreground">STRATEGY PLAN</span>
-        <span className={direction === "LONG" ? "text-cyan" : "text-danger"}>{direction}</span>
-      </div>
-      <PlanRow label="Target" pct={sign(targetPct)} price={fmtP(target)} tone="cyan" />
-      <PlanRow label="Entry"  pct="—"               price={fmtP(entry)}  tone="gold" />
-      <PlanRow label="Stop"   pct={sign(stopPct)}   price={fmtP(stop)}   tone="danger" />
-      <div className="mt-1.5 flex items-center justify-between border-t border-border/60 pt-1.5 text-muted-foreground">
-        <span>R:R</span>
-        <span className="text-foreground">{isFinite(rr) ? rr.toFixed(2) : "—"}</span>
-      </div>
-    </div>
-  );
-}
-
-function PlanRow({ label, pct, price, tone }: { label: string; pct: string; price: string; tone: "cyan" | "gold" | "danger" }) {
-  const cls = tone === "cyan" ? "text-cyan" : tone === "gold" ? "text-gold" : "text-danger";
-  return (
-    <div className="flex items-center justify-between py-0.5">
-      <span className={cls}>{label}</span>
-      <span className="flex items-baseline gap-2">
-        <span className={cls}>{pct}</span>
-        <span className="text-muted-foreground">{price}</span>
-      </span>
-    </div>
-  );
-}
-
