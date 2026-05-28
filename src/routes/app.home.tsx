@@ -54,28 +54,44 @@ function HomePage() {
   }, [recent.data, assetClass]);
 
   return (
-    <div className="space-y-8 p-4 md:p-6">
-      {/* Market overview */}
+    <div className="space-y-6 p-4 md:p-6">
+      {/* Hero: live tracking of subscribed strategy with drawings */}
       <section>
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-muted-foreground">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            Live tracking
+          </h2>
+          <Button variant="ghost" size="sm" asChild>
+            <Link to="/app/signals">All signals →</Link>
+          </Button>
+        </div>
+        <LiveTrackerChart />
+      </section>
+
+      {/* Market wire ticker */}
+      <NewsTicker />
+
+      {/* Market overview — compact, neutralized */}
+      <section>
+        <h2 className="mb-3 text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
           Market overview {assetClass !== "all" && <span className="text-foreground">· {assetClass}</span>}
         </h2>
         <div className="flex gap-3 overflow-x-auto pb-2">
           {(tiles.length ? tiles : Array.from({ length: 6 })).map((tile: any, i: number) => (
-            <Card key={tile?.symbol ?? i} className="flex w-56 shrink-0 flex-col gap-2 border-border bg-elevated p-4">
+            <Card key={tile?.symbol ?? i} className="flex w-52 shrink-0 flex-col gap-2 border-border bg-elevated p-3">
               {tile ? (
                 <>
                   <div className="flex items-start justify-between">
                     <div>
-                      <div className="font-semibold">{tile.symbol}</div>
-                      <div className="text-xs text-muted-foreground">{tile.label}</div>
+                      <div className="font-mono text-sm font-semibold">{tile.symbol}</div>
+                      <div className="text-[11px] text-muted-foreground">{tile.label}</div>
                     </div>
                     <div className={tile.changePct >= 0 ? "text-cyan" : "text-danger"}>
                       <div className="text-right font-mono text-sm">{fmtMoney(tile.price)}</div>
-                      <div className="text-right text-xs">{fmtPct(tile.changePct / 100)}</div>
+                      <div className="text-right font-mono text-[11px]">{fmtPct(tile.changePct / 100)}</div>
                     </div>
                   </div>
-                  <div className="h-10">
+                  <div className="h-9">
                     <Sparkline data={tile.spark} positive={tile.changePct >= 0} />
                   </div>
                 </>
@@ -84,6 +100,7 @@ function HomePage() {
           ))}
         </div>
       </section>
+
 
       {/* My strategies */}
       <section>
