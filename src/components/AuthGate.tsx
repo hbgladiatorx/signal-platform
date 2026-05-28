@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { getOnboarded } from "@/lib/user-prefs";
+import { getOnboarded, resetAllPrefs } from "@/lib/user-prefs";
 
 /**
  * Client-side auth gate. Renders children only when a Supabase session exists.
