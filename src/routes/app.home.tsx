@@ -36,24 +36,26 @@ export const Route = createFileRoute("/app/home")({
 
 const fmtMoney = (n: number) => n.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: n > 1000 ? 0 : 2 });
 const fmtPct = (n: number) => `${n >= 0 ? "+" : ""}${(n * 100).toFixed(2)}%`;
-
-function HomePage() {
-  const [days, setDays] = useState(30);
   const { assetClass } = useAssetFilter();
   const [watchlist] = useWatchlist();
-  const market = useQuery({ queryKey: ["market"], queryFn: getMarketOverview });
+  const quotesFn = useServerFn(getQuotes);
+  const market = useQuery({
+    queryKey: ["finnhub-quotes", watchlist],
+    queryFn: () => quotesFn({ data: { symbols: watchlist } }),
+    enabled: watchlist.length > 0,
+    refetchInterval: 30_000,
+    staleTime: 25_000,
+  });
   const followed = useQuery({ queryKey: ["followed"], queryFn: getFollowedStrategies });
   const recent = useQuery({ queryKey: ["recent"], queryFn: () => getRecentSignals(20) });
   const perf = useQuery({ queryKey: ["perf", days], queryFn: () => getUserPerformance(days) });
 
   const tiles = useMemo(() => {
-    const all = market.data ?? [];
-    const inWatch = new Set(watchlist);
-    let arr = all.filter((t) => inWatch.has(t.symbol));
-    if (assetClass !== "all") arr = arr.filter((t) => t.assetClass === assetClass);
-    // Preserve user-defined order
-    const order = new Map(watchlist.map((s, i) => [s, i] as const));
-    arr.sort((a, b) => (order.get(a.symbol) ?? 0) - (order.get(b.symbol) ?? 0));
+    const arr = market.data ?? [];
+    const order = new Map(watchlist.map((s, i) => [s.toUpperCase(), i] as const));
+    return [...arr].sort((a, b) => (order.get(a.symbol) ?? 0) - (order.get(b.symbol) ?? 0));
+  }, [market.data, watchlist]);
+
     return arr;
   }, [market.data, assetClass, watchlist]);
 
