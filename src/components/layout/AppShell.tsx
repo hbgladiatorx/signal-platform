@@ -32,7 +32,7 @@ const traderNav: NavItem[] = [
 const studioNav: NavItem[] = [
   { to: "/studio/home", label: "My Studio", icon: Home },
   { to: "/studio/strategies", label: "Strategies", icon: Layers },
-  { to: "/studio/builder/new", label: "Builder", icon: GitBranch },
+  { to: "/studio/strategies", label: "Builder", icon: GitBranch },
   { to: "/studio/backtests", label: "Backtests", icon: BarChart3 },
   { to: "/studio/signals", label: "Signals", icon: SignalIcon },
   { to: "/studio/earnings", label: "Earnings", icon: Wallet },

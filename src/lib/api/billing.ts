@@ -215,7 +215,7 @@ let mock: CurrentPlan = { ...defaultPlan };
 function readStoredPlan(): CurrentPlan {
   if (typeof window === "undefined") return mock;
   try {
-    const raw = window.localStorage.getItem(scopedStorageKey()) ?? window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(scopedStorageKey());
     if (!raw) return mock;
     const stored = JSON.parse(raw) as Partial<CurrentPlan>;
     mock = { ...defaultPlan, ...stored, activeAddOns: stored.activeAddOns ?? [] };
