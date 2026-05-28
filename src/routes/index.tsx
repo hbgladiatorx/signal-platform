@@ -125,7 +125,8 @@ function Landing() {
           background-clip: padding-box;
           isolation: isolate;
           overflow: hidden;
-          transition: transform 400ms cubic-bezier(0.22, 1, 0.36, 1), background 300ms;
+          transition: background 300ms, border-color 300ms;
+
         }
         .nav-pill::before {
           content: "";
