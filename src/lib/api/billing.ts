@@ -4,6 +4,8 @@
  * goes through getCurrentPlan/getUsage rather than touching constants.
  */
 
+import { logDebugEvent } from "@/lib/debug-log";
+
 export type Audience = "trader" | "developer";
 export type Billing = "monthly" | "annual";
 
@@ -187,16 +189,45 @@ export type CurrentPlan = {
   activeAddOns: string[];
 };
 
-// Brand-new accounts have NO paid plan. Onboarding step 6 fills these in.
-const mock: CurrentPlan = {
+const STORAGE_KEY = "bayn.billing.currentPlan";
+
+const defaultPlan: CurrentPlan = {
   trader: null,
   developer: null,
   billing: "annual",
   activeAddOns: [],
 };
 
-export function getCurrentPlan(): CurrentPlan { return mock; }
-export function setCurrentPlan(next: Partial<CurrentPlan>) { Object.assign(mock, next); }
+let mock: CurrentPlan = { ...defaultPlan };
+
+function readStoredPlan(): CurrentPlan {
+  if (typeof window === "undefined") return mock;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return mock;
+    const stored = JSON.parse(raw) as Partial<CurrentPlan>;
+    mock = { ...defaultPlan, ...stored, activeAddOns: stored.activeAddOns ?? [] };
+  } catch { /* noop */ }
+  return mock;
+}
+
+function persistPlan() {
+  if (typeof window === "undefined") return;
+  try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(mock)); } catch { /* noop */ }
+  window.dispatchEvent(new CustomEvent("bayn-debug-event"));
+}
+
+export function getCurrentPlan(): CurrentPlan { return readStoredPlan(); }
+export function setCurrentPlan(next: Partial<CurrentPlan>) {
+  const before = { ...readStoredPlan(), activeAddOns: [...mock.activeAddOns] };
+  mock = { ...mock, ...next, activeAddOns: next.activeAddOns ?? mock.activeAddOns };
+  persistPlan();
+  logDebugEvent({
+    type: "subscription",
+    message: `Plan updated: trader ${before.trader ?? "free"} → ${mock.trader ?? "free"}, studio ${before.developer ?? "none"} → ${mock.developer ?? "none"}`,
+    meta: { before, after: mock },
+  });
+}
 
 /* ---------------- Slot system (mock) ---------------- */
 /**
