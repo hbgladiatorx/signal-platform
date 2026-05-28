@@ -113,16 +113,6 @@ function OnboardingPage() {
 
       <main className="mx-auto max-w-3xl px-6 py-10 md:px-10 md:py-16">
         {step === 1 && (
-          <Step title="Choose your path"
-            sub="Both is fine — most operators start as traders and graduate to building.">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <PathCard
-                active={path === "trader"} onClick={() => setPath("trader")}
-                icon={BadgeCheck} accent="cyan" title="I want signals"
-                sub="Follow verified strategies that survived the pipeline."
-              />
-              <PathCard
-        {step === 1 && (
           <Step title="Trader or Studio?"
             sub="Pick the path that fits today — you can add the other later. Studio is paid-only; Trader has a free tier with 4 verified strategies.">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -144,6 +134,17 @@ function OnboardingPage() {
             </div>
           </Step>
         )}
+
+        {step === 2 && (
+          <Step title="Tell us your operator profile" sub="Drives strategy recommendations and position sizing.">
+            <div className="space-y-6">
+              <Group label="Asset classes (multi-select)">
+                <div className="flex flex-wrap gap-2">
+                  {ASSETS.map((a) => {
+                    const on = assets.includes(a.key);
+                    return (
+                      <button key={a.key}
+                        onClick={() => setAssets(on ? assets.filter(x => x !== a.key) : [...assets, a.key])}
                         className={cn("rounded-full border px-3.5 py-1.5 text-sm transition-colors",
                           on ? "border-cyan/50 bg-cyan/15 text-cyan" : "border-border bg-elevated text-muted-foreground hover:text-foreground")}>
                         {a.label}
