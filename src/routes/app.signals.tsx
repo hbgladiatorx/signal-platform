@@ -1,10 +1,14 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { getSignals } from "@/lib/api";
+import { getSignals, getEffectiveFollowedIds } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useAssetFilter } from "@/lib/asset-filter";
 import { SignalRow, SignalGroup } from "@/components/common/SignalRow";
+import { useFollowedOverlay } from "@/lib/user-prefs";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Inbox } from "lucide-react";
 import type { SignalStatus } from "@/lib/types";
 
 export const Route = createFileRoute("/app/signals")({
@@ -24,14 +28,19 @@ function SignalsPage() {
   const { assetClass } = useAssetFilter();
   const [status, setStatus] = useState<"all" | SignalStatus>("all");
   const { data } = useQuery({ queryKey: ["signals-all"], queryFn: () => getSignals() });
+  // re-render on follow/unfollow
+  useFollowedOverlay();
+  const followedIds = useMemo(() => new Set(getEffectiveFollowedIds()), [data]);
 
   useEffect(() => { setStatus("all"); }, [assetClass]);
 
   const list = useMemo(() => {
     return (data ?? [])
+      .filter((s) => followedIds.has(s.strategyId))
       .filter((s) => assetClass === "all" || s.assetClass === assetClass)
       .filter((s) => status === "all" || s.status === status);
-  }, [data, assetClass, status]);
+  }, [data, assetClass, status, followedIds]);
+
 
   const open = list.filter((s) => s.status === "OPEN");
   const today = list.filter((s) => {
@@ -110,10 +119,17 @@ function SignalsPage() {
         )}
 
         {list.length === 0 && (
-          <div className="rounded-lg border border-dashed border-border bg-elevated/40 px-4 py-12 text-center text-sm text-muted-foreground">
-            No signals match these filters.
-          </div>
+          <Card className="grid place-items-center gap-3 border-dashed border-border bg-elevated/40 p-10 text-center text-sm text-muted-foreground">
+            <Inbox className="size-8 opacity-50" />
+            <div>
+              {followedIds.size === 0
+                ? "You're not following any strategies yet — signals appear here once you subscribe."
+                : "No signals from your followed strategies match these filters."}
+            </div>
+            <Button asChild size="sm"><Link to="/app/catalog">Browse catalog</Link></Button>
+          </Card>
         )}
+
       </div>
     </div>
   );
