@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useEffect } from "react";
 import {
   Outlet,
   Link,
@@ -8,6 +9,9 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { Toaster } from "@/components/ui/sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { setPreferenceScope } from "@/lib/user-prefs";
+import { setBillingScope } from "@/lib/api/billing";
 
 import appCss from "../styles.css?url";
 
@@ -115,6 +119,23 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const router = useRouter();
+
+  useEffect(() => {
+    const syncScope = (userId: string | null) => {
+      setPreferenceScope(userId);
+      setBillingScope(userId);
+      queryClient.invalidateQueries();
+      router.invalidate();
+    };
+
+    supabase.auth.getSession().then(({ data }) => syncScope(data.session?.user?.id ?? null));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      syncScope(session?.user?.id ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, [queryClient, router]);
+
   return (
     <QueryClientProvider client={queryClient}>
       <Outlet />

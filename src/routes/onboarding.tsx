@@ -1,31 +1,22 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  ArrowRight, ArrowLeft, Check, Sparkles, BadgeCheck, Layers, BarChart3,
-  Bot, Zap, ShieldCheck, LineChart, Wand2, Workflow,
+  ArrowRight, ArrowLeft, Sparkles, BadgeCheck, Layers, BarChart3, Loader2,
+  ShieldCheck, Wand2, Workflow,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { BillingToggle } from "@/components/billing/BillingToggle";
 import { PricingTable } from "@/components/billing/PricingTable";
-import { setCurrentPlan, type Billing, type TierId } from "@/lib/api/billing";
+import { getCurrentPlan, setBillingScope, setCurrentPlan, type Billing, type TierId } from "@/lib/api/billing";
 import {
-  setTraderSeeded, setStudioSeeded, setOnboarded, toggleFollow,
-  setEnabledAssetClasses, setLiveTrackingStrategy,
+  setTraderSeeded, setStudioSeeded, setOnboarded,
+  setEnabledAssetClasses, setLiveTrackingStrategy, setOnboardingPath,
+  setAccountSize as persistAccountSize, setRiskPerTrade, setPreferenceScope,
 } from "@/lib/user-prefs";
-
-// Map asset class → the free verified strategy id activated for new traders.
-const FREE_STRATEGY_BY_ASSET: Record<Asset, string> = {
-  stocks: "s-meanrev-spy",
-  crypto: "s-btc-hourly-mr",
-  options: "s-spy-otm-put",
-  futures: "s-mes-orb",
-};
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({ meta: [{ title: "Welcome to Bayn" }] }),
@@ -48,23 +39,21 @@ function OnboardingPage() {
   const [authChecked, setAuthChecked] = useState(false);
   const [step, setStep] = useState(1);
   const [path, setPath] = useState<Path>("trader");
-  const [assets, setAssets] = useState<Asset[]>(["stocks", "crypto"]);
-  const [experience, setExperience] = useState<Experience>("active");
-  const [accountSize, setAccountSize] = useState("100000");
-  const [riskPct, setRiskPct] = useState("1");
-  const [goals, setGoals] = useState<string[]>(["consistent income"]);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [experience, setExperience] = useState<Experience | null>(null);
+  const [accountSize, setAccountSize] = useState("");
+  const [riskPct, setRiskPct] = useState("");
+  const [goals, setGoals] = useState<string[]>([]);
   const [billing, setBilling] = useState<Billing>("annual");
 
-  // After step 6, developers get the Studio intro (step 7), then land.
-  const totalSteps = path === "trader" ? 7 : 8;
+  const totalSteps = path === "both" ? 5 : 4;
 
   const activateTrader = () => {
-    // Add the user's free verified strategies to their followed list, then mark seeded.
-    const chosen = (assets.length ? assets : (ASSETS.map(a => a.key) as Asset[]));
-    chosen.forEach((a) => toggleFollow(FREE_STRATEGY_BY_ASSET[a], true));
+    const chosen = assets.length ? assets : [];
     setEnabledAssetClasses(chosen);
-    // Pin the first free strategy as the Live Tracking default.
-    if (chosen.length) setLiveTrackingStrategy(FREE_STRATEGY_BY_ASSET[chosen[0]]);
+    setLiveTrackingStrategy(null);
+    persistAccountSize(Number(accountSize) || 0);
+    setRiskPerTrade((Number(riskPct) || 0) / 100);
     setTraderSeeded(true);
   };
 
@@ -75,18 +64,23 @@ function OnboardingPage() {
   const next = () => {
     setStep((s) => {
       const nextStep = Math.min(s + 1, totalSteps);
-      if (s === 4 && (path === "trader" || path === "both")) activateTrader();
       return nextStep;
     });
   };
   const back = () => setStep((s) => Math.max(s - 1, 1));
 
   const finish = () => {
+    setOnboardingPath(path);
     if ((path === "trader" || path === "both")) activateTrader();
-    if (path === "developer" || path === "both") setStudioSeeded(true);
+    if (path === "developer" || path === "both") setStudioSeeded(false);
     setOnboarded(true);
-    if (path === "developer" || path === "both") nav({ to: "/studio/home" });
-    else nav({ to: "/app/home" });
+    const plan = getCurrentPlan();
+    if (path === "developer") {
+      if (plan.developer) nav({ to: "/studio/builder/$id", params: { id: "new" } });
+      else nav({ to: "/studio/pricing" });
+      return;
+    }
+    else nav({ to: "/app/customize" });
   };
 
   // Onboarding requires an account. Anonymous visitors get bounced to /auth.
@@ -95,7 +89,11 @@ function OnboardingPage() {
     supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
       if (!data.session) nav({ to: "/auth" });
-      else setAuthChecked(true);
+      else {
+        setPreferenceScope(data.session.user.id);
+        setBillingScope(data.session.user.id);
+        setAuthChecked(true);
+      }
     });
     return () => { active = false; };
   }, [nav]);
@@ -118,9 +116,7 @@ function OnboardingPage() {
               style={{ background: "var(--gradient-emerald)", boxShadow: "var(--shadow-emerald)" }}>B</div>
             <span style={{ fontFamily: "var(--font-landing-display)", letterSpacing: "-0.02em" }}>Bayn</span>
           </Link>
-          <button onClick={finish} className="text-xs text-muted-foreground hover:text-foreground">
-            Skip onboarding
-          </button>
+          <span className="text-xs text-muted-foreground">Guided setup</span>
         </div>
         <div className="mx-auto max-w-5xl px-6 pb-4 md:px-10">
           <ProgressBar step={step} total={totalSteps} />
@@ -133,28 +129,28 @@ function OnboardingPage() {
       <main className="mx-auto max-w-3xl px-6 py-10 md:px-10 md:py-16">
         {step === 1 && (
           <Step title="Trader or Studio?"
-            sub="Pick the path that fits today — you can add the other later. Studio is paid-only; Trader has a free tier with 4 verified strategies.">
+            sub="Choose the workspace you want to customize first. New accounts start blank; nothing is followed or preloaded for you.">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <PathCard
                 active={path === "trader"} onClick={() => setPath("trader")}
                 icon={BadgeCheck} accent="cyan" title="Trader"
-                sub="Follow verified strategies. Free tier included; upgrade for premium catalog access."
+                sub="Build a clean trader dashboard: markets, risk defaults, news, and strategy follows."
               />
               <PathCard
                 active={path === "developer"} onClick={() => setPath("developer")}
                 icon={Layers} accent="violet" title="Studio"
-                sub="Build your own strategies. Node editor, backtests, forward-tests. Paid plan required."
+                sub="Set up a blank private strategy lab. Studio access appears only with a Studio plan."
               />
               <PathCard
                 active={path === "both"} onClick={() => setPath("both")}
                 icon={Sparkles} accent="emerald" title="Both"
-                sub="Trader feed first, then Studio intro. Studio plan still required for the builder."
+                sub="Customize Trader first, then add Studio access if your plan includes it."
               />
             </div>
           </Step>
         )}
 
-        {step === 2 && (
+        {step === 2 && (path === "trader" || path === "both") && (
           <Step title="Tell us your operator profile" sub="Drives strategy recommendations and position sizing.">
             <div className="space-y-6">
               <Group label="Asset classes (multi-select)">
@@ -202,9 +198,13 @@ function OnboardingPage() {
           </Step>
         )}
 
-        {step === 3 && (
+        {step === 2 && path === "developer" && (
+          <StudioPlanStep billing={billing} setBilling={setBilling} next={next} />
+        )}
+
+        {step === 3 && (path === "trader" || path === "both") && (
           <Step title="Risk & position sizing"
-            sub="Powers the suggested position size on every signal. You can change this later in Settings.">
+            sub="Leave blank if you want to decide later. Your dashboard stays empty until you add real preferences.">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <Group label="Account size (USD)">
                 <Input value={accountSize} onChange={(e) => setAccountSize(e.target.value.replace(/[^0-9]/g, ""))}
@@ -222,78 +222,30 @@ function OnboardingPage() {
           </Step>
         )}
 
-        {step === 4 && (
-          <Step title="Your free verified strategies are live"
-            sub="One per asset class — the foundation tier of the catalog. Real, tracked, free forever.">
-            <FreeStrategyActivation assets={assets.length ? assets : ASSETS.map(a => a.key)} />
-          </Step>
-        )}
-
-        {step === 5 && (
-          <Step title="Connect your agent" sub="Optional. Hook up an AI agent + Robinhood Agentic to run the full loop.">
-            <AgentLoopDiagram />
-            <div className="mt-6 rounded-xl border border-border bg-elevated p-5">
-              <div className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">Install command</div>
-              <pre className="overflow-x-auto rounded-md bg-background p-3 text-xs font-mono text-foreground">
-                <code>{`npx @bayn/mcp install --target=claude --token=YOUR_TOKEN`}</code>
-              </pre>
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                Or skip — you can connect from Settings → Agent anytime.
-              </p>
-            </div>
-          </Step>
-        )}
-
-        {step === 6 && (
-          <Step title="Pick a plan"
-            sub={path === "developer"
-              ? "Studio is paid only. Pick a tier to enter the builder."
-              : "Your 4 free verified strategies are already active. Upgrade to unlock premium catalog strategies and the full agentic loop."}>
-            <div className="mb-6 flex justify-center">
-              <BillingToggle value={billing} onChange={setBilling}
-                accent={path === "developer" ? "violet" : "cyan"} />
-            </div>
-            <PricingTable
-              audience={path === "developer" ? "developer" : "trader"}
-              billing={billing}
-              onSelect={(id: TierId) => {
-                if (id.startsWith("studio")) setCurrentPlan({ developer: id, billing });
-                else setCurrentPlan({ trader: id, billing });
-                toast.success("Plan selected");
-                next();
-              }}
-            />
-            {path !== "developer" && (
-              <div className="mt-8 rounded-xl border border-border bg-elevated p-4 text-center">
-                <Button variant="ghost" onClick={() => { setCurrentPlan({ trader: null }); next(); }}>
-                  Continue on Free — keep my 4 verified strategies
-                </Button>
-              </div>
-            )}
-          </Step>
-        )}
-
-        {step === 7 && (path === "developer" || path === "both") && (
+        {step === 3 && path === "developer" && (
           <Step title="The Studio loop"
-            sub="Three-step build cycle. The same workflow institutional research desks run — operated by you alone.">
+            sub="Your Studio opens blank. Start by describing your first strategy or drag nodes onto the canvas yourself.">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <StudioStep icon={Wand2} title="Describe" body="Tell the AI co-builder what edge you want. It places the right nodes on the canvas." />
               <StudioStep icon={Workflow} title="Build" body="Refine the graph. Wire indicators, filters, risk and execution nodes." />
               <StudioStep icon={BarChart3} title="Backtest & deploy" body="Walk-forward, Monte Carlo, then forward-test live for your own signal feed." />
             </div>
-            <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2">
-              <Button asChild className="h-11" style={{ background: "var(--violet)", color: "var(--violet-foreground)" }}>
-                <Link to="/studio/builder/$id" params={{ id: "new" }}>Describe a first strategy <ArrowRight className="ml-1.5 size-4" /></Link>
-              </Button>
-              <Button asChild variant="outline" className="h-11">
-                <Link to="/studio/strategies">Start from a template</Link>
-              </Button>
-            </div>
           </Step>
         )}
 
-        {step === 7 && path === "trader" && <LandingChecklist mode="trader" onFinish={finish} />}
-        {step === 8 && <LandingChecklist mode={path === "developer" ? "developer" : "trader"} onFinish={finish} />}
+        {step === 4 && path === "both" && (
+          <StudioPlanStep billing={billing} setBilling={setBilling} next={next} />
+        )}
+
+        {((step === 4 && path === "trader") || (step === 4 && path === "developer") || (step === 5 && path === "both")) && (
+          <Step title="Start with a blank workspace" sub="After this, Bayn takes you to the right customization surface. Add tickers, choose news, follow strategies, or build your first Studio strategy yourself.">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <StudioStep icon={BadgeCheck} title="No auto-follows" body="No mock strategies are added to your account during onboarding." />
+              <StudioStep icon={BarChart3} title="No fake performance" body="Performance and signals stay empty until you take real actions." />
+              <StudioStep icon={Sparkles} title="Guided next step" body={path === "developer" ? "Open a blank Studio builder." : "Open Customize to finish your dashboard."} />
+            </div>
+          </Step>
+        )}
 
         {/* Nav */}
         <div className="mt-10 flex items-center justify-between">
@@ -380,67 +332,38 @@ function PathCard({
   );
 }
 
-function FreeStrategyActivation({ assets }: { assets: Asset[] }) {
-  const map: Record<Asset, { name: string; sharpe: number }> = {
-    stocks: { name: "Mean Reversion — SPY 2-Day", sharpe: 1.08 },
-    crypto: { name: "Mean Reversion — BTC Hourly", sharpe: 1.64 },
-    options: { name: "Far-OTM Weekly Premium — SPY", sharpe: 1.36 },
-    futures: { name: "MES Opening Range Reversal", sharpe: 1.27 },
-  };
+function StudioPlanStep({ billing, setBilling, next }: { billing: Billing; setBilling: (v: Billing) => void; next: () => void }) {
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-      {assets.map((a, i) => {
-        const s = map[a];
-        return (
-          <div key={a}
-            className="relative overflow-hidden rounded-xl border p-4"
-            style={{
-              borderColor: "color-mix(in oklab, var(--brand-gold) 30%, var(--border))",
-              background: "linear-gradient(135deg, color-mix(in oklab, var(--brand-gold) 8%, var(--elevated)), var(--elevated))",
-              animation: `mode-fade 400ms ease-out ${i * 80}ms both`,
-            }}>
-            <div className="mb-2 flex items-center justify-between">
-              <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider"
-                style={{ background: "color-mix(in oklab, var(--brand-gold) 18%, transparent)", color: "var(--brand-gold)" }}>
-                <BadgeCheck className="size-3" /> Free · Verified
-              </span>
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{a}</span>
-            </div>
-            <div className="text-sm font-medium">{s.name}</div>
-            <div className="mt-1 text-xs text-muted-foreground">Sharpe {s.sharpe} · live tracked</div>
-            <div className="mt-3 inline-flex items-center gap-1 text-xs" style={{ color: "var(--emerald-glow)" }}>
-              <Check className="size-3.5" /> Activated
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function AgentLoopDiagram() {
-  const node = (label: string, sub: string, icon: typeof Bot) => {
-    const Icon = icon;
-    return (
-      <div className="flex items-center gap-3 rounded-xl border border-border bg-elevated px-4 py-3">
-        <div className="grid size-9 place-items-center rounded-lg" style={{ background: "color-mix(in oklab, var(--emerald) 18%, transparent)", color: "var(--emerald-glow)" }}>
-          <Icon className="size-4" />
-        </div>
-        <div>
-          <div className="text-sm font-medium">{label}</div>
-          <div className="text-[11px] text-muted-foreground">{sub}</div>
-        </div>
+    <Step title="Studio access" sub="Studio is only visible after a Studio plan is on your account. Choose one now or continue to compare plans later.">
+      <div className="mb-6 flex justify-center rounded-full border border-border bg-elevated p-1">
+        {(["annual", "monthly"] as Billing[]).map((b) => (
+          <button
+            key={b}
+            onClick={() => setBilling(b)}
+            className={cn(
+              "rounded-full px-4 py-1.5 text-xs font-medium capitalize transition-colors",
+              billing === b ? "bg-violet text-violet-foreground" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {b}
+          </button>
+        ))}
       </div>
-    );
-  };
-  return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-3 md:items-center">
-      {node("Signal fires", "Verified strategy emits trade", LineChart)}
-      <div className="hidden md:flex md:justify-center"><ArrowRight className="size-4 text-muted-foreground" /></div>
-      {node("Your AI agent", "Bayn MCP + Claude/GPT", Bot)}
-      <div className="hidden md:flex md:justify-center"><ArrowRight className="size-4 text-muted-foreground" /></div>
-      {node("Broker", "Robinhood Agentic confirms", Zap)}
-    </div>
+      <PricingTable
+        audience="developer"
+        billing={billing}
+        onSelect={(id: TierId) => {
+          setCurrentPlan({ developer: id, billing });
+          toast.success("Studio plan selected");
+          next();
+        }}
+      />
+      <div className="mt-6 rounded-xl border border-border bg-elevated p-4 text-center">
+        <Button variant="ghost" onClick={next}>
+          Compare Studio plans later
+        </Button>
+      </div>
+    </Step>
   );
 }
 
@@ -449,7 +372,7 @@ function StudioStep({ icon: Icon, title, body }: { icon: typeof Wand2; title: st
     <div className="rounded-xl border border-border bg-elevated p-5">
       <div className="grid size-9 place-items-center rounded-lg" style={{ background: "color-mix(in oklab, var(--violet) 18%, transparent)", color: "var(--violet)" }}>
         <Icon className="size-4" />
-      </div>
+        </div>
       <h4 className="mt-3 text-sm font-semibold">{title}</h4>
       <p className="mt-1 text-xs text-muted-foreground">{body}</p>
     </div>

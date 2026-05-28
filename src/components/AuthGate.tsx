@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { getOnboarded } from "@/lib/user-prefs";
+import { getOnboarded, setPreferenceScope } from "@/lib/user-prefs";
+import { setBillingScope } from "@/lib/api/billing";
+import type { Session } from "@supabase/supabase-js";
 
 /**
  * Client-side auth gate. Renders children only when a Supabase session exists.
@@ -17,8 +19,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let active = true;
 
-    const route = (hasSession: boolean) => {
-      if (!hasSession) {
+    const route = (session: Session | null) => {
+      setPreferenceScope(session?.user?.id ?? null);
+      setBillingScope(session?.user?.id ?? null);
+      if (!session) {
         setStatus("anon");
         nav({ to: "/auth" });
         return;
@@ -33,12 +37,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!active) return;
-      route(!!session);
+      route(session);
     });
 
     supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
-      route(!!data.session);
+      route(data.session);
     });
 
     return () => {
