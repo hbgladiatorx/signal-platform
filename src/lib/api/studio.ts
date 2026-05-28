@@ -50,7 +50,7 @@ export function ensureDevStrategyDraft(input: {
   return draft;
 }
 
-export async function getTemplates(): Promise<Array<{ id: string; name: string; description: string; graph: StrategyGraph }>> { await wait(); return []; }
+export async function getTemplates(): Promise<Array<{ id: string; name: string; description: string; assetClass: DevStrategy["assetClass"]; graph: StrategyGraph }>> { await wait(); return []; }
 
 export async function getBacktestsForStrategy(strategyId: string): Promise<BacktestRun[]> {
   await wait();
