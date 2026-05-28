@@ -68,8 +68,15 @@ function HomePage() {
       .slice(0, 10);
   }, [recent.data, assetClass]);
 
-  return (
     <div className="space-y-6 p-4 md:p-6">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">Home</h1>
+          <p className="text-xs text-muted-foreground">Live data from your chosen tickers and news sources.</p>
+        </div>
+        <CustomizeButton mode="trader" />
+      </div>
+
       {/* Hero: live tracking of subscribed strategy with drawings */}
       <section>
         <div className="mb-3 flex items-center justify-between">
@@ -81,6 +88,7 @@ function HomePage() {
           </Button>
         </div>
         <LiveTrackerChart />
+      </section>
       </section>
 
       {/* Market wire ticker */}
