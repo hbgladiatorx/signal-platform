@@ -160,6 +160,7 @@ function Landing() {
             </div>
             <span className="landing-display tracking-tight">Bayn</span>
           </Link>
+          <nav className="landing-display hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-1 rounded-full border border-foreground/25 bg-transparent px-3 py-2 text-xs font-medium uppercase tracking-[0.18em] text-foreground/80">
 
           <nav className="landing-display hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-1 rounded-full border border-border/70 bg-transparent px-3 py-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
             <a href="#pipeline" className="rounded-full px-4 py-1.5 transition-colors hover:text-foreground">The Filter</a>
