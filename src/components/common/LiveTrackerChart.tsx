@@ -23,11 +23,11 @@ const TIMEFRAMES: Array<{ key: string; label: string }> = [
   { key: "60", label: "1h" },
   { key: "D", label: "1D" },
   { key: "W", label: "1W" },
-];
-
-/** Hero chart that tracks the live signal(s) from the user's followed strategies. */
+/** Hero chart that tracks the live signal(s) from the user's followed strategies.
+ *  Falls back to the first watchlist ticker when no live signal is active. */
 export function LiveTrackerChart() {
   const { assetClass } = useAssetFilter();
+  const [watchlist] = useWatchlist();
   const followed = useQuery({ queryKey: ["followed"], queryFn: getFollowedStrategies });
   const signals  = useQuery({ queryKey: ["recent"], queryFn: () => getSignals({ limit: 30 }) });
 
@@ -46,22 +46,63 @@ export function LiveTrackerChart() {
   const active = candidates.find((c) => c.id === activeId) ?? candidates[0];
   const [interval, setIntervalKey] = useState<string>("60");
 
+  // Default-ticker fallback: when no live signal is being tracked, show the
+  // first ticker from the user's watchlist so the chart is never blank.
   if (!active) {
-    return (
-      <Card className="grid min-h-[320px] place-items-center border-dashed border-border bg-elevated/50 p-8 text-center">
-        <div className="max-w-sm space-y-3">
-          <Inbox className="mx-auto size-9 text-muted-foreground" />
-          <div>
-            <h3 className="font-semibold">No live tracking yet</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Follow a strategy from the catalog to populate this area with real signals. New accounts do not show sample charts.
-            </p>
+    const defaultSymbol = watchlist[0];
+    if (!defaultSymbol) {
+      return (
+        <Card className="grid min-h-[320px] place-items-center border-dashed border-border bg-elevated/50 p-8 text-center">
+          <div className="max-w-sm space-y-3">
+            <Activity className="mx-auto size-9 text-muted-foreground" />
+            <div>
+              <h3 className="font-semibold">No ticker selected</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Add a ticker in Customize and it will populate this chart instantly.
+              </p>
+            </div>
           </div>
-          <Button asChild size="sm" className="bg-cyan text-cyan-foreground hover:bg-cyan/90">
-            <Link to="/app/catalog">Browse catalog</Link>
+        </Card>
+      );
+    }
+    const guessClass: AssetClass = defaultSymbol.includes(":") ? "crypto" : "stocks";
+    return (
+      <Card className="overflow-hidden border-border bg-elevated">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-background/40 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="grid size-9 place-items-center rounded-md border border-cyan/30 bg-cyan/10">
+              <Activity className="size-4 text-cyan" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="pulse-dot text-[10px] font-mono uppercase tracking-[0.18em] text-cyan">Live</span>
+                <span className="rounded-sm bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                  Default ticker
+                </span>
+              </div>
+              <div className="truncate text-sm font-semibold leading-tight">{defaultSymbol}</div>
+            </div>
+          </div>
+          <Button asChild variant="ghost" size="sm" className="h-7 gap-1 text-cyan">
+            <Link to="/app/catalog">Find strategies <ArrowUpRight className="size-3.5" /></Link>
           </Button>
         </div>
+        <div className="flex items-center justify-between gap-2 border-b border-border bg-background/20 px-3 py-2">
+          <TimeframeBar value={interval} onChange={setIntervalKey} />
+        </div>
+        <div className="relative">
+          <TradingViewChart
+            key={`${defaultSymbol}-${interval}`}
+            symbol={defaultSymbol}
+            assetClass={guessClass}
+            interval={interval}
+            height={420}
+          />
+        </div>
       </Card>
+    );
+  }
+
     );
   }
 
