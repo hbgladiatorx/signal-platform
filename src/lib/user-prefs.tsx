@@ -11,6 +11,7 @@ import { logDebugEvent } from "./debug-log";
  */
 
 const STORAGE_PREFIX = "bayn.prefs.";
+let storageScope = "anon";
 
 type Listener = () => void;
 const listeners = new Map<string, Set<Listener>>();
@@ -20,11 +21,23 @@ function notify(key: string) {
   listeners.get(key)?.forEach((l) => l());
 }
 
+function storageKey(key: string) {
+  return `${STORAGE_PREFIX}${storageScope}.${key}`;
+}
+
+export function setPreferenceScope(userId: string | null) {
+  const next = userId ?? "anon";
+  if (next === storageScope) return;
+  storageScope = next;
+  inMemory.clear();
+  listeners.forEach((set) => set.forEach((l) => l()));
+}
+
 function read<T>(key: string, fallback: T): T {
   if (inMemory.has(key)) return inMemory.get(key) as T;
   if (typeof window === "undefined") return fallback;
   try {
-    const raw = window.localStorage.getItem(STORAGE_PREFIX + key);
+    const raw = window.localStorage.getItem(storageKey(key));
     if (raw == null) return fallback;
     const parsed = JSON.parse(raw) as T;
     inMemory.set(key, parsed);
@@ -38,7 +51,7 @@ function write<T>(key: string, value: T) {
   inMemory.set(key, value);
   if (typeof window !== "undefined") {
     try {
-      window.localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(value));
+      window.localStorage.setItem(storageKey(key), JSON.stringify(value));
     } catch { /* quota / SSR */ }
   }
   notify(key);
@@ -122,10 +135,10 @@ export function toggleFollow(id: string, follow: boolean) {
 /* ---------------- Enabled asset classes (master cascade) ---------------- */
 export const ALL_ASSET_CLASSES: AssetClass[] = ["stocks", "crypto", "options", "futures"];
 export function useEnabledAssetClasses() {
-  return usePref<AssetClass[]>("assetClasses", [...ALL_ASSET_CLASSES]);
+  return usePref<AssetClass[]>("assetClasses", []);
 }
 export function getEnabledAssetClasses() {
-  return read<AssetClass[]>("assetClasses", [...ALL_ASSET_CLASSES]);
+  return read<AssetClass[]>("assetClasses", []);
 }
 export function setEnabledAssetClasses(v: AssetClass[]) { write("assetClasses", v); }
 
@@ -152,11 +165,11 @@ export function useHiddenSections() {
 }
 
 /* ---------------- Trading defaults ---------------- */
-export function useAccountSize() { return usePref<number>("trading.accountSize", 25000); }
-export function useRiskPerTrade() { return usePref<number>("trading.riskPerTrade", 0.01); }
+export function useAccountSize() { return usePref<number>("trading.accountSize", 0); }
+export function useRiskPerTrade() { return usePref<number>("trading.riskPerTrade", 0); }
 export function useDefaultTimeframe() { return usePref<string>("trading.timeframe", "1H"); }
 export function useDefaultChartType() { return usePref<string>("trading.chartType", "candle"); }
-export function getAccountSize() { return read<number>("trading.accountSize", 25000); }
+export function getAccountSize() { return read<number>("trading.accountSize", 0); }
 
 /* ---------------- Notifications ---------------- */
 export type NotifKey =
@@ -184,6 +197,11 @@ export function getOnboarded() { return read<boolean>("onboarded", false); }
 export function setOnboarded(v: boolean) { write("onboarded", v); logDebugEvent({ type: "onboarding", message: `Onboarding flag set: ${v}` }); }
 export function useOnboarded() { return usePref<boolean>("onboarded", false); }
 
+export type OnboardingPath = "trader" | "developer" | "both";
+export function getOnboardingPath() { return read<OnboardingPath | null>("onboarding.path", null); }
+export function setOnboardingPath(v: OnboardingPath) { write("onboarding.path", v); logDebugEvent({ type: "onboarding", message: `Onboarding path selected: ${v}` }); }
+export function useOnboardingPath() { return usePref<OnboardingPath | null>("onboarding.path", null); }
+
 /** Wipe local prefs — used on sign-out so the next account starts blank. */
 export function resetAllPrefs() {
   const keys = [
@@ -191,12 +209,15 @@ export function resetAllPrefs() {
     "follows", "assetClasses", "liveTracking", "home.layout", "home.hidden",
     "trading.accountSize", "trading.riskPerTrade", "trading.timeframe",
     "trading.chartType", "notifications",
-    "traderSeeded", "studioSeeded", "onboarded",
+    "traderSeeded", "studioSeeded", "onboarded", "onboarding.path",
   ];
   for (const k of keys) {
     inMemory.delete(k);
     if (typeof window !== "undefined") {
-      try { window.localStorage.removeItem(STORAGE_PREFIX + k); } catch { /* noop */ }
+      try {
+        window.localStorage.removeItem(storageKey(k));
+        window.localStorage.removeItem(STORAGE_PREFIX + k);
+      } catch { /* noop */ }
     }
     notify(k);
   }
