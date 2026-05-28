@@ -59,7 +59,7 @@ function AuthPage() {
     const { data } = await supabase.auth.getSession();
     if (data.session) {
       toast.success("Account created");
-      nav({ to: "/app/home" });
+      nav({ to: "/onboarding" });
     } else {
       toast.success("Check your email to confirm your account");
     }
