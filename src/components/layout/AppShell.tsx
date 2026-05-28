@@ -25,7 +25,6 @@ const traderNav: NavItem[] = [
   { to: "/app/signals", label: "Signals", icon: SignalIcon },
   { to: "/app/performance", label: "Perf", icon: BarChart3 },
   { to: "/app/agent", label: "Agent", icon: Sparkles },
-  { to: "/app/customize", label: "Customize", icon: Sliders },
   { to: "/app/settings", label: "Settings", icon: Settings },
 ];
 
