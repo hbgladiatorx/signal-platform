@@ -28,9 +28,9 @@ export const Route = createFileRoute("/")({
         name: "description",
         content:
           "Bayn is a marketplace where quants ship backtested strategies and traders follow only the ones that survived. Walk-forward tested, monitored live.",
+      },
       { property: "og:title", content: "Bayn — Institutional trading, for everyone" },
 
-      { property: "og:title", content: "Bayn — Trading strategies, measured honestly" },
       {
         property: "og:description",
         content:
