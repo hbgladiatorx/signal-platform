@@ -53,7 +53,8 @@
   --color-chart-3: var(--gold);
   --color-chart-4: var(--stocks);
   --color-chart-5: var(--options);
-  --font-mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, monospace;
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "JetBrains Mono", "SF Mono", Menlo, monospace;
 }
 
 :root {
