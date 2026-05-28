@@ -17,9 +17,12 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
-import { Save, PlayCircle, Rocket, CheckCircle2, AlertCircle, Download, ChevronDown, ChevronUp, FileCode } from "lucide-react";
+import { Save, PlayCircle, Rocket, CheckCircle2, AlertCircle, Download, ChevronDown, ChevronUp, FileCode, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import type { AssetClass, StrategyGraph } from "@/lib/types";
+import { AgentChat } from "@/components/agent/AgentChat";
+import type { ChatMsg } from "@/lib/api/agent";
+
 
 export const Route = createFileRoute("/studio/builder/$id")({
   head: () => ({ meta: [{ title: "Builder — Bayn Studio" }] }),
