@@ -32,18 +32,31 @@ function StudioHome() {
 
   return (
     <div className="space-y-6 p-4 md:p-6">
-      <div className="rounded-lg border border-violet/30 bg-violet/5 px-4 py-2.5 text-xs text-violet">
-        <span className="font-mono uppercase tracking-wider">Private workspace</span>
-        <span className="ml-2 text-muted-foreground">— strategies, backtests, and personal signals are only visible to you until you submit one to the Bayn catalog.</span>
-      </div>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">My Studio</h1>
-          <p className="text-sm text-muted-foreground font-mono">// build, test, and run your own strategies</p>
+      {/* Hero header — gradient violet panel */}
+      <div
+        className="relative overflow-hidden rounded-xl border border-violet/30 p-5"
+        style={{
+          background:
+            "linear-gradient(135deg, color-mix(in oklab, var(--violet) 14%, var(--background)) 0%, var(--background) 65%)",
+        }}
+      >
+        <div className="pointer-events-none absolute -right-16 -top-16 size-48 rounded-full bg-violet/20 blur-3xl" />
+        <div className="relative flex flex-wrap items-end justify-between gap-3">
+          <div className="space-y-1.5">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-violet/40 bg-violet/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.18em] text-violet">
+              Private workspace
+            </span>
+            <h1 className="text-2xl font-semibold tracking-tight">My Studio</h1>
+            <p className="font-mono text-xs text-muted-foreground">
+              // strategies, backtests, and personal signals — only visible to you
+            </p>
+          </div>
+          <Button asChild className="bg-violet text-violet-foreground hover:bg-violet/90">
+            <Link to="/studio/builder/$id" params={{ id: "new" }}>
+              <Plus className="mr-2 size-4" /> New strategy
+            </Link>
+          </Button>
         </div>
-        <Button asChild className="bg-violet text-violet-foreground hover:bg-violet/90">
-          <Link to="/studio/builder/$id" params={{ id: "new" }}><Plus className="mr-2 size-4" /> New strategy</Link>
-        </Button>
       </div>
 
       {/* Summary tiles */}
@@ -51,9 +64,9 @@ function StudioHome() {
         {STAGE_GROUPS.map((g) => {
           const count = list.filter((s) => g.stages.includes(s.stage)).length;
           return (
-            <Card key={g.label} className="border-border bg-elevated p-4">
-              <div className={`text-xs uppercase tracking-wider ${g.accent}`}>{g.label}</div>
-              <div className="mt-1 font-mono text-3xl">{count}</div>
+            <Card key={g.label} className="border-border bg-elevated p-4 transition-colors hover:border-violet/30">
+              <div className={`text-[10px] uppercase tracking-[0.18em] ${g.accent}`}>{g.label}</div>
+              <div className="mt-1 font-mono text-3xl tabular-nums">{count}</div>
             </Card>
           );
         })}

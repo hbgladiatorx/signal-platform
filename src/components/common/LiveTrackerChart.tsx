@@ -92,7 +92,7 @@ export function LiveTrackerChart() {
         </div>
       </div>
 
-      {/* TradingView chart with overlaid level chips */}
+      {/* TradingView chart with overlaid level chips (% offsets) */}
       <div className="relative">
         <TradingViewChart
           symbol={active.symbol}
@@ -100,12 +100,12 @@ export function LiveTrackerChart() {
           interval="60"
           height={420}
         />
-        {/* Floating strategy level chips — entry / stop / target */}
-        <div className="pointer-events-none absolute right-3 top-3 z-10 flex flex-col items-end gap-1.5 font-mono text-[10px]">
-          <LevelChip label="TARGET" value={fmt(active.target)} tone="cyan" />
-          <LevelChip label="ENTRY"  value={fmt(active.entry)}  tone="gold" />
-          <LevelChip label="STOP"   value={fmt(active.stop)}   tone="danger" />
-        </div>
+        <PlanCard
+          entry={active.entry}
+          stop={active.stop}
+          target={active.target}
+          direction={active.direction}
+        />
       </div>
 
 
@@ -150,15 +150,48 @@ function Kv({ label, value, tone }: { label: string; value: string; tone?: "pos"
   );
 }
 
-function LevelChip({ label, value, tone }: { label: string; value: string; tone: "cyan" | "gold" | "danger" }) {
-  const cls =
-    tone === "cyan"   ? "border-cyan/40 bg-cyan/15 text-cyan"
-    : tone === "gold" ? "border-gold/40 bg-gold/15 text-gold"
-                      : "border-danger/40 bg-danger/15 text-danger";
+/** Strategy plan overlay. Shows entry/stop/target as % offsets from entry,
+ *  so the levels remain meaningful next to a live TradingView price (which
+ *  may differ from the mock entry). */
+function PlanCard({
+  entry, stop, target, direction,
+}: {
+  entry: number; stop: number; target: number; direction: "LONG" | "SHORT";
+}) {
+  const targetPct = ((target - entry) / entry) * 100;
+  const stopPct = ((stop - entry) / entry) * 100;
+  const rr = Math.abs(targetPct / stopPct);
+  const sign = (n: number) => `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
+  const fmtP = (n: number) =>
+    n >= 1000 ? n.toLocaleString(undefined, { maximumFractionDigits: 0 })
+              : n.toLocaleString(undefined, { maximumFractionDigits: 2 });
   return (
-    <span className={`pointer-events-auto inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 backdrop-blur ${cls}`}>
-      <span className="text-[9px] tracking-[0.18em]">{label}</span>
-      <span className="font-semibold">{value}</span>
-    </span>
+    <div className="pointer-events-none absolute right-3 top-3 z-10 w-[180px] rounded-lg border border-border/80 bg-background/85 p-2.5 font-mono text-[10px] backdrop-blur-md shadow-lg">
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="tracking-[0.18em] text-muted-foreground">STRATEGY PLAN</span>
+        <span className={direction === "LONG" ? "text-cyan" : "text-danger"}>{direction}</span>
+      </div>
+      <PlanRow label="Target" pct={sign(targetPct)} price={fmtP(target)} tone="cyan" />
+      <PlanRow label="Entry"  pct="—"               price={fmtP(entry)}  tone="gold" />
+      <PlanRow label="Stop"   pct={sign(stopPct)}   price={fmtP(stop)}   tone="danger" />
+      <div className="mt-1.5 flex items-center justify-between border-t border-border/60 pt-1.5 text-muted-foreground">
+        <span>R:R</span>
+        <span className="text-foreground">{isFinite(rr) ? rr.toFixed(2) : "—"}</span>
+      </div>
+    </div>
   );
 }
+
+function PlanRow({ label, pct, price, tone }: { label: string; pct: string; price: string; tone: "cyan" | "gold" | "danger" }) {
+  const cls = tone === "cyan" ? "text-cyan" : tone === "gold" ? "text-gold" : "text-danger";
+  return (
+    <div className="flex items-center justify-between py-0.5">
+      <span className={cls}>{label}</span>
+      <span className="flex items-baseline gap-2">
+        <span className={cls}>{pct}</span>
+        <span className="text-muted-foreground">{price}</span>
+      </span>
+    </div>
+  );
+}
+

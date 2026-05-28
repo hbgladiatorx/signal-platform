@@ -48,6 +48,15 @@ function PerformancePage() {
         </Tabs>
       </div>
 
+      {/* KPI strip */}
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+        <Kpi label="Signals taken" value={data?.kpis.totalTaken ?? "—"} />
+        <Kpi label="Win rate" value={data ? `${(data.kpis.winRate * 100).toFixed(0)}%` : "—"} tone="cyan" />
+        <Kpi label="Avg R" value={data ? `${data.kpis.avgR.toFixed(2)}R` : "—"} />
+        <Kpi label="Max drawdown" value={data ? `${(data.kpis.maxDrawdown * 100).toFixed(2)}%` : "—"} tone="danger" />
+      </div>
+
+
       <Card className="border-border bg-elevated p-4">
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
@@ -124,6 +133,17 @@ function PerformancePage() {
           </table>
         </div>
       </Card>
+    </div>
+  );
+}
+
+function Kpi({ label, value, tone }: { label: string; value: React.ReactNode; tone?: "cyan" | "danger" }) {
+  return (
+    <div className="rounded-lg border border-border bg-elevated p-3">
+      <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
+      <div className={`mt-1 font-mono text-2xl ${tone === "cyan" ? "text-cyan" : tone === "danger" ? "text-danger" : ""}`}>
+        {value}
+      </div>
     </div>
   );
 }

@@ -1,15 +1,20 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { getStrategies } from "@/lib/api";
+import {
+  getStrategies, subscribeToStrategy, unsubscribeFromStrategy, getEffectiveFollowedIds,
+} from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AssetClassBadge } from "@/components/common/AssetClassBadge";
 import { PipelineBadge } from "@/components/common/PipelineBadge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Users } from "lucide-react";
+import { Users, Check, Plus } from "lucide-react";
 import { useAssetFilter } from "@/lib/asset-filter";
+import { useFollowedOverlay } from "@/lib/user-prefs";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/catalog")({
   head: () => ({ meta: [{ title: "Strategy catalog — Bayn" }, { name: "description", content: "Browse verified trading strategies across stocks, crypto, options and futures." }] }),
@@ -21,6 +26,30 @@ function CatalogPage() {
   const [sort, setSort] = useState("subs");
   const [q, setQ] = useState("");
   const { data } = useQuery({ queryKey: ["strategies"], queryFn: getStrategies });
+  const queryClient = useQueryClient();
+
+  // Subscribe to overlay changes so the Follow/Following pill stays in sync
+  useFollowedOverlay();
+  const followedIds = useMemo(() => new Set(getEffectiveFollowedIds()), []);
+  // re-derive on every render — getEffectiveFollowedIds reads localStorage which the overlay hook keeps live
+  const followedNow = new Set(getEffectiveFollowedIds());
+
+  const subscribe = useMutation({
+    mutationFn: subscribeToStrategy,
+    onSuccess: (_d, id) => {
+      queryClient.invalidateQueries({ queryKey: ["followed"] });
+      const s = data?.find((x) => x.id === id);
+      toast.success(`Following ${s?.name ?? "strategy"} — live signals will appear on Home`);
+    },
+  });
+  const unsubscribe = useMutation({
+    mutationFn: unsubscribeFromStrategy,
+    onSuccess: (_d, id) => {
+      queryClient.invalidateQueries({ queryKey: ["followed"] });
+      const s = data?.find((x) => x.id === id);
+      toast(`Unfollowed ${s?.name ?? "strategy"}`);
+    },
+  });
 
   const list = useMemo(() => {
     let arr = data ?? [];
@@ -34,6 +63,8 @@ function CatalogPage() {
     });
     return arr;
   }, [data, assetClass, sort, q]);
+
+  void followedIds; // suppress unused
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -59,30 +90,54 @@ function CatalogPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-        {list.map((s) => (
-          <Link key={s.id} to="/app/strategy/$id" params={{ id: s.id }}>
-            <Card className="group flex h-full flex-col gap-3 border-border bg-elevated p-5 transition-colors hover:border-cyan/30">
-              <div className="flex items-start justify-between gap-2">
-                <h3 className="font-semibold leading-tight group-hover:text-cyan">{s.name}</h3>
-                <AssetClassBadge assetClass={s.assetClass} hideIcon />
-              </div>
-              <p className="text-sm text-muted-foreground line-clamp-2">{s.description}</p>
-              <div><PipelineBadge compact /></div>
-              <div className="mt-auto grid grid-cols-4 gap-2 border-t border-border pt-3 text-center">
-                <Stat label="Sharpe" value={s.stats.sharpe.toFixed(2)} />
-                <Stat label="Win" value={`${(s.stats.winRate * 100).toFixed(0)}%`} />
-                <Stat label="Max DD" value={`${(s.stats.maxDrawdown * 100).toFixed(0)}%`} />
-                <Stat label="Live" value={`${s.stats.liveDays}d`} />
-              </div>
+        {list.map((s) => {
+          const isFollowed = followedNow.has(s.id);
+          return (
+            <Card key={s.id} className={cn(
+              "group flex h-full flex-col gap-3 border-border bg-elevated p-5 transition-colors",
+              isFollowed ? "border-cyan/40" : "hover:border-cyan/30",
+            )}>
+              <Link to="/app/strategy/$id" params={{ id: s.id }} className="flex flex-col gap-3">
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="font-semibold leading-tight group-hover:text-cyan">{s.name}</h3>
+                  <AssetClassBadge assetClass={s.assetClass} hideIcon />
+                </div>
+                <p className="text-sm text-muted-foreground line-clamp-2">{s.description}</p>
+                <div><PipelineBadge compact /></div>
+                <div className="mt-auto grid grid-cols-4 gap-2 border-t border-border pt-3 text-center">
+                  <Stat label="Sharpe" value={s.stats.sharpe.toFixed(2)} />
+                  <Stat label="Win" value={`${(s.stats.winRate * 100).toFixed(0)}%`} />
+                  <Stat label="Max DD" value={`${(s.stats.maxDrawdown * 100).toFixed(0)}%`} />
+                  <Stat label="Live" value={`${s.stats.liveDays}d`} />
+                </div>
+              </Link>
               <div className="flex items-center justify-between pt-1">
                 <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                   <Users className="size-3" /> {s.stats.subscribers.toLocaleString()} followers
                 </span>
-                <Button size="sm" variant="outline" className="h-7">Subscribe</Button>
+                {isFollowed ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 gap-1 border-cyan/40 bg-cyan/10 text-cyan hover:bg-cyan/15"
+                    onClick={(e) => { e.preventDefault(); unsubscribe.mutate(s.id); }}
+                  >
+                    <Check className="size-3" /> Following
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 gap-1"
+                    onClick={(e) => { e.preventDefault(); subscribe.mutate(s.id); }}
+                  >
+                    <Plus className="size-3" /> Follow
+                  </Button>
+                )}
               </div>
             </Card>
-          </Link>
-        ))}
+          );
+        })}
         {list.length === 0 && (
           <Card className="col-span-full border-dashed border-border bg-elevated/50 p-10 text-center text-sm text-muted-foreground">
             No {assetClass !== "all" ? assetClass + " " : ""}strategies match your search.
