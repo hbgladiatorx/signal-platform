@@ -329,67 +329,38 @@ function PathCard({
   );
 }
 
-function FreeStrategyActivation({ assets }: { assets: Asset[] }) {
-  const map: Record<Asset, { name: string; sharpe: number }> = {
-    stocks: { name: "Mean Reversion — SPY 2-Day", sharpe: 1.08 },
-    crypto: { name: "Mean Reversion — BTC Hourly", sharpe: 1.64 },
-    options: { name: "Far-OTM Weekly Premium — SPY", sharpe: 1.36 },
-    futures: { name: "MES Opening Range Reversal", sharpe: 1.27 },
-  };
+function StudioPlanStep({ billing, setBilling, next }: { billing: Billing; setBilling: (v: Billing) => void; next: () => void }) {
   return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-      {assets.map((a, i) => {
-        const s = map[a];
-        return (
-          <div key={a}
-            className="relative overflow-hidden rounded-xl border p-4"
-            style={{
-              borderColor: "color-mix(in oklab, var(--brand-gold) 30%, var(--border))",
-              background: "linear-gradient(135deg, color-mix(in oklab, var(--brand-gold) 8%, var(--elevated)), var(--elevated))",
-              animation: `mode-fade 400ms ease-out ${i * 80}ms both`,
-            }}>
-            <div className="mb-2 flex items-center justify-between">
-              <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider"
-                style={{ background: "color-mix(in oklab, var(--brand-gold) 18%, transparent)", color: "var(--brand-gold)" }}>
-                <BadgeCheck className="size-3" /> Free · Verified
-              </span>
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{a}</span>
-            </div>
-            <div className="text-sm font-medium">{s.name}</div>
-            <div className="mt-1 text-xs text-muted-foreground">Sharpe {s.sharpe} · live tracked</div>
-            <div className="mt-3 inline-flex items-center gap-1 text-xs" style={{ color: "var(--emerald-glow)" }}>
-              <Check className="size-3.5" /> Activated
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function AgentLoopDiagram() {
-  const node = (label: string, sub: string, icon: typeof Bot) => {
-    const Icon = icon;
-    return (
-      <div className="flex items-center gap-3 rounded-xl border border-border bg-elevated px-4 py-3">
-        <div className="grid size-9 place-items-center rounded-lg" style={{ background: "color-mix(in oklab, var(--emerald) 18%, transparent)", color: "var(--emerald-glow)" }}>
-          <Icon className="size-4" />
-        </div>
-        <div>
-          <div className="text-sm font-medium">{label}</div>
-          <div className="text-[11px] text-muted-foreground">{sub}</div>
-        </div>
+    <Step title="Studio access" sub="Studio is only visible after a Studio plan is on your account. Choose one now or continue to compare plans later.">
+      <div className="mb-6 flex justify-center rounded-full border border-border bg-elevated p-1">
+        {(["annual", "monthly"] as Billing[]).map((b) => (
+          <button
+            key={b}
+            onClick={() => setBilling(b)}
+            className={cn(
+              "rounded-full px-4 py-1.5 text-xs font-medium capitalize transition-colors",
+              billing === b ? "bg-violet text-violet-foreground" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {b}
+          </button>
+        ))}
       </div>
-    );
-  };
-  return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-3 md:items-center">
-      {node("Signal fires", "Verified strategy emits trade", LineChart)}
-      <div className="hidden md:flex md:justify-center"><ArrowRight className="size-4 text-muted-foreground" /></div>
-      {node("Your AI agent", "Bayn MCP + Claude/GPT", Bot)}
-      <div className="hidden md:flex md:justify-center"><ArrowRight className="size-4 text-muted-foreground" /></div>
-      {node("Broker", "Robinhood Agentic confirms", Zap)}
-    </div>
+      <PricingTable
+        audience="developer"
+        billing={billing}
+        onSelect={(id: TierId) => {
+          setCurrentPlan({ developer: id, billing });
+          toast.success("Studio plan selected");
+          next();
+        }}
+      />
+      <div className="mt-6 rounded-xl border border-border bg-elevated p-4 text-center">
+        <Button variant="ghost" onClick={next}>
+          Compare Studio plans later
+        </Button>
+      </div>
+    </Step>
   );
 }
 
@@ -398,7 +369,7 @@ function StudioStep({ icon: Icon, title, body }: { icon: typeof Wand2; title: st
     <div className="rounded-xl border border-border bg-elevated p-5">
       <div className="grid size-9 place-items-center rounded-lg" style={{ background: "color-mix(in oklab, var(--violet) 18%, transparent)", color: "var(--violet)" }}>
         <Icon className="size-4" />
-      </div>
+        </div>
       <h4 className="mt-3 text-sm font-semibold">{title}</h4>
       <p className="mt-1 text-xs text-muted-foreground">{body}</p>
     </div>
