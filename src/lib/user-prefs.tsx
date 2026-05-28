@@ -170,6 +170,8 @@ export function useRiskPerTrade() { return usePref<number>("trading.riskPerTrade
 export function useDefaultTimeframe() { return usePref<string>("trading.timeframe", "1H"); }
 export function useDefaultChartType() { return usePref<string>("trading.chartType", "candle"); }
 export function getAccountSize() { return read<number>("trading.accountSize", 0); }
+export function setAccountSize(v: number) { write("trading.accountSize", v); }
+export function setRiskPerTrade(v: number) { write("trading.riskPerTrade", v); }
 
 /* ---------------- Notifications ---------------- */
 export type NotifKey =
