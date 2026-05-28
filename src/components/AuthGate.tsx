@@ -33,7 +33,6 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       }
       setStatus("authed");
     };
-    };
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!active) return;
