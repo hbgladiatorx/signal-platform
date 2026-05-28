@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import {
   ArrowUpRight, Plus, RefreshCcw, Crown, Lock,
 } from "lucide-react";
-import { getEffectiveFollowedIds, unsubscribeFromStrategy } from "@/lib/api";
+import { getEffectiveFollowedIds, subscribeToStrategy, unsubscribeFromStrategy } from "@/lib/api";
 import {
   getCurrentPlan, getTotalSlots, getTier, isFreeStrategy,
   purchaseAddOn, upgradePlan, type TierId,
@@ -45,7 +45,10 @@ export function PaywallModal({
   const nextTierMeta = nextTier ? getTier(nextTier) : null;
 
   const qc = useQueryClient();
-  const handleResolve = (toastMsg: string) => {
+  const handleResolve = async (toastMsg: string, followAfterPurchase = true) => {
+    if (followAfterPurchase && strategyId && !getEffectiveFollowedIds().includes(strategyId)) {
+      await subscribeToStrategy(strategyId);
+    }
     qc.invalidateQueries({ queryKey: ["followed"] });
     qc.invalidateQueries({ queryKey: ["plan"] });
     toast.success(toastMsg);
@@ -54,8 +57,12 @@ export function PaywallModal({
   };
 
   const unsub = useMutation({
-    mutationFn: unsubscribeFromStrategy,
-    onSuccess: () => handleResolve("Slot freed — now you can follow the new strategy"),
+    mutationFn: async (id: string) => {
+      await unsubscribeFromStrategy(id);
+      if (strategyId) await subscribeToStrategy(strategyId);
+      return { ok: true };
+    },
+    onSuccess: () => handleResolve(`Now following ${strategy.name}`, false),
   });
 
   if (!strategy) return null;
@@ -106,7 +113,7 @@ export function PaywallModal({
             onClick={() => {
               if (!nextTier) return;
               upgradePlan(nextTier);
-              handleResolve(`Upgraded to ${nextTierMeta!.name}`);
+              void handleResolve(`Upgraded to ${nextTierMeta!.name} — now following ${strategy.name}`);
             }}
           />
           {/* Path 2: Add a slot */}
@@ -118,13 +125,13 @@ export function PaywallModal({
             cta="Add slot"
             onClick={() => {
               purchaseAddOn("trader-extra-strategy");
-              handleResolve("Slot added — you can now follow this strategy");
+              void handleResolve(`Slot added — now following ${strategy.name}`);
             }}
             footer={
               <button
                 onClick={() => {
                   purchaseAddOn("trader-strategy-pack-5");
-                  handleResolve("5-slot pack added");
+                  void handleResolve(`5-slot pack added — now following ${strategy.name}`);
                 }}
                 className="text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
               >
