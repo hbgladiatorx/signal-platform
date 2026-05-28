@@ -355,7 +355,10 @@ function generateMonteCarlo(run: BacktestRun) {
     p5: (finals[Math.floor(0.05 * N)] - cap) / cap,
     p50: (finals[Math.floor(0.5 * N)] - cap) / cap,
     p95: (finals[Math.floor(0.95 * N)] - cap) / cap,
+    ruin,
+  };
 }
+
 
 function DrawdownCard({ run }: { run: BacktestRun }) {
   const data = useMemo(() => {
