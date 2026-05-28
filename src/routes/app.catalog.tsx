@@ -17,6 +17,8 @@ import { checkSlotAvailability, isFreeStrategy } from "@/lib/api/billing";
 import { PaywallModal } from "@/components/billing/PaywallModal";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+export const Route = createFileRoute("/app/catalog")({
   head: () => ({ meta: [{ title: "Strategy catalog — Bayn" }, { name: "description", content: "Browse verified trading strategies across stocks, crypto, options and futures." }] }),
   component: CatalogPage,
 });
