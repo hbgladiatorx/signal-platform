@@ -32,10 +32,14 @@ function StudioHome() {
 
   return (
     <div className="space-y-6 p-4 md:p-6">
+      <div className="rounded-lg border border-violet/30 bg-violet/5 px-4 py-2.5 text-xs text-violet">
+        <span className="font-mono uppercase tracking-wider">Private workspace</span>
+        <span className="ml-2 text-muted-foreground">— strategies, backtests, and personal signals are only visible to you until you submit one to the Bayn catalog.</span>
+      </div>
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Studio dashboard</h1>
-          <p className="text-sm text-muted-foreground font-mono">// build, test, run your own strategies</p>
+          <h1 className="text-2xl font-semibold tracking-tight">My Studio</h1>
+          <p className="text-sm text-muted-foreground font-mono">// build, test, and run your own strategies</p>
         </div>
         <Button asChild className="bg-violet text-violet-foreground hover:bg-violet/90">
           <Link to="/studio/builder/$id" params={{ id: "new" }}><Plus className="mr-2 size-4" /> New strategy</Link>
