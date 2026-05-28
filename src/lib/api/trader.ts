@@ -3,7 +3,7 @@ import {
   strategies, signals, marketTiles, getEquityCurve, getUserEquityCurve,
   takenSignals, followedStrategyIds, marketNews,
 } from "../mockData";
-import { readFollowedOverlay, toggleFollow } from "../user-prefs";
+import { readFollowedOverlay, toggleFollow, getTraderSeeded } from "../user-prefs";
 import type { Strategy, Signal } from "../types";
 
 const wait = (ms = 120) => new Promise((r) => setTimeout(r, ms));
