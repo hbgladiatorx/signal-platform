@@ -56,8 +56,7 @@ const fmtPct = (n: number) => `${n >= 0 ? "+" : ""}${(n * 100).toFixed(2)}%`;
     return [...arr].sort((a, b) => (order.get(a.symbol) ?? 0) - (order.get(b.symbol) ?? 0));
   }, [market.data, watchlist]);
 
-    return arr;
-  }, [market.data, assetClass, watchlist]);
+
 
   const followedFiltered = useMemo(() => {
     const all = followed.data ?? [];
