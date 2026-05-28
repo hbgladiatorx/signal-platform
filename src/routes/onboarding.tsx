@@ -26,7 +26,8 @@ import {
   useBrokerConnections, useAgentSetup, useNotifications,
   useStudioAssetClasses, useStudioExperience, useBacktestDefaults,
   useForwardTestDefaults, useStudioAiPreferences, useStudioWorkspaceDefaults,
-  usePayoutPreference, useDefaultModeOnLogin, setOnboardingResume,
+  useDefaultModeOnLogin, setOnboardingResume,
+
 
   type BrokerId, type AgentPlatform,
   type BuilderEntry, type StudioExperience, type NodeStyle,
