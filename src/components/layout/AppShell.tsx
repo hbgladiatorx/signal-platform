@@ -139,7 +139,15 @@ function Shell({ mode }: { mode: "trader" | "studio" }) {
                 <Link to={isStudio ? "/studio/settings" : "/app/settings"}>Settings</Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild><Link to="/">Sign out</Link></DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={async () => {
+                  const { supabase } = await import("@/integrations/supabase/client");
+                  await supabase.auth.signOut();
+                  navigate({ to: "/" });
+                }}
+              >
+                Sign out
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
