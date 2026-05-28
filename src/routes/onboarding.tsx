@@ -209,10 +209,10 @@ function OnboardingPage() {
 
 type StepKey =
   | "path" | "identity" | "experience"
+  | "markets" | "tickers" | "news" | "risk" | "brokers" | "agent" | "notifications" | "plan"
+  | "studioMarkets" | "builderExp" | "backtestDefaults" | "forwardTest" | "studioAi"
   | "studioPlan" | "workspace" | "firstStrategy" | "defaultMode" | "done";
 
-  | "studioMarkets" | "builderExp" | "backtestDefaults" | "forwardTest" | "studioAi"
-  | "studioPlan" | "payout" | "workspace" | "firstStrategy" | "defaultMode" | "done";
 
 function buildSteps(path: Path): { key: StepKey; label: string }[] {
   const shared: { key: StepKey; label: string }[] = [
