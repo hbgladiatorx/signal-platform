@@ -20,6 +20,7 @@ import { TrendingUp, Inbox } from "lucide-react";
 import { useAssetFilter } from "@/lib/asset-filter";
 import { LiveTrackerChart } from "@/components/common/LiveTrackerChart";
 import { NewsTicker } from "@/components/common/NewsTicker";
+import { useWatchlist } from "@/lib/user-prefs";
 
 export const Route = createFileRoute("/app/home")({
   head: () => ({ meta: [{ title: "Home — Bayn" }] }),
