@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
-import { Save, PlayCircle, Rocket, CheckCircle2, AlertCircle, Download, ChevronDown, ChevronUp, FileCode, Sparkles } from "lucide-react";
+import { Save, PlayCircle, Rocket, CheckCircle2, AlertCircle, Download, ChevronDown, ChevronUp, FileCode, Sparkles, ChevronsLeftRight, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { AssetClass, StrategyGraph } from "@/lib/types";
