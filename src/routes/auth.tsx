@@ -29,11 +29,13 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  // If already signed in, bounce into the app.
+  // If already signed in, bounce into the app (or onboarding if not yet completed).
+  useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) nav({ to: getOnboarded() ? "/app/home" : "/onboarding" });
     });
   }, [nav]);
+
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
