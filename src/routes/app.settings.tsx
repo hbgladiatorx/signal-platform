@@ -53,20 +53,6 @@ function SettingsPage() {
       <Tabs defaultValue="general">
         <TabsList>
           <TabsTrigger value="general"><SettingsIcon className="mr-1.5 size-3.5" /> General</TabsTrigger>
-          <TabsTrigger value="agent"><Sparkles className="mr-1.5 size-3.5 text-violet" /> AI Agent</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="agent" className="mt-4 space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold">Agentic loop</h2>
-            <p className="text-sm text-muted-foreground">
-              Bayn is the brain, Brokerage is the hands, your agent is the nervous system. Connect all three to close the loop.
-            </p>
-          </div>
-          <MCPConnectionSection />
-      <Tabs defaultValue="general">
-        <TabsList>
-          <TabsTrigger value="general"><SettingsIcon className="mr-1.5 size-3.5" /> General</TabsTrigger>
           <TabsTrigger value="plan"><Sparkles className="mr-1.5 size-3.5 text-cyan" /> Plan</TabsTrigger>
           <TabsTrigger value="agent"><Sparkles className="mr-1.5 size-3.5 text-violet" /> AI Agent</TabsTrigger>
         </TabsList>
