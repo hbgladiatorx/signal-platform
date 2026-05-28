@@ -21,9 +21,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         setStatus("anon");
         nav({ to: "/auth" });
         return;
-      }
       if (!getOnboarded()) {
-        // Authenticated but not through onboarding yet.
+        // Authenticated but never completed onboarding. Wipe any leftover
+        // local state (stale follows, demo seeds) so the user starts blank,
+        // then send them through the guided flow.
+        resetAllPrefs();
         setStatus("checking");
         nav({ to: "/onboarding" });
         return;
