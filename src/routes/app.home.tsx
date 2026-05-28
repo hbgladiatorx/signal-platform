@@ -89,7 +89,6 @@ function HomePage() {
         </div>
         <LiveTrackerChart />
       </section>
-      </section>
 
       {/* Market wire ticker */}
       <NewsTicker />
