@@ -1,11 +1,13 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Loader2, ShieldCheck, Mail, Lock } from "lucide-react";
+import { ArrowRight, Loader2, ShieldCheck, Mail, Lock, ArrowLeft } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -17,19 +19,62 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+type Mode = "signin" | "signup" | "forgot";
+
 function AuthPage() {
   const nav = useNavigate();
-  const [tab, setTab] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<Mode>("signin");
   const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
-  const handle = (e: React.FormEvent) => {
+  // If already signed in, bounce into the app.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) nav({ to: "/app/home" });
+    });
+  }, [nav]);
+
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Frontend-only: simulate auth, then redirect.
-    setTimeout(() => {
-      setLoading(false);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setLoading(false);
+    if (error) return toast.error(error.message);
+    toast.success("Welcome back");
+    nav({ to: "/app/home" });
+  };
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: window.location.origin },
+    });
+    setLoading(false);
+    if (error) return toast.error(error.message);
+    // If email confirmation is OFF in Supabase, user is signed in immediately.
+    const { data } = await supabase.auth.getSession();
+    if (data.session) {
+      toast.success("Account created");
       nav({ to: "/app/home" });
-    }, 600);
+    } else {
+      toast.success("Check your email to confirm your account");
+    }
+  };
+
+  const handleForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setLoading(false);
+    if (error) return toast.error(error.message);
+    toast.success("Password reset email sent");
+    setMode("signin");
   };
 
   return (
@@ -37,7 +82,6 @@ function AuthPage() {
       className="relative grid min-h-screen place-items-center overflow-hidden bg-background px-4 text-foreground"
       style={{ fontFamily: "var(--font-landing-body)" }}
     >
-      {/* Background flair */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
@@ -62,52 +106,69 @@ function AuthPage() {
           className="border-border/80 bg-elevated/80 p-6 backdrop-blur-xl md:p-7"
           style={{ boxShadow: "0 20px 60px -20px rgba(0,0,0,0.4)" }}
         >
-          <Tabs value={tab} onValueChange={(v) => setTab(v as "signin" | "signup")}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">Sign in</TabsTrigger>
-              <TabsTrigger value="signup">Create account</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="signin" className="mt-6">
-              <form onSubmit={handle} className="space-y-4">
-                <Field icon={Mail} label="Email" type="email" placeholder="you@firm.com" required />
-                <Field icon={Lock} label="Password" type="password" placeholder="••••••••" required />
-                <div className="flex items-center justify-end">
-                  <button type="button" className="text-xs text-muted-foreground hover:text-foreground">
-                    Forgot password?
-                  </button>
-                </div>
-                <PrimaryButton loading={loading}>
-                  Sign in <ArrowRight className="ml-1.5 size-4" />
-                </PrimaryButton>
-              </form>
-            </TabsContent>
-
-            <TabsContent value="signup" className="mt-6">
-              <form onSubmit={handle} className="space-y-4">
-                <Field icon={Mail} label="Email" type="email" placeholder="you@firm.com" required />
-                <Field icon={Lock} label="Password" type="password" placeholder="At least 8 characters" required />
-                <PrimaryButton loading={loading}>
-                  Create free account <ArrowRight className="ml-1.5 size-4" />
-                </PrimaryButton>
-                <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
-                  By signing up you acknowledge Bayn provides information, not investment advice. You stay in
-                  control of every trade.
+          {mode === "forgot" ? (
+            <form onSubmit={handleForgot} className="space-y-4">
+              <button
+                type="button"
+                onClick={() => setMode("signin")}
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <ArrowLeft className="size-3.5" /> Back to sign in
+              </button>
+              <div>
+                <h2 className="text-lg font-semibold" style={{ fontFamily: "var(--font-landing-display)" }}>
+                  Reset your password
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  We'll send a reset link to your email.
                 </p>
-              </form>
-            </TabsContent>
-          </Tabs>
+              </div>
+              <Field icon={Mail} label="Email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@firm.com" />
+              <PrimaryButton loading={loading}>
+                Send reset link <ArrowRight className="ml-1.5 size-4" />
+              </PrimaryButton>
+            </form>
+          ) : (
+            <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="signin">Sign in</TabsTrigger>
+                <TabsTrigger value="signup">Create account</TabsTrigger>
+              </TabsList>
 
-          <div className="my-6 flex items-center gap-3 text-[10px] uppercase tracking-wider text-muted-foreground">
-            <div className="h-px flex-1 bg-border" />
-            or continue with
-            <div className="h-px flex-1 bg-border" />
-          </div>
+              <TabsContent value="signin" className="mt-6">
+                <form onSubmit={handleSignIn} className="space-y-4">
+                  <Field icon={Mail} label="Email" type="email" placeholder="you@firm.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                  <Field icon={Lock} label="Password" type="password" placeholder="••••••••" required value={password} onChange={(e) => setPassword(e.target.value)} />
+                  <div className="flex items-center justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setMode("forgot")}
+                      className="text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                  <PrimaryButton loading={loading}>
+                    Sign in <ArrowRight className="ml-1.5 size-4" />
+                  </PrimaryButton>
+                </form>
+              </TabsContent>
 
-          <div className="grid grid-cols-2 gap-2">
-            <SocialButton label="Google" />
-            <SocialButton label="GitHub" />
-          </div>
+              <TabsContent value="signup" className="mt-6">
+                <form onSubmit={handleSignUp} className="space-y-4">
+                  <Field icon={Mail} label="Email" type="email" placeholder="you@firm.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                  <Field icon={Lock} label="Password" type="password" placeholder="At least 8 characters" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} />
+                  <PrimaryButton loading={loading}>
+                    Create free account <ArrowRight className="ml-1.5 size-4" />
+                  </PrimaryButton>
+                  <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
+                    By signing up you acknowledge Bayn provides information, not investment advice. You stay in
+                    control of every trade.
+                  </p>
+                </form>
+              </TabsContent>
+            </Tabs>
+          )}
         </Card>
 
         <p className="mt-6 flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
@@ -144,21 +205,6 @@ function PrimaryButton({ children, loading }: { children: React.ReactNode; loadi
       style={{ background: "var(--gradient-emerald)", boxShadow: "var(--shadow-emerald)" }}
     >
       {loading ? <Loader2 className="size-4 animate-spin" /> : children}
-    </Button>
-  );
-}
-
-function SocialButton({ label }: { label: string }) {
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      className="h-11 border-border/80 bg-background/60 hover:bg-background"
-      onClick={() => {
-        /* frontend-only */
-      }}
-    >
-      {label}
     </Button>
   );
 }
