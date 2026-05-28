@@ -44,13 +44,17 @@ function BacktestDetail() {
 
   const run = useMemo(() => runs?.find((r) => r.id === (selectedId ?? runId)) ?? runs?.[0], [runs, selectedId, runId]);
 
-  // Stage tracking
+  // Stage tracking — viewing a backtest run implies the strategy is at least "backtested"
   const [stage, setStageState] = useState<DeployStage>(() => getStage(strategyId));
   useEffect(() => {
     const fn = () => setStageState(getStage(strategyId));
     window.addEventListener("bayn.stage.changed", fn);
     return () => window.removeEventListener("bayn.stage.changed", fn);
   }, [strategyId]);
+  useEffect(() => {
+    if (runs && runs.length > 0) advanceStage(strategyId, "backtested");
+  }, [runs, strategyId]);
+
 
   if (!strategy) return <div className="p-6 text-muted-foreground">Loading…</div>;
   if (!run) return <div className="p-6 text-muted-foreground">No backtest runs yet.</div>;
