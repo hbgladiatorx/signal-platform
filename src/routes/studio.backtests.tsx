@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { getDevStrategies, getBacktestsForStrategy } from "@/lib/api/studio";
 import { Card } from "@/components/ui/card";
@@ -12,7 +12,11 @@ export const Route = createFileRoute("/studio/backtests")({
 });
 
 function BacktestsList() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const { data: strategies } = useQuery({ queryKey: ["devStrategies"], queryFn: getDevStrategies });
+
+  if (pathname !== "/studio/backtests") return <Outlet />;
+
   return (
     <div className="space-y-5 p-4 md:p-6">
       <div>
