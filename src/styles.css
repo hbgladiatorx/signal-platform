@@ -45,6 +45,11 @@
   --color-options: var(--options);
   --color-futures: var(--futures);
   --color-elevated: var(--elevated);
+  --color-emerald: var(--emerald);
+  --color-emerald-deep: var(--emerald-deep);
+  --color-emerald-glow: var(--emerald-glow);
+  --color-brand-gold: var(--brand-gold);
+  --color-brand-cream: var(--brand-cream);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-accent: var(--sidebar-accent);
