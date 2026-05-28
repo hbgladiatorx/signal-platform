@@ -18,7 +18,8 @@ import {
   useNotifications, useFollowedOverlay, useLiveTrackingStrategy,
   type HomeSection,
 } from "@/lib/user-prefs";
-import { getEffectiveFollowedIds, toggleFollow } from "@/lib/api";
+import { getEffectiveFollowedIds } from "@/lib/api";
+import { toggleFollow } from "@/lib/user-prefs";
 import { getCurrentPlan, getTotalSlots, isFreeStrategy, formatLimit } from "@/lib/api/billing";
 import { strategies } from "@/lib/mockData";
 import type { AssetClass } from "@/lib/types";

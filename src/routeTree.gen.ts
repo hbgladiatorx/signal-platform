@@ -30,6 +30,7 @@ import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as AppPricingRouteImport } from './routes/app.pricing'
 import { Route as AppPerformanceRouteImport } from './routes/app.performance'
 import { Route as AppHomeRouteImport } from './routes/app.home'
+import { Route as AppCustomizeRouteImport } from './routes/app.customize'
 import { Route as AppCatalogRouteImport } from './routes/app.catalog'
 import { Route as AppAgentRouteImport } from './routes/app.agent'
 import { Route as StudioStrategyIdRouteImport } from './routes/studio.strategy.$id'
@@ -144,6 +145,11 @@ const AppHomeRoute = AppHomeRouteImport.update({
   path: '/home',
   getParentRoute: () => AppRoute,
 } as any)
+const AppCustomizeRoute = AppCustomizeRouteImport.update({
+  id: '/customize',
+  path: '/customize',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppCatalogRoute = AppCatalogRouteImport.update({
   id: '/catalog',
   path: '/catalog',
@@ -196,6 +202,7 @@ export interface FileRoutesByFullPath {
   '/studio': typeof StudioRouteWithChildren
   '/app/agent': typeof AppAgentRoute
   '/app/catalog': typeof AppCatalogRoute
+  '/app/customize': typeof AppCustomizeRoute
   '/app/home': typeof AppHomeRoute
   '/app/performance': typeof AppPerformanceRoute
   '/app/pricing': typeof AppPricingRoute
@@ -227,6 +234,7 @@ export interface FileRoutesByTo {
   '/studio': typeof StudioRouteWithChildren
   '/app/agent': typeof AppAgentRoute
   '/app/catalog': typeof AppCatalogRoute
+  '/app/customize': typeof AppCustomizeRoute
   '/app/home': typeof AppHomeRoute
   '/app/performance': typeof AppPerformanceRoute
   '/app/pricing': typeof AppPricingRoute
@@ -259,6 +267,7 @@ export interface FileRoutesById {
   '/studio': typeof StudioRouteWithChildren
   '/app/agent': typeof AppAgentRoute
   '/app/catalog': typeof AppCatalogRoute
+  '/app/customize': typeof AppCustomizeRoute
   '/app/home': typeof AppHomeRoute
   '/app/performance': typeof AppPerformanceRoute
   '/app/pricing': typeof AppPricingRoute
@@ -292,6 +301,7 @@ export interface FileRouteTypes {
     | '/studio'
     | '/app/agent'
     | '/app/catalog'
+    | '/app/customize'
     | '/app/home'
     | '/app/performance'
     | '/app/pricing'
@@ -323,6 +333,7 @@ export interface FileRouteTypes {
     | '/studio'
     | '/app/agent'
     | '/app/catalog'
+    | '/app/customize'
     | '/app/home'
     | '/app/performance'
     | '/app/pricing'
@@ -354,6 +365,7 @@ export interface FileRouteTypes {
     | '/studio'
     | '/app/agent'
     | '/app/catalog'
+    | '/app/customize'
     | '/app/home'
     | '/app/performance'
     | '/app/pricing'
@@ -535,6 +547,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppHomeRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/customize': {
+      id: '/app/customize'
+      path: '/customize'
+      fullPath: '/app/customize'
+      preLoaderRoute: typeof AppCustomizeRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/catalog': {
       id: '/app/catalog'
       path: '/catalog'
@@ -597,6 +616,7 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppAgentRoute: typeof AppAgentRoute
   AppCatalogRoute: typeof AppCatalogRoute
+  AppCustomizeRoute: typeof AppCustomizeRoute
   AppHomeRoute: typeof AppHomeRoute
   AppPerformanceRoute: typeof AppPerformanceRoute
   AppPricingRoute: typeof AppPricingRoute
@@ -610,6 +630,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppAgentRoute: AppAgentRoute,
   AppCatalogRoute: AppCatalogRoute,
+  AppCustomizeRoute: AppCustomizeRoute,
   AppHomeRoute: AppHomeRoute,
   AppPerformanceRoute: AppPerformanceRoute,
   AppPricingRoute: AppPricingRoute,
