@@ -204,18 +204,7 @@ export function getOnboardingPath() { return read<OnboardingPath | null>("onboar
 export function setOnboardingPath(v: OnboardingPath) { write("onboarding.path", v); logDebugEvent({ type: "onboarding", message: `Onboarding path selected: ${v}` }); }
 export function useOnboardingPath() { return usePref<OnboardingPath | null>("onboarding.path", null); }
 
-/** Wipe local prefs — used on sign-out so the next account starts blank. */
-export function resetAllPrefs() {
-  const keys = [
-    "watchlist", "news.categories", "news.sources", "news.onlyWatched",
-    "follows", "assetClasses", "liveTracking", "home.layout", "home.hidden",
-    "trading.accountSize", "trading.riskPerTrade", "trading.timeframe",
-    "trading.chartType", "notifications",
-    "traderSeeded", "studioSeeded", "onboarded", "onboarding.path",
-  ];
-  for (const k of keys) {
-    inMemory.delete(k);
-    if (typeof window !== "undefined") {
+
 /* ---------------- Identity ---------------- */
 export type Identity = {
   displayName: string;
