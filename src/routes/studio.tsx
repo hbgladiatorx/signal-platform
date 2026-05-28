@@ -1,6 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/layout/AppShell";
+import { AuthGate } from "@/components/AuthGate";
 
 export const Route = createFileRoute("/studio")({
-  component: () => <AppShell mode="studio" />,
+  component: () => (
+    <AuthGate>
+      <AppShell mode="studio" />
+    </AuthGate>
+  ),
 });
