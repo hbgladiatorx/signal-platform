@@ -83,9 +83,8 @@ function OnboardingPage() {
     if (path === "developer" || path === "both") nav({ to: "/studio/home" });
     else nav({ to: "/app/home" });
   };
-    if (path === "developer" || path === "both") nav({ to: "/studio/home" });
-    else nav({ to: "/app/home" });
-  };
+
+
 
 
   return (
