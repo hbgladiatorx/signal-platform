@@ -120,7 +120,16 @@ function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="agent" className="mt-4 space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">Agentic loop</h2>
+            <p className="text-sm text-muted-foreground">
+              Bayn is the brain, Brokerage is the hands, your agent is the nervous system. Connect all three to close the loop.
+            </p>
+          </div>
+          <MCPConnectionSection />
+        </TabsContent>
 
+        <TabsContent value="general" className="mt-4 space-y-6">
 
       <Card className="border-border bg-elevated p-5">
         <h2 className="font-semibold">Account</h2>
