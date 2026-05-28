@@ -19,14 +19,17 @@ export async function getStrategyById(id: string) {
   return strategies.find((s) => s.id === id);
 }
 
-/** Effective followed ids = defaults ∪ overlay.added − overlay.removed */
+/** Effective followed ids = (seeded defaults) ∪ overlay.added − overlay.removed.
+ *  Brand-new accounts (!traderSeeded) start with zero follows. */
 export function getEffectiveFollowedIds(): string[] {
   const overlay = readFollowedOverlay();
-  const set = new Set<string>(followedStrategyIds);
+  const base = getTraderSeeded() ? followedStrategyIds : [];
+  const set = new Set<string>(base);
   overlay.added.forEach((id) => set.add(id));
   overlay.removed.forEach((id) => set.delete(id));
   return [...set];
 }
+
 
 export async function getFollowedStrategies() {
   await wait();
