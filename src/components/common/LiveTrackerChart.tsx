@@ -92,7 +92,7 @@ export function LiveTrackerChart() {
         </div>
       </div>
 
-      {/* TradingView chart with overlaid level chips */}
+      {/* TradingView chart with overlaid level chips (% offsets) */}
       <div className="relative">
         <TradingViewChart
           symbol={active.symbol}
@@ -100,12 +100,12 @@ export function LiveTrackerChart() {
           interval="60"
           height={420}
         />
-        {/* Floating strategy level chips — entry / stop / target */}
-        <div className="pointer-events-none absolute right-3 top-3 z-10 flex flex-col items-end gap-1.5 font-mono text-[10px]">
-          <LevelChip label="TARGET" value={fmt(active.target)} tone="cyan" />
-          <LevelChip label="ENTRY"  value={fmt(active.entry)}  tone="gold" />
-          <LevelChip label="STOP"   value={fmt(active.stop)}   tone="danger" />
-        </div>
+        <PlanCard
+          entry={active.entry}
+          stop={active.stop}
+          target={active.target}
+          direction={active.direction}
+        />
       </div>
 
 
