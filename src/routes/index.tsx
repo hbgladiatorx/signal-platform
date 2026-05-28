@@ -495,3 +495,162 @@ function Bullet({ children }: { children: React.ReactNode }) {
     </li>
   );
 }
+
+type Tone = "emerald" | "gold";
+type IconType = React.ComponentType<{ className?: string }>;
+type CardSpec =
+  | { kind: "metric"; title: string; icon: IconType; bigValue: string; bigLabel: string; stats: { label: string; value: string }[] }
+  | { kind: "signal"; title: string; icon: IconType }
+  | { kind: "equity"; title: string; icon: IconType }
+  | { kind: "feature"; title: string; icon: IconType; body: string }
+  | { kind: "bullets"; title: string; icon: IconType; bullets: string[] };
+
+function SideColumn({
+  tone,
+  tag,
+  tagIcon: TagIcon,
+  title,
+  subtitle,
+  ctaText,
+  ctaTo,
+  cards,
+}: {
+  tone: Tone;
+  tag: string;
+  tagIcon: IconType;
+  title: string;
+  subtitle: string;
+  ctaText: string;
+  ctaTo: string;
+  cards: CardSpec[];
+}) {
+  const accent = tone === "emerald" ? "var(--emerald)" : "var(--brand-gold)";
+  const accentGlow = tone === "emerald" ? "var(--emerald-glow)" : "var(--brand-gold)";
+  const accentText = tone === "emerald" ? "text-emerald-glow" : "text-brand-gold";
+
+  return (
+    <div
+      className="flex flex-col gap-4 rounded-3xl border bg-elevated/30 p-5 md:p-6"
+      style={{ borderColor: `color-mix(in oklab, ${accent} 28%, var(--border))` }}
+    >
+      <div>
+        <div
+          className="mb-4 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider"
+          style={{
+            background: `color-mix(in oklab, ${accent} 15%, transparent)`,
+            color: accentGlow,
+            border: `1px solid color-mix(in oklab, ${accent} 35%, transparent)`,
+          }}
+        >
+          <TagIcon className="size-3" /> {tag}
+        </div>
+        <h3 className="landing-display text-2xl font-semibold tracking-tight md:text-3xl">{title}</h3>
+        <p className="mt-2 text-sm text-muted-foreground">{subtitle}</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        {cards.map((c, i) => (
+          <SideCard key={i} card={c} tone={tone} />
+        ))}
+      </div>
+
+      <Link
+        to={ctaTo}
+        className={`group mt-2 inline-flex items-center justify-between rounded-xl border px-5 py-3.5 text-sm font-medium transition-colors ${accentText}`}
+        style={{
+          borderColor: `color-mix(in oklab, ${accent} 40%, transparent)`,
+          background: `color-mix(in oklab, ${accent} 8%, transparent)`,
+        }}
+      >
+        {ctaText}
+        <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+      </Link>
+    </div>
+  );
+}
+
+function SideCard({ card, tone }: { card: CardSpec; tone: Tone }) {
+  const accent = tone === "emerald" ? "var(--emerald)" : "var(--brand-gold)";
+  const accentText = tone === "emerald" ? "text-emerald-glow" : "text-brand-gold";
+  const Icon = card.icon;
+
+  return (
+    <div className="relative overflow-hidden rounded-xl border border-border/60 bg-background/40 p-4">
+      <div className={`mb-3 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider ${accentText}`}>
+        <Icon className="size-3" /> {card.title}
+      </div>
+
+      {card.kind === "metric" && (
+        <>
+          <div className="landing-display text-3xl font-bold text-brand-cream">{card.bigValue}</div>
+          <div className="mt-1 text-[11px] text-muted-foreground">{card.bigLabel}</div>
+          <div className="mt-3 grid grid-cols-3 gap-2 border-t border-border/60 pt-3 text-center">
+            {card.stats.map((s) => (
+              <Stat key={s.label} label={s.label} value={s.value} />
+            ))}
+          </div>
+        </>
+      )}
+
+      {card.kind === "signal" && (
+        <>
+          <div className="mb-2 flex items-center gap-1.5 text-xs">
+            <span className="size-1.5 animate-pulse rounded-full bg-success" />
+            <span className="font-mono uppercase text-success">BTC-PERP LONG</span>
+            <span className="ml-auto font-mono text-[10px] text-muted-foreground">2m</span>
+          </div>
+          <div className="text-xs text-muted-foreground">Trend-Following v3</div>
+          <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">
+            <MiniStat label="Entry" value="67,420" />
+            <MiniStat label="Stop" value="65,800" />
+            <MiniStat label="Target" value="71,200" />
+          </div>
+        </>
+      )}
+
+      {card.kind === "equity" && (
+        <>
+          <svg viewBox="0 0 240 70" className="h-16 w-full">
+            <defs>
+              <linearGradient id={`eq-${tone}`} x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stopColor={accent} stopOpacity="0.4" />
+                <stop offset="100%" stopColor={accent} stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <path
+              d="M0,60 L20,55 L40,58 L60,46 L80,50 L100,38 L120,42 L140,30 L160,34 L180,22 L200,26 L220,14 L240,8 L240,70 L0,70 Z"
+              fill={`url(#eq-${tone})`}
+            />
+            <path
+              className="equity-rise"
+              d="M0,60 L20,55 L40,58 L60,46 L80,50 L100,38 L120,42 L140,30 L160,34 L180,22 L200,26 L220,14 L240,8"
+              fill="none"
+              stroke={accent}
+              strokeWidth="2"
+            />
+          </svg>
+          <div className="mt-1 text-[11px] text-muted-foreground">Equity · 250 Monte Carlo paths · OOS-clean</div>
+        </>
+      )}
+
+      {card.kind === "feature" && (
+        <p className="text-xs leading-relaxed text-muted-foreground">{card.body}</p>
+      )}
+
+      {card.kind === "bullets" && (
+        <ul className="space-y-1.5 text-xs text-muted-foreground">
+          {card.bullets.map((b) => (
+            <li key={b} className="flex items-start gap-2">
+              <span
+                className="mt-1.5 size-1.5 shrink-0 rounded-full"
+                style={{ background: accent }}
+              />
+              <span>{b}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
