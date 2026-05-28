@@ -17,6 +17,38 @@ export async function getDevStrategy(id: string): Promise<DevStrategy | undefine
   return devStrategies.find((s) => s.id === id);
 }
 
+export function ensureDevStrategyDraft(input: {
+  id?: string;
+  name: string;
+  assetClass: DevStrategy["assetClass"];
+  graph: StrategyGraph;
+}): DevStrategy {
+  const existing = input.id ? devStrategies.find((s) => s.id === input.id) : undefined;
+  if (existing) {
+    existing.name = input.name;
+    existing.assetClass = input.assetClass;
+    existing.graph = input.graph;
+    return existing;
+  }
+  const newId = `dev-${Date.now()}`;
+  const now = new Date().toISOString();
+  const draft: DevStrategy = {
+    id: newId,
+    name: input.name,
+    description: "",
+    assetClass: input.assetClass,
+    stage: "Draft",
+    createdAt: now,
+    lastRunAt: now,
+    graph: input.graph,
+    liveSinceDays: 0,
+    stats: { sharpe: 0, winRate: 0, maxDrawdown: 0, sampleSize: 0, avgR: 0, liveDays: 0, subscribers: 0 },
+    versions: [{ id: "v1", createdAt: now, note: "Initial draft" }],
+  };
+  devStrategies.unshift(draft);
+  return draft;
+}
+
 export async function getTemplates() {
   await wait(60);
   return graphTemplates;
