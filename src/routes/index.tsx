@@ -291,7 +291,7 @@ function Landing() {
       </section>
 
       {/* SHARED FILTER (neutral — the bridge between both sides) */}
-      <section id="pipeline" className="mx-auto max-w-7xl px-6 pb-16 pt-10 md:px-10 md:pb-24">
+      <section data-reveal id="pipeline" className="mx-auto max-w-7xl px-6 pb-16 pt-10 md:px-10 md:pb-24">
         <div className="mb-8 text-center">
           <div className="mb-3 font-mono text-xs uppercase tracking-[0.2em] text-brand-gold">The bridge</div>
           <h2 className="landing-display mx-auto max-w-3xl text-balance text-3xl font-bold tracking-tight md:text-5xl">
@@ -334,7 +334,7 @@ function Landing() {
       </section>
 
       {/* TWO-SIDED SYMMETRIC BENTO */}
-      <section id="catalog" className="mx-auto max-w-7xl px-6 pb-20 md:px-10 md:pb-28">
+      <section data-reveal id="catalog" className="mx-auto max-w-7xl px-6 pb-20 md:px-10 md:pb-28">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* === TRADER SIDE === */}
           <SideColumn
@@ -432,7 +432,7 @@ function Landing() {
 
 
       {/* PROOF / TRUST */}
-      <section id="proof" className="border-y border-border/60 bg-elevated/40">
+      <section data-reveal id="proof" className="border-y border-border/60 bg-elevated/40">
         <div className="mx-auto grid max-w-7xl grid-cols-2 gap-6 px-6 py-12 md:grid-cols-4 md:px-10">
           {[
             { v: "127", l: "Live strategies" },
@@ -449,7 +449,7 @@ function Landing() {
       </section>
 
       {/* THREE PILLARS */}
-      <section className="mx-auto max-w-7xl px-6 py-20 md:px-10 md:py-28">
+      <section data-reveal className="mx-auto max-w-7xl px-6 py-20 md:px-10 md:py-28">
         <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
           {[
             {
@@ -486,7 +486,7 @@ function Landing() {
       </section>
 
       {/* FINAL CTA */}
-      <section className="mx-auto max-w-7xl px-6 pb-24 md:px-10">
+      <section data-reveal className="mx-auto max-w-7xl px-6 pb-24 md:px-10">
         <div
           className="relative overflow-hidden rounded-3xl border p-10 text-center md:p-16"
           style={{
