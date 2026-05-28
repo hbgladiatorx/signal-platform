@@ -2,9 +2,7 @@ import { Card } from "@/components/ui/card";
 import { AssetClassBadge } from "./AssetClassBadge";
 import { DirectionPill } from "./DirectionPill";
 import { Disclaimer } from "./Disclaimer";
-import {
-  Area, AreaChart, ReferenceLine, ResponsiveContainer,
-} from "recharts";
+import { TradingViewChart } from "./TradingViewChart";
 import { format } from "date-fns";
 import type { Signal } from "@/lib/types";
 
