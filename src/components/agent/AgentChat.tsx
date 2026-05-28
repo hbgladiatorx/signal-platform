@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { chatTraderAI, chatStudioAI, type ChatMsg, type AgentMode } from "@/lib/api/agent";
+import { chatTraderAI, chatStudioAI, type ChatMsg, type AgentMode, type GraphContext, type TweakResult } from "@/lib/api/agent";
 
 const TRADER_CHIPS = [
   "What's my biggest risk exposure right now?",
@@ -23,15 +23,25 @@ const STUDIO_CHIPS = [
   "Sell far-OTM SPY weekly calls when IV rank is above 50.",
 ];
 
+const STUDIO_TWEAK_CHIPS = [
+  "Change stop to 4 ATR",
+  "Set RSI period to 9",
+  "Switch timeframe to 15m",
+  "Increase risk per trade to 2%",
+];
+
 interface Props {
   mode: AgentMode;
   onGraph?: (g: NonNullable<ChatMsg["meta"]>["graph"]) => void;
+  onTweak?: (t: TweakResult) => void;
   /** Compact panel mode (used inside the builder). */
   compact?: boolean;
   initialPrompt?: string;
+  /** When provided, the studio AI receives this graph context and tries to tweak instead of rebuild. */
+  getCurrentGraph?: () => GraphContext | null;
 }
 
-export function AgentChat({ mode, onGraph, compact, initialPrompt }: Props) {
+export function AgentChat({ mode, onGraph, onTweak, compact, initialPrompt, getCurrentGraph }: Props) {
   const navigate = useNavigate();
   const [input, setInput] = useState(initialPrompt ?? "");
   const [msgs, setMsgs] = useState<ChatMsg[]>([
@@ -41,7 +51,7 @@ export function AgentChat({ mode, onGraph, compact, initialPrompt }: Props) {
       content:
         mode === "trader"
           ? "I'm your analysis assistant. I can read your taken signals, open positions, and performance — ask me anything about them."
-          : "I'm your build assistant. Describe a strategy in plain English and I'll wire it on the canvas. I don't analyze your live trades.",
+          : "I'm your build assistant. Describe a strategy in plain English and I'll wire it on the canvas. Once a graph is on the canvas, ask me to tweak it (e.g. \"change stop to 4 ATR\") and I'll patch it without rebuilding.",
     },
   ]);
   const [busy, setBusy] = useState(false);
@@ -55,11 +65,15 @@ export function AgentChat({ mode, onGraph, compact, initialPrompt }: Props) {
     setInput("");
     setMsgs((m) => [...m, { id: `u-${Date.now()}`, role: "user", content: trimmed }]);
     setBusy(true);
-    const reply = mode === "trader" ? await chatTraderAI(trimmed) : await chatStudioAI(trimmed);
+    const ctx = mode === "studio" ? getCurrentGraph?.() ?? undefined : undefined;
+    const reply = mode === "trader" ? await chatTraderAI(trimmed) : await chatStudioAI(trimmed, ctx);
     setMsgs((m) => [...m, reply]);
     setBusy(false);
     if (reply.meta?.kind === "graph" && reply.meta.graph) onGraph?.(reply.meta.graph);
+    if (reply.meta?.kind === "tweak" && reply.meta.tweak) onTweak?.(reply.meta.tweak);
   };
+
+  const hasGraph = mode === "studio" && (getCurrentGraph?.()?.nodes.length ?? 0) > 0;
 
   const accent = mode === "studio" ? "violet" : "cyan";
 
