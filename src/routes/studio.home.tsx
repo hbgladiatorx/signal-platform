@@ -10,6 +10,7 @@ import { StatusPill } from "@/components/common/StatusPill";
 import { formatDistanceToNow } from "date-fns";
 import { Plus, Layers, FlaskConical, Activity, Inbox } from "lucide-react";
 import type { PipelineStage } from "@/lib/types";
+import { CustomizeButton } from "@/components/common/CustomizeButton";
 
 export const Route = createFileRoute("/studio/home")({
   head: () => ({ meta: [{ title: "Studio — Bayn" }] }),
