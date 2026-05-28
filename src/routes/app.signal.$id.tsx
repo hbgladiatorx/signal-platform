@@ -72,17 +72,7 @@ function SignalDetail() {
               height={420}
               withDrawingTools
             />
-            <div className="pointer-events-none absolute right-3 top-3 z-10 flex flex-col items-end gap-1.5 font-mono text-[10px]">
-              <span className="inline-flex items-center gap-1.5 rounded-md border border-cyan/40 bg-cyan/15 px-2 py-0.5 text-cyan backdrop-blur">
-                <span className="tracking-[0.18em]">TARGET</span><span className="font-semibold">{s.target}</span>
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-md border border-gold/40 bg-gold/15 px-2 py-0.5 text-gold backdrop-blur">
-                <span className="tracking-[0.18em]">ENTRY</span><span className="font-semibold">{s.entry}</span>
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-md border border-danger/40 bg-danger/15 px-2 py-0.5 text-danger backdrop-blur">
-                <span className="tracking-[0.18em]">STOP</span><span className="font-semibold">{s.stop}</span>
-              </span>
-            </div>
+            <SignalPlanOverlay entry={s.entry} stop={s.stop} target={s.target} direction={s.direction} />
           </div>
           <Card className="mt-3 border-border bg-background/40 p-4">
             <h3 className="mb-1 text-sm font-semibold">Strategy reasoning</h3>
