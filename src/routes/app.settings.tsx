@@ -42,7 +42,7 @@ function SettingsPage() {
           <div>
             <h2 className="text-lg font-semibold">Agentic loop</h2>
             <p className="text-sm text-muted-foreground">
-              Bayn is the brain, Robinhood is the hands, your agent is the nervous system. Connect all three to close the loop.
+              Bayn is the brain, Brokerage is the hands, your agent is the nervous system. Connect all three to close the loop.
             </p>
           </div>
           <MCPConnectionSection />

@@ -5,7 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { Bot, Server, Briefcase, Copy, Check, ExternalLink, Link2, Shield, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  PLATFORMS, BAYN_MCP_URL, ROBINHOOD_MCP_URL,
+  PLATFORMS, BAYN_MCP_URL, BROKER_MCP_URL,
   getConnections, setConnections, type ConnectionState, type AgentPlatform,
 } from "@/lib/api/agent";
 import { toast } from "sonner";
@@ -127,52 +127,52 @@ function BaynCard() {
   );
 }
 
-/** Card 3 — Robinhood Agentic */
-function RobinhoodCard() {
+/** Card 3 — Brokerage Agent */
+function BrokerageCard() {
   const [conn, update] = useConn();
   const [oauthOpen, setOauthOpen] = useState(false);
   return (
     <Card className="flex flex-col gap-3 border-border bg-elevated p-4">
       <div className="flex items-start justify-between">
-        <div className="flex items-center gap-2"><Briefcase className="size-5 text-gold" /><div className="font-medium">Robinhood Agentic</div></div>
-        <StatusPill on={conn.robinhood} color="gold" />
+        <div className="flex items-center gap-2"><Briefcase className="size-5 text-gold" /><div className="font-medium">Brokerage Agent</div></div>
+        <StatusPill on={conn.broker} color="gold" />
       </div>
       <div className="rounded-md border border-border bg-background p-2 text-xs">
         <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Endpoint</div>
         <div className="flex items-start">
-          <code className="flex-1 break-all font-mono text-[12px]">{ROBINHOOD_MCP_URL}</code>
-          <CopyBtn text={ROBINHOOD_MCP_URL} />
+          <code className="flex-1 break-all font-mono text-[12px]">{BROKER_MCP_URL}</code>
+          <CopyBtn text={BROKER_MCP_URL} />
         </div>
       </div>
       <div className="space-y-1 text-xs text-muted-foreground">
-        <div className="font-medium text-foreground">What Robinhood Agentic does</div>
+        <div className="font-medium text-foreground">What Brokerage Agent does</div>
         <ul className="ml-4 list-disc space-y-0.5">
           <li>Read positions, balances, order history (Agentic account)</li>
           <li>Place orders <b>only</b> in your Agentic account</li>
           <li>Every trade requires your confirmation unless pre-authorized</li>
         </ul>
       </div>
-      <Button size="sm" variant={conn.robinhood ? "outline" : "default"}
-        onClick={() => conn.robinhood ? update({ robinhood: false }) : setOauthOpen(true)}
-        className={!conn.robinhood ? "bg-gold text-gold-foreground hover:bg-gold/90" : ""}>
-        {conn.robinhood ? "Disconnect Robinhood" : "Connect Robinhood Agentic"}
+      <Button size="sm" variant={conn.broker ? "outline" : "default"}
+        onClick={() => conn.broker ? update({ broker: false }) : setOauthOpen(true)}
+        className={!conn.broker ? "bg-gold text-gold-foreground hover:bg-gold/90" : ""}>
+        {conn.broker ? "Disconnect Brokerage" : "Connect Brokerage Agent"}
       </Button>
-      <a href={ROBINHOOD_MCP_URL} target="_blank" rel="noreferrer"
+      <a href={BROKER_MCP_URL} target="_blank" rel="noreferrer"
         className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground">
-        <ExternalLink className="size-3" /> Robinhood Agentic docs
+        <ExternalLink className="size-3" /> Brokerage Agent docs
       </a>
 
       {oauthOpen && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-background/80 backdrop-blur" onClick={() => setOauthOpen(false)}>
           <Card className="m-4 max-w-md border-border bg-elevated p-5" onClick={(e) => e.stopPropagation()}>
-            <div className="mb-2 text-sm font-semibold">Connect Robinhood Agentic</div>
+            <div className="mb-2 text-sm font-semibold">Connect Brokerage Agent</div>
             <p className="text-xs text-muted-foreground">
-              You'll be redirected to Robinhood to authorize your agent. The agent gets read access to positions, balances, and order history, and may place trades <b>only</b> in your Agentic account. You confirm each trade unless you pre-authorize a strategy.
+              You'll be redirected to Brokerage to authorize your agent. The agent gets read access to positions, balances, and order history, and may place trades <b>only</b> in your Agentic account. You confirm each trade unless you pre-authorize a strategy.
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <Button size="sm" variant="outline" onClick={() => setOauthOpen(false)}>Cancel</Button>
               <Button size="sm" className="bg-gold text-gold-foreground hover:bg-gold/90"
-                onClick={() => { setOauthOpen(false); update({ robinhood: true }); toast.success("Robinhood Agentic connected (mock)"); }}>
+                onClick={() => { setOauthOpen(false); update({ broker: true }); toast.success("Brokerage Agent connected (mock)"); }}>
                 Authorize (mock)
               </Button>
             </div>
@@ -187,13 +187,13 @@ function RobinhoodCard() {
 export function AgentLoopDiagram() {
   const [conn] = useConn();
   const left = conn.agent && conn.bayn;
-  const right = conn.bayn && conn.robinhood;
+  const right = conn.bayn && conn.broker;
   return (
     <div className="relative">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <AgentCard />
         <BaynCard />
-        <RobinhoodCard />
+        <BrokerageCard />
       </div>
       {/* desktop connector lines */}
       <div className="pointer-events-none absolute inset-x-0 top-1/2 hidden -translate-y-1/2 md:block">
@@ -229,7 +229,7 @@ export function PermissionMatrix() {
               <th className="py-1.5 text-left font-normal">Capability</th>
               <th className="py-1.5 text-center font-normal">Your Agent</th>
               <th className="py-1.5 text-center font-normal">Bayn</th>
-              <th className="py-1.5 text-center font-normal">Robinhood</th>
+              <th className="py-1.5 text-center font-normal">Brokerage</th>
               <th className="py-1.5 text-center font-normal">You</th>
             </tr>
           </thead>
@@ -249,8 +249,8 @@ export function PermissionMatrix() {
       <div className="mt-3 flex items-start gap-2 rounded-md border border-warn/30 bg-warn/5 px-3 py-2 text-[11px] text-warn">
         <AlertCircle className="mt-0.5 size-3.5 shrink-0" />
         <div className="text-foreground/80">
-          <b className="text-warn">Bayn can never place trades.</b> Robinhood places trades only with your confirmation.
-          Bayn is the brain, Robinhood is the hands, your agent is the nervous system connecting them.
+          <b className="text-warn">Bayn can never place trades.</b> Brokerage places trades only with your confirmation.
+          Bayn is the brain, Brokerage is the hands, your agent is the nervous system connecting them.
         </div>
       </div>
     </Card>
@@ -288,7 +288,7 @@ export function DeployabilityBadge({ stage }: { stage: DeployStage }) {
 /** Optional small "connection status" widget for nav bar */
 export function MCPMiniStatus() {
   const [conn] = useConn();
-  const all = conn.agent && conn.bayn && conn.robinhood;
+  const all = conn.agent && conn.bayn && conn.broker;
   return (
     <span className={cn(
       "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider",

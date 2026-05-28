@@ -102,7 +102,7 @@ export function AgentChat({ mode, onGraph, compact, initialPrompt }: Props) {
               )}
               {m.meta?.kind === "handoff" && (
                 <div className="mt-2 rounded-md border border-border bg-muted/30 px-2 py-1.5 text-[11px] text-muted-foreground">
-                  Bayn never places trades. Your connected agent can route this via Robinhood Agentic with your confirmation.
+                  Bayn never places trades. Your connected agent can route this via Brokerage Agent with your confirmation.
                 </div>
               )}
             </div>
