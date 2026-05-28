@@ -256,7 +256,7 @@ function Builder() {
               <span className="text-violet">5·Signal</span>
             </div>
             <ReactFlow
-              nodes={nodes}
+              nodes={nodes.map((n) => aiHighlight.has(n.id) ? { ...n, className: "ai-placed" } : n)}
               edges={edges}
               nodeTypes={nodeTypes}
               onNodesChange={onNodesChange}
