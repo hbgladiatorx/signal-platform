@@ -19,12 +19,14 @@ import { Route as StudioSubmissionsRouteImport } from './routes/studio.submissio
 import { Route as StudioStrategiesRouteImport } from './routes/studio.strategies'
 import { Route as StudioSignalsRouteImport } from './routes/studio.signals'
 import { Route as StudioSettingsRouteImport } from './routes/studio.settings'
+import { Route as StudioPricingRouteImport } from './routes/studio.pricing'
 import { Route as StudioHomeRouteImport } from './routes/studio.home'
 import { Route as StudioEarningsRouteImport } from './routes/studio.earnings'
 import { Route as StudioDocsRouteImport } from './routes/studio.docs'
 import { Route as StudioBacktestsRouteImport } from './routes/studio.backtests'
 import { Route as AppSignalsRouteImport } from './routes/app.signals'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
+import { Route as AppPricingRouteImport } from './routes/app.pricing'
 import { Route as AppPerformanceRouteImport } from './routes/app.performance'
 import { Route as AppHomeRouteImport } from './routes/app.home'
 import { Route as AppCatalogRouteImport } from './routes/app.catalog'
@@ -86,6 +88,11 @@ const StudioSettingsRoute = StudioSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => StudioRoute,
 } as any)
+const StudioPricingRoute = StudioPricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
+  getParentRoute: () => StudioRoute,
+} as any)
 const StudioHomeRoute = StudioHomeRouteImport.update({
   id: '/home',
   path: '/home',
@@ -114,6 +121,11 @@ const AppSignalsRoute = AppSignalsRouteImport.update({
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPricingRoute = AppPricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
   getParentRoute: () => AppRoute,
 } as any)
 const AppPerformanceRoute = AppPerformanceRouteImport.update({
@@ -179,12 +191,14 @@ export interface FileRoutesByFullPath {
   '/app/catalog': typeof AppCatalogRoute
   '/app/home': typeof AppHomeRoute
   '/app/performance': typeof AppPerformanceRoute
+  '/app/pricing': typeof AppPricingRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/signals': typeof AppSignalsRoute
   '/studio/backtests': typeof StudioBacktestsRouteWithChildren
   '/studio/docs': typeof StudioDocsRoute
   '/studio/earnings': typeof StudioEarningsRoute
   '/studio/home': typeof StudioHomeRoute
+  '/studio/pricing': typeof StudioPricingRoute
   '/studio/settings': typeof StudioSettingsRoute
   '/studio/signals': typeof StudioSignalsRoute
   '/studio/strategies': typeof StudioStrategiesRoute
@@ -207,12 +221,14 @@ export interface FileRoutesByTo {
   '/app/catalog': typeof AppCatalogRoute
   '/app/home': typeof AppHomeRoute
   '/app/performance': typeof AppPerformanceRoute
+  '/app/pricing': typeof AppPricingRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/signals': typeof AppSignalsRoute
   '/studio/backtests': typeof StudioBacktestsRouteWithChildren
   '/studio/docs': typeof StudioDocsRoute
   '/studio/earnings': typeof StudioEarningsRoute
   '/studio/home': typeof StudioHomeRoute
+  '/studio/pricing': typeof StudioPricingRoute
   '/studio/settings': typeof StudioSettingsRoute
   '/studio/signals': typeof StudioSignalsRoute
   '/studio/strategies': typeof StudioStrategiesRoute
@@ -236,12 +252,14 @@ export interface FileRoutesById {
   '/app/catalog': typeof AppCatalogRoute
   '/app/home': typeof AppHomeRoute
   '/app/performance': typeof AppPerformanceRoute
+  '/app/pricing': typeof AppPricingRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/signals': typeof AppSignalsRoute
   '/studio/backtests': typeof StudioBacktestsRouteWithChildren
   '/studio/docs': typeof StudioDocsRoute
   '/studio/earnings': typeof StudioEarningsRoute
   '/studio/home': typeof StudioHomeRoute
+  '/studio/pricing': typeof StudioPricingRoute
   '/studio/settings': typeof StudioSettingsRoute
   '/studio/signals': typeof StudioSignalsRoute
   '/studio/strategies': typeof StudioStrategiesRoute
@@ -266,12 +284,14 @@ export interface FileRouteTypes {
     | '/app/catalog'
     | '/app/home'
     | '/app/performance'
+    | '/app/pricing'
     | '/app/settings'
     | '/app/signals'
     | '/studio/backtests'
     | '/studio/docs'
     | '/studio/earnings'
     | '/studio/home'
+    | '/studio/pricing'
     | '/studio/settings'
     | '/studio/signals'
     | '/studio/strategies'
@@ -294,12 +314,14 @@ export interface FileRouteTypes {
     | '/app/catalog'
     | '/app/home'
     | '/app/performance'
+    | '/app/pricing'
     | '/app/settings'
     | '/app/signals'
     | '/studio/backtests'
     | '/studio/docs'
     | '/studio/earnings'
     | '/studio/home'
+    | '/studio/pricing'
     | '/studio/settings'
     | '/studio/signals'
     | '/studio/strategies'
@@ -322,12 +344,14 @@ export interface FileRouteTypes {
     | '/app/catalog'
     | '/app/home'
     | '/app/performance'
+    | '/app/pricing'
     | '/app/settings'
     | '/app/signals'
     | '/studio/backtests'
     | '/studio/docs'
     | '/studio/earnings'
     | '/studio/home'
+    | '/studio/pricing'
     | '/studio/settings'
     | '/studio/signals'
     | '/studio/strategies'
@@ -421,6 +445,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudioSettingsRouteImport
       parentRoute: typeof StudioRoute
     }
+    '/studio/pricing': {
+      id: '/studio/pricing'
+      path: '/pricing'
+      fullPath: '/studio/pricing'
+      preLoaderRoute: typeof StudioPricingRouteImport
+      parentRoute: typeof StudioRoute
+    }
     '/studio/home': {
       id: '/studio/home'
       path: '/home'
@@ -461,6 +492,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/app/settings'
       preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/pricing': {
+      id: '/app/pricing'
+      path: '/pricing'
+      fullPath: '/app/pricing'
+      preLoaderRoute: typeof AppPricingRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/performance': {
@@ -541,6 +579,7 @@ interface AppRouteChildren {
   AppCatalogRoute: typeof AppCatalogRoute
   AppHomeRoute: typeof AppHomeRoute
   AppPerformanceRoute: typeof AppPerformanceRoute
+  AppPricingRoute: typeof AppPricingRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppSignalsRoute: typeof AppSignalsRoute
   AppShareCardIdRoute: typeof AppShareCardIdRoute
@@ -553,6 +592,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppCatalogRoute: AppCatalogRoute,
   AppHomeRoute: AppHomeRoute,
   AppPerformanceRoute: AppPerformanceRoute,
+  AppPricingRoute: AppPricingRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppSignalsRoute: AppSignalsRoute,
   AppShareCardIdRoute: AppShareCardIdRoute,
@@ -579,6 +619,7 @@ interface StudioRouteChildren {
   StudioDocsRoute: typeof StudioDocsRoute
   StudioEarningsRoute: typeof StudioEarningsRoute
   StudioHomeRoute: typeof StudioHomeRoute
+  StudioPricingRoute: typeof StudioPricingRoute
   StudioSettingsRoute: typeof StudioSettingsRoute
   StudioSignalsRoute: typeof StudioSignalsRoute
   StudioStrategiesRoute: typeof StudioStrategiesRoute
@@ -592,6 +633,7 @@ const StudioRouteChildren: StudioRouteChildren = {
   StudioDocsRoute: StudioDocsRoute,
   StudioEarningsRoute: StudioEarningsRoute,
   StudioHomeRoute: StudioHomeRoute,
+  StudioPricingRoute: StudioPricingRoute,
   StudioSettingsRoute: StudioSettingsRoute,
   StudioSignalsRoute: StudioSignalsRoute,
   StudioStrategiesRoute: StudioStrategiesRoute,
@@ -614,3 +656,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
