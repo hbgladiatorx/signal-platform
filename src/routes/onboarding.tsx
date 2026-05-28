@@ -27,7 +27,7 @@ import {
   useStudioAssetClasses, useStudioExperience, useBacktestDefaults,
   useForwardTestDefaults, useStudioAiPreferences, useStudioWorkspaceDefaults,
   usePayoutPreference, useDefaultModeOnLogin, setOnboardingResume,
-  usePayoutPreference, useDefaultModeOnLogin, setOnboardingResume,
+
   type BrokerId, type AgentPlatform,
   type BuilderEntry, type StudioExperience, type NodeStyle,
 } from "@/lib/user-prefs";
