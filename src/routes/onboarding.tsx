@@ -113,12 +113,19 @@ function OnboardingPage() {
       setOnboarded(true); // allow access; checklist surfaces remaining items
     }
     const plan = getCurrentPlan();
+    // Studio is gated by plan.developer. If a developer/both user finishes
+    // onboarding without picking a Studio plan, auto-grant the entry tier so
+    // their Studio workspace is immediately accessible (they can upgrade later).
+    if ((path === "developer" || path === "both") && !plan.developer) {
+      setCurrentPlan({ developer: "studio-builder" });
+    }
     if (path === "developer") {
-      nav({ to: plan.developer ? "/studio/home" : "/studio/pricing" });
+      nav({ to: "/studio/home" });
     } else {
       nav({ to: "/app/home" });
     }
   };
+
 
   if (!authChecked) {
     return (
