@@ -107,7 +107,45 @@ function Landing() {
           animation: draw 2.4s ease-out forwards;
         }
         @keyframes draw { to { stroke-dashoffset: 0; } }
+
+        /* Scroll reveal */
+        [data-reveal] {
+          opacity: 0;
+          transform: translateY(28px);
+          transition: opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
+                      transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+          transition-delay: var(--reveal-delay, 0ms);
+          will-change: opacity, transform;
+        }
+        [data-reveal].is-revealed {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          [data-reveal] { opacity: 1; transform: none; transition: none; }
+          .ticker-track, .equity-rise, .hero-shimmer, .hero-rise { animation: none !important; }
+        }
+
+        /* Hero text animations */
+        .hero-rise {
+          opacity: 0;
+          transform: translateY(20px);
+          animation: heroRise 900ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+          animation-delay: var(--rise-delay, 0ms);
+        }
+        @keyframes heroRise {
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .hero-shimmer {
+          background-size: 200% auto;
+          animation: shimmer 6s linear infinite;
+        }
+        @keyframes shimmer {
+          0% { background-position: 0% center; }
+          100% { background-position: 200% center; }
+        }
       `}</style>
+
 
       {/* HEADER */}
       <header className="sticky top-0 z-30 bg-background/60 backdrop-blur-xl">
