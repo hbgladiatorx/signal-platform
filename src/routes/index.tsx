@@ -254,7 +254,8 @@ function Landing() {
               className="hero-rise landing-display text-balance text-5xl font-bold leading-[1.04] md:text-7xl"
               style={{ ["--rise-delay" as any]: "100ms" }}
             >
-              Trading strategies, <span className="landing-grad-text hero-shimmer">measured honestly</span>.
+              Institutional trading, <span className="landing-grad-text hero-shimmer">for everyone</span>.
+
             </h1>
             <p
               className="hero-rise mx-auto mt-7 max-w-2xl text-balance text-lg text-muted-foreground md:text-xl"
