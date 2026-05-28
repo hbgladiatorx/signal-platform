@@ -355,6 +355,118 @@ function generateMonteCarlo(run: BacktestRun) {
     p5: (finals[Math.floor(0.05 * N)] - cap) / cap,
     p50: (finals[Math.floor(0.5 * N)] - cap) / cap,
     p95: (finals[Math.floor(0.95 * N)] - cap) / cap,
-    ruin,
+}
+
+function DrawdownCard({ run }: { run: BacktestRun }) {
+  const data = useMemo(() => {
+    let peak = run.equity[0]?.equity ?? 0;
+    return run.equity.map((p) => {
+      peak = Math.max(peak, p.equity);
+      const dd = peak > 0 ? (p.equity - peak) / peak : 0;
+      return { t: p.t, dd };
+    });
+  }, [run.id]);
+  const maxDD = Math.min(...data.map((d) => d.dd));
+  return (
+    <Card className="border-border bg-elevated p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <div className="text-sm font-medium">Drawdown</div>
+        <div className="font-mono text-[11px] text-muted-foreground">Max DD <span className="text-danger">{fmtPct(maxDD)}</span></div>
+      </div>
+      <div className="h-48">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data}>
+            <defs><linearGradient id="ddg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="var(--danger)" stopOpacity={0.5} /><stop offset="100%" stopColor="var(--danger)" stopOpacity={0} /></linearGradient></defs>
+            <CartesianGrid stroke="oklch(1 0 0 / 8%)" vertical={false} />
+            <XAxis dataKey="t" tickFormatter={(v) => new Date(v).toLocaleDateString(undefined, { month: "short" })} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v * 100).toFixed(0)}%`} />
+            <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} formatter={(v: number) => fmtPct(v)} />
+            <Area type="monotone" dataKey="dd" stroke="var(--danger)" strokeWidth={1.5} fill="url(#ddg)" />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </Card>
+  );
+}
+
+function histogram(values: number[], bins: number) {
+  if (!values.length) return [] as { x: number; count: number }[];
+  const min = Math.min(...values), max = Math.max(...values);
+  const w = (max - min) / bins || 1;
+  const buckets = Array.from({ length: bins }, (_, i) => ({ x: +(min + (i + 0.5) * w).toFixed(2), count: 0 }));
+  for (const v of values) {
+    const idx = Math.min(bins - 1, Math.max(0, Math.floor((v - min) / w)));
+    buckets[idx].count++;
+  }
+  return buckets;
+}
+
+function RDistributionCard({ run }: { run: BacktestRun }) {
+  const data = useMemo(() => histogram(run.trades.map((t) => t.pnlR), 24), [run.id]);
+  return (
+    <Card className="border-border bg-elevated p-4">
+      <div className="mb-2 text-sm font-medium">Per-trade R distribution</div>
+      <div className="h-48">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data}>
+            <CartesianGrid stroke="oklch(1 0 0 / 8%)" vertical={false} />
+            <XAxis dataKey="x" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={(v) => v.toFixed(1)} />
+            <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+            <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} />
+            <Bar dataKey="count">
+              {data.map((d, i) => <Cell key={i} fill={d.x >= 0 ? "var(--cyan)" : "var(--danger)"} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </Card>
+  );
+}
+
+function TerminalValueCard({ run }: { run: BacktestRun }) {
+  const { data, p5, p50, p95 } = useMemo(() => {
+    const rets = run.trades.map((t) => t.pnlR * 0.01);
+    const N = 500, T = Math.min(rets.length, 120);
+    const finals: number[] = [];
+    for (let i = 0; i < N; i++) {
+      let v = run.params.capital;
+      for (let t = 0; t < T; t++) v = Math.max(v * (1 + (rets[Math.floor(Math.random() * rets.length)] ?? 0)), 0);
+      finals.push(v);
+    }
+    finals.sort((a, b) => a - b);
+    return {
+      data: histogram(finals, 30),
+      p5: finals[Math.floor(0.05 * N)],
+      p50: finals[Math.floor(0.5 * N)],
+      p95: finals[Math.floor(0.95 * N)],
+    };
+  }, [run.id]);
+  return (
+    <Card className="border-border bg-elevated p-4">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="text-sm font-medium">Terminal-value distribution</div>
+        <div className="flex items-center gap-3 font-mono text-[11px] text-muted-foreground">
+          <span>p5 <span className="text-danger">${(p5/1000).toFixed(1)}k</span></span>
+          <span>p50 <span className="text-foreground">${(p50/1000).toFixed(1)}k</span></span>
+          <span>p95 <span className="text-cyan">${(p95/1000).toFixed(1)}k</span></span>
+        </div>
+      </div>
+      <div className="h-48">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data}>
+            <CartesianGrid stroke="oklch(1 0 0 / 8%)" vertical={false} />
+            <XAxis dataKey="x" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
+            <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
+            <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} formatter={(v: number) => v} labelFormatter={(v) => `$${Number(v).toLocaleString()}`} />
+            <Bar dataKey="count">
+              {data.map((d, i) => <Cell key={i} fill={d.x >= run.params.capital ? "var(--violet)" : "var(--danger)"} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </Card>
+  );
+}
+
   };
 }
