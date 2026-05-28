@@ -23,7 +23,10 @@ const TIMEFRAMES: Array<{ key: string; label: string }> = [
   { key: "60", label: "1h" },
   { key: "D", label: "1D" },
   { key: "W", label: "1W" },
+];
+
 /** Hero chart that tracks the live signal(s) from the user's followed strategies.
+
  *  Falls back to the first watchlist ticker when no live signal is active. */
 export function LiveTrackerChart() {
   const { assetClass } = useAssetFilter();
