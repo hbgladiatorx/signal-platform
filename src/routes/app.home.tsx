@@ -24,6 +24,7 @@ import { useAssetFilter } from "@/lib/asset-filter";
 import { LiveTrackerChart } from "@/components/common/LiveTrackerChart";
 import { NewsTicker } from "@/components/common/NewsTicker";
 import { useWatchlist } from "@/lib/user-prefs";
+import { CustomizeButton } from "@/components/common/CustomizeButton";
 
 export const Route = createFileRoute("/app/home")({
   head: () => ({ meta: [{ title: "Home — Bayn" }] }),
