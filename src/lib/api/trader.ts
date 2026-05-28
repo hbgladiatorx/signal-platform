@@ -1,11 +1,13 @@
 // Trader-side API. Mock now → Supabase later.
 import {
   strategies, signals, marketTiles, getEquityCurve, getUserEquityCurve,
-  takenSignals, followedStrategyIds,
+  takenSignals, followedStrategyIds, marketNews,
 } from "../mockData";
 import type { Strategy, Signal } from "../types";
 
 const wait = (ms = 120) => new Promise((r) => setTimeout(r, ms));
+
+export async function getMarketNews() { await wait(60); return marketNews; }
 
 export async function getStrategies(): Promise<Strategy[]> {
   await wait();

@@ -517,3 +517,30 @@ export const studioEarnings: StudioEarning[] = Array.from({ length: 6 }).map((_,
     subscribers: Math.max(20, 180 - i * 15),
   };
 }).reverse();
+
+/* ---------------- Market news (Bloomberg-style ticker) ---------------- */
+export interface NewsItem {
+  id: string;
+  source: string;
+  headline: string;
+  symbol?: string;
+  category: "Markets" | "Crypto" | "Macro" | "Earnings" | "Energy" | "Rates";
+  sentiment: "pos" | "neg" | "neu";
+  minutesAgo: number;
+}
+export const marketNews: NewsItem[] = [
+  { id: "n1", source: "Reuters", category: "Markets", sentiment: "pos", minutesAgo: 2, symbol: "SPY", headline: "S&P 500 extends rally on cooling inflation print" },
+  { id: "n2", source: "Bloomberg", category: "Earnings", sentiment: "pos", minutesAgo: 6, symbol: "NVDA", headline: "Nvidia data-center bookings exceed Q4 consensus by 11%" },
+  { id: "n3", source: "WSJ", category: "Rates", sentiment: "neu", minutesAgo: 14, headline: "Fed minutes show split on timing of next rate cut" },
+  { id: "n4", source: "CoinDesk", category: "Crypto", sentiment: "neg", minutesAgo: 18, symbol: "BTC", headline: "Bitcoin slips below 71k as ETF outflows accelerate" },
+  { id: "n5", source: "Bloomberg", category: "Energy", sentiment: "neg", minutesAgo: 22, symbol: "CL", headline: "Crude oil tests $71 on demand-cut warning from IEA" },
+  { id: "n6", source: "FT", category: "Macro", sentiment: "neu", minutesAgo: 31, headline: "ECB signals patience as core inflation stays sticky" },
+  { id: "n7", source: "Reuters", category: "Earnings", sentiment: "pos", minutesAgo: 38, symbol: "AAPL", headline: "Apple services revenue hits record on subscriptions" },
+  { id: "n8", source: "Bloomberg", category: "Crypto", sentiment: "pos", minutesAgo: 47, symbol: "ETH", headline: "Ethereum staking yield rises to 4.1% after upgrade" },
+  { id: "n9", source: "WSJ", category: "Markets", sentiment: "neg", minutesAgo: 54, symbol: "VIX", headline: "Volatility curve flattens — dealers signal hedge demand" },
+  { id: "n10", source: "Reuters", category: "Macro", sentiment: "neu", minutesAgo: 62, headline: "US payrolls preview: street looks for 175k, 4.1% unemployment" },
+  { id: "n11", source: "Bloomberg", category: "Earnings", sentiment: "neg", minutesAgo: 71, symbol: "META", headline: "Meta capex guide rattles ad-tech peers in after-hours" },
+  { id: "n12", source: "CoinDesk", category: "Crypto", sentiment: "neu", minutesAgo: 80, headline: "Stablecoin supply tops $170B as Treasury yields hold" },
+];
+
+export function getMarketNews() { return marketNews; }

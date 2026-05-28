@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AssetFilterProvider, useAssetFilter, ASSET_OPTIONS } from "@/lib/asset-filter";
+import { MarketTicker } from "@/components/common/MarketTicker";
 
 type NavItem = { to: string; label: string; icon: typeof Home };
 
@@ -144,26 +145,40 @@ function Shell({ mode }: { mode: "trader" | "studio" }) {
 
         {/* Asset-class filter — trader only, cascades through context */}
         {!isStudio && <AssetChipRow />}
+
+        {/* Bloomberg-style market ticker — trader only */}
+        {!isStudio && <MarketTicker />}
       </header>
 
-      <main className="min-w-0 flex-1 pb-28">
+      <main className="min-w-0 flex-1 pb-32">
         <Outlet />
       </main>
 
-      {/* Bottom dock — floating glass pill */}
+      {/* Bottom dock — prominent floating pill */}
       <nav
-        className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-3"
+        className="pointer-events-none fixed inset-x-0 bottom-5 z-40 flex justify-center px-3"
         aria-label="Primary"
       >
+        {/* Halo glow behind the dock for prominence */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute bottom-1 left-1/2 h-16 w-[min(640px,92vw)] -translate-x-1/2 rounded-full blur-2xl opacity-70"
+          style={{
+            background: isStudio
+              ? "radial-gradient(closest-side, color-mix(in oklab, var(--violet) 45%, transparent), transparent 75%)"
+              : "radial-gradient(closest-side, color-mix(in oklab, var(--cyan) 45%, transparent), transparent 75%)",
+          }}
+        />
         <div
           className={cn(
-            "pointer-events-auto flex max-w-[96vw] items-center gap-1 overflow-x-auto rounded-full border p-1.5 shadow-xl backdrop-blur-xl",
-            "border-border/70 bg-elevated/80",
+            "pointer-events-auto relative flex max-w-[96vw] items-center gap-1 overflow-x-auto rounded-full border-2 p-2 backdrop-blur-2xl",
+            isStudio ? "border-violet/40" : "border-cyan/40",
           )}
           style={{
-            backgroundImage: isStudio
-              ? "radial-gradient(220px 80px at 50% 0%, color-mix(in oklab, var(--violet) 18%, transparent), transparent 70%)"
-              : "radial-gradient(220px 80px at 50% 0%, color-mix(in oklab, var(--cyan) 18%, transparent), transparent 70%)",
+            background: "color-mix(in oklab, var(--background) 78%, transparent)",
+            boxShadow: isStudio
+              ? "0 20px 50px -12px color-mix(in oklab, var(--violet) 45%, transparent), 0 0 0 1px color-mix(in oklab, var(--violet) 25%, transparent) inset"
+              : "0 20px 50px -12px color-mix(in oklab, var(--cyan) 45%, transparent), 0 0 0 1px color-mix(in oklab, var(--cyan) 25%, transparent) inset",
           }}
         >
           {nav.map((item) => {
@@ -174,16 +189,22 @@ function Shell({ mode }: { mode: "trader" | "studio" }) {
                 key={item.to}
                 to={item.to}
                 className={cn(
-                  "group flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium transition-all",
+                  "group relative flex items-center gap-1.5 rounded-full px-3.5 py-2.5 text-[12px] font-medium tracking-tight transition-all",
                   active
                     ? isStudio
-                      ? "bg-violet text-violet-foreground shadow-md shadow-violet/30"
-                      : "bg-cyan text-cyan-foreground shadow-md shadow-cyan/30"
-                    : "text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+                      ? "bg-violet text-violet-foreground shadow-lg shadow-violet/40"
+                      : "bg-cyan text-cyan-foreground shadow-lg shadow-cyan/40"
+                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
                 )}
               >
-                <Icon className="size-4 shrink-0" />
-                <span className={cn(active ? "inline" : "hidden sm:inline")}>{item.label}</span>
+                <Icon className="size-[16px] shrink-0" />
+                <span className="hidden sm:inline">{item.label}</span>
+                {active && (
+                  <span className={cn(
+                    "absolute -top-1 left-1/2 size-1.5 -translate-x-1/2 rounded-full",
+                    isStudio ? "bg-violet" : "bg-cyan",
+                  )} />
+                )}
               </Link>
             );
           })}

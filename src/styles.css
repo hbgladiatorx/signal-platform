@@ -2,6 +2,7 @@
 @source "../src";
 @import "tw-animate-css";
 @import "reactflow/dist/style.css";
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
 
 @custom-variant dark (&:is(.dark *));
 
@@ -52,7 +53,8 @@
   --color-chart-3: var(--gold);
   --color-chart-4: var(--stocks);
   --color-chart-5: var(--options);
-  --font-mono: ui-monospace, "JetBrains Mono", "SF Mono", Menlo, monospace;
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "JetBrains Mono", "SF Mono", Menlo, monospace;
 }
 
 :root {
@@ -87,10 +89,11 @@
   --gold: oklch(0.78 0.13 85);
   --gold-foreground: oklch(0.15 0.02 85);
 
-  --stocks: oklch(0.7 0.15 240);
-  --crypto: oklch(0.72 0.17 50);
-  --options: oklch(0.68 0.2 300);
-  --futures: oklch(0.72 0.16 145);
+  /* Asset classes — intentionally neutral. Color is reserved for state (cyan/violet/danger/gold). */
+  --stocks: oklch(0.72 0.01 270);
+  --crypto: oklch(0.72 0.01 270);
+  --options: oklch(0.72 0.01 270);
+  --futures: oklch(0.72 0.01 270);
 
   --sidebar: oklch(0.17 0.005 270);
   --sidebar-foreground: oklch(0.85 0.005 270);
@@ -108,8 +111,9 @@
 
 @layer base {
   * { border-color: var(--color-border); }
-  html, body { background-color: var(--color-background); color: var(--color-foreground); }
-  body { font-feature-settings: "cv11", "ss01"; }
+  html, body { background-color: var(--color-background); color: var(--color-foreground); font-family: var(--font-sans); }
+  body { font-feature-settings: "cv11", "ss01", "ss02", "zero", "tnum"; letter-spacing: -0.005em; }
+  h1, h2, h3, h4 { letter-spacing: -0.018em; }
 }
 
 @layer utilities {
@@ -133,6 +137,17 @@
   @keyframes mode-fade {
     from { opacity: 0.4; }
     to { opacity: 1; }
+  }
+  .marquee-track {
+    display: flex;
+    width: max-content;
+    animation: marquee 60s linear infinite;
+  }
+  .marquee-slow { animation-duration: 110s; }
+  .marquee-pause:hover .marquee-track { animation-play-state: paused; }
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
   }
 }
 
