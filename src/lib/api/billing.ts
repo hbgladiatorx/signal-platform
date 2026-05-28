@@ -229,6 +229,13 @@ export function setCurrentPlan(next: Partial<CurrentPlan>) {
   });
 }
 
+export function resetCurrentPlan() {
+  const before = { ...readStoredPlan(), activeAddOns: [...mock.activeAddOns] };
+  mock = { ...defaultPlan };
+  persistPlan();
+  logDebugEvent({ type: "reset", message: "Billing plan reset to free / no Studio", meta: { before, after: mock } });
+}
+
 /* ---------------- Slot system (mock) ---------------- */
 /**
  * Free strategies (one per asset class) never count against the slot quota.
