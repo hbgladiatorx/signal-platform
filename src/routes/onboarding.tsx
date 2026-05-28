@@ -27,9 +27,12 @@ import {
   useStudioAssetClasses, useStudioExperience, useBacktestDefaults,
   useForwardTestDefaults, useStudioAiPreferences, useStudioWorkspaceDefaults,
   usePayoutPreference, useDefaultModeOnLogin, setOnboardingResume,
-  type AssetClass as AC, type BrokerId, type AgentPlatform,
+  usePayoutPreference, useDefaultModeOnLogin, setOnboardingResume,
+  type BrokerId, type AgentPlatform,
   type BuilderEntry, type StudioExperience, type NodeStyle,
 } from "@/lib/user-prefs";
+import type { AssetClass as AC } from "@/lib/types";
+
 
 export const Route = createFileRoute("/onboarding")({
   head: () => ({ meta: [{ title: "Welcome to Bayn" }] }),
