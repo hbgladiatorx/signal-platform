@@ -176,7 +176,8 @@ function OnboardingPage() {
 
         {current.key === "studioAi" && <StepStudioAi />}
         {current.key === "studioPlan" && <StepPlan billing={billing} setBilling={setBilling} audience="developer" onPick={next} />}
-        {current.key === "payout" && <StepPayout />}
+        {current.key === "forwardTest" && <StepForwardTest />}
+
         {current.key === "workspace" && <StepWorkspace />}
         {current.key === "firstStrategy" && <StepFirstStrategy />}
         {current.key === "defaultMode" && <StepDefaultMode />}
@@ -201,15 +202,15 @@ function OnboardingPage() {
       </main>
     </div>
   );
-
-
+}
 
 
 /* ---------------- Step graph ---------------- */
 
 type StepKey =
   | "path" | "identity" | "experience"
-  | "markets" | "tickers" | "news" | "risk" | "brokers" | "agent" | "notifications" | "plan"
+  | "studioPlan" | "workspace" | "firstStrategy" | "defaultMode" | "done";
+
   | "studioMarkets" | "builderExp" | "backtestDefaults" | "forwardTest" | "studioAi"
   | "studioPlan" | "payout" | "workspace" | "firstStrategy" | "defaultMode" | "done";
 
