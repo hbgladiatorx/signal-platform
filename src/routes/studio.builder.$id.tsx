@@ -71,7 +71,36 @@ function Builder() {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [leftTab, setLeftTab] = useState<"ai" | "palette">("ai");
   const [aiHighlight, setAiHighlight] = useState<Set<string>>(new Set());
+  const [sidebarWidth, setSidebarWidth] = useState(340);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const counter = useRef(0);
+
+  // Drag-to-resize the AI / palette sidebar.
+  const dragging = useRef(false);
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!dragging.current) return;
+      const next = Math.min(820, Math.max(260, e.clientX));
+      setSidebarWidth(next);
+    };
+    const onUp = () => { dragging.current = false; document.body.style.cursor = ""; };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+  }, []);
+
+  const getCurrentGraph = useCallback(() => {
+    if (!nodes.length) return null;
+    return {
+      name,
+      assetClass,
+      nodes: nodes.map((n) => ({
+        id: n.id, type: n.data.nodeType, category: n.data.category, label: n.data.label,
+        position: n.position, data: n.data.config,
+      })),
+      edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle ?? undefined, targetHandle: e.targetHandle ?? undefined })),
+    };
+  }, [nodes, edges, name, assetClass]);
 
   const applyAIGraph = (g: NonNullable<ChatMsg["meta"]>["graph"]) => {
     if (!g) return;
@@ -97,6 +126,24 @@ function Builder() {
       setTimeout(() => setAiHighlight(new Set()), 2500);
     }, rfNodes.length * 150 + 200);
     counter.current = rfNodes.length;
+  };
+
+  /** Apply an AI tweak: patch node data in place, keep positions, highlight affected nodes. */
+  const applyAITweak = (t: import("@/lib/api/agent").TweakResult) => {
+    const byId = new Map(t.graph.nodes.map((n) => [n.id, n]));
+    setName(t.name);
+    setAssetClass(t.assetClass);
+    setNodes((prev) => prev.map((rn) => {
+      const updated = byId.get(rn.id);
+      if (!updated) return rn;
+      return { ...rn, data: { ...rn.data, label: updated.label, config: updated.data } };
+    }));
+    setAiHighlight(new Set(t.changedNodeIds));
+    setLogs((l) => [
+      ...l,
+      ...t.changes.map((c) => ({ ts: new Date().toISOString(), level: "ok" as const, msg: `AI tweak: ${c}` })),
+    ]);
+    setTimeout(() => setAiHighlight(new Set()), 2500);
   };
 
 
