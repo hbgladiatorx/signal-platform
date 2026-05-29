@@ -84,41 +84,16 @@ function HomePage() {
       {/* Market wire ticker */}
       <NewsTicker />
 
-      {/* Market overview — live Finnhub quotes for watched tickers */}
+      {/* Market overview — TradingView widget with stocks/crypto/futures/vol tabs */}
       <section>
         <h2 className="mb-3 text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
           Market overview {assetClass !== "all" && <span className="text-foreground">· {assetClass}</span>}
         </h2>
-        {watchlist.length === 0 ? (
-          <Card className="border-dashed border-border bg-elevated/40 p-6 text-center text-sm text-muted-foreground">
-            No tickers yet. Add some in Customize to see live quotes here.
-          </Card>
-        ) : (
-          <div className="flex gap-3 overflow-x-auto pb-2">
-            {(market.isLoading ? Array.from({ length: Math.min(watchlist.length, 4) }) : tiles).map((tile: any, i: number) => (
-              <Card key={tile?.symbol ?? i} className="flex w-52 shrink-0 flex-col gap-2 border-border bg-elevated p-3">
-                {tile ? (
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="font-mono text-sm font-semibold">{tile.symbol}</div>
-                      <div className="text-[11px] text-muted-foreground">Live</div>
-                    </div>
-                    <div className={tile.changePct >= 0 ? "text-cyan" : "text-danger"}>
-                      <div className="text-right font-mono text-sm">{fmtMoney(tile.price)}</div>
-                      <div className="text-right font-mono text-[11px]">{fmtPct(tile.changePct / 100)}</div>
-                    </div>
-                  </div>
-                ) : <div className="h-12 animate-pulse rounded bg-muted/50" />}
-              </Card>
-            ))}
-            {!market.isLoading && tiles.length === 0 && (
-              <Card className="w-full border-dashed border-border bg-elevated/40 p-6 text-center text-sm text-muted-foreground">
-                Quotes unavailable right now. Try again shortly.
-              </Card>
-            )}
-          </div>
-        )}
+        <Card className="overflow-hidden border-border bg-elevated p-0">
+          <TVMarketOverview height={460} />
+        </Card>
       </section>
+
 
 
 
