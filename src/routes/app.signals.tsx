@@ -28,9 +28,10 @@ function SignalsPage() {
   const { assetClass } = useAssetFilter();
   const [status, setStatus] = useState<"all" | SignalStatus>("all");
   const { data } = useQuery({ queryKey: ["signals-all"], queryFn: () => getSignals() });
-  // re-render on follow/unfollow
-  useFollowedOverlay();
-  const followedIds = useMemo(() => new Set(getEffectiveFollowedIds()), [data]);
+  const { data } = useQuery({ queryKey: ["signals-all"], queryFn: () => getSignals() });
+  const followedList = useFollowedIds();
+  const followedIds = useMemo(() => new Set<string>(followedList), [followedList]);
+
 
   useEffect(() => { setStatus("all"); }, [assetClass]);
 
