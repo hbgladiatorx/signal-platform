@@ -1,13 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import {
   getFollowedStrategies, getRecentSignals, getUserPerformance,
 } from "@/lib/api";
-import { getQuotes } from "@/lib/api/finnhub.functions";
-
-
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,8 +21,9 @@ import { TrendingUp, Inbox } from "lucide-react";
 import { useAssetFilter } from "@/lib/asset-filter";
 import { LiveTrackerChart } from "@/components/common/LiveTrackerChart";
 import { NewsTicker } from "@/components/common/NewsTicker";
-import { useWatchlist } from "@/lib/user-prefs";
+import { TVMarketOverview } from "@/components/common/TVMarketOverview";
 import { CustomizeButton } from "@/components/common/CustomizeButton";
+
 
 export const Route = createFileRoute("/app/home")({
   head: () => ({ meta: [{ title: "Home — Bayn" }] }),
