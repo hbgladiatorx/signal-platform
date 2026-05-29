@@ -49,7 +49,8 @@ function SignalDetail() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [fillPrice, setFillPrice] = useState<string>("");
   const [interval, setIntervalKey] = useState<string>("60");
-  useFollowedOverlay();
+  const followedIds = useFollowedIds();
+
   const qc = useQueryClient();
   const subscribe = useMutation({
     mutationFn: subscribeToStrategy,
