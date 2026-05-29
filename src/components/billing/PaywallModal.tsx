@@ -54,8 +54,6 @@ export function PaywallModal({
       await subscribeToStrategy(strategyId);
     }
 
-      await subscribeToStrategy(strategyId);
-    }
     qc.invalidateQueries({ queryKey: ["followed"] });
     qc.invalidateQueries({ queryKey: ["plan"] });
     toast.success(toastMsg);
