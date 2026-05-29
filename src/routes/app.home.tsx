@@ -202,7 +202,8 @@ function HomePage() {
                 </div>
                 <div className="col-span-1"><StatusPill status={sig.status} /></div>
                 <div className="col-span-2 h-8">
-                  <Sparkline data={sig.priceSeries.slice(-30).map((p) => p.price)} positive={sig.direction === "LONG"} />
+                  <Sparkline data={sig.priceSeries.slice(-30).map((p: { price: number }) => p.price)} positive={sig.direction === "LONG"} />
+
                 </div>
               </Link>
             ))}
