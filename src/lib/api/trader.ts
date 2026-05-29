@@ -193,3 +193,30 @@ export function subscribeToSignalUpdates(onUpdate: (signal: any) => void) {
     .subscribe();
   return () => supabase.removeChannel(channel);
 }
+
+// ─────────────────────────────────────────────────────────────
+// Legacy compatibility shims — keep old call sites compiling
+// while the app migrates to the new signal_products schema.
+// These return empty data; replace usage incrementally.
+// ─────────────────────────────────────────────────────────────
+import type { Strategy, Signal, EquityPoint, TakenSignal } from "../types";
+
+export async function getStrategies(): Promise<Strategy[]> { return []; }
+export async function getStrategyById(_id: string): Promise<Strategy | undefined> { return undefined; }
+export async function getFollowedStrategies(): Promise<Strategy[]> { return []; }
+export async function getSignals(_opts?: { strategyId?: string; limit?: number }): Promise<Signal[]> { return []; }
+export async function getSignalById(_id: string): Promise<Signal | undefined> { return undefined; }
+export async function getStrategyEquity(_strategyId: string, _days = 30): Promise<EquityPoint[]> { return []; }
+export async function getUserPerformance(_days = 30) {
+  return {
+    equity: [] as EquityPoint[],
+    taken: [] as TakenSignal[],
+    kpis: { totalTaken: 0, winRate: 0, avgR: 0, maxDrawdown: 0 },
+  };
+}
+export function getEffectiveFollowedIds(): string[] { return []; }
+export async function subscribeToStrategy(productId: string) { await subscribeToProduct(productId); return { ok: true }; }
+export async function unsubscribeFromStrategy(productId: string) { await unsubscribeFromProduct(productId); return { ok: true }; }
+export async function sendOrderToBroker(_signalId: string, _broker: string) { return { ok: true }; }
+export async function getMarketOverview(): Promise<never[]> { return []; }
+export async function getMarketNews(): Promise<never[]> { return []; }
