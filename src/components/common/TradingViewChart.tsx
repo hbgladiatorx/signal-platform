@@ -1,5 +1,6 @@
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { AssetClass } from "@/lib/types";
+import { tvSymbol as mapTvSymbol } from "@/lib/tradingview";
 
 declare global {
   interface Window {
@@ -31,40 +32,9 @@ function loadTradingView(): Promise<void> {
   return scriptPromise;
 }
 
-/** Map our internal symbols + asset classes to TradingView exchange-qualified symbols. */
-export function toTradingViewSymbol(symbol: string, assetClass?: AssetClass | "index"): string {
-  const s = symbol.toUpperCase();
-  // Explicit, hand-tuned mappings for our mock universe.
-  const explicit: Record<string, string> = {
-    SPY: "AMEX:SPY",
-    QQQ: "NASDAQ:QQQ",
-    IWM: "AMEX:IWM",
-    AAPL: "NASDAQ:AAPL",
-    MSFT: "NASDAQ:MSFT",
-    NVDA: "NASDAQ:NVDA",
-    AMZN: "NASDAQ:AMZN",
-    META: "NASDAQ:META",
-    GOOGL: "NASDAQ:GOOGL",
-    TSLA: "NASDAQ:TSLA",
-    VIX: "TVC:VIX",
-    BTC: "BINANCE:BTCUSDT",
-    "BTC-PERP": "BINANCE:BTCUSDT.P",
-    ETH: "BINANCE:ETHUSDT",
-    "ETH-PERP": "BINANCE:ETHUSDT.P",
-    SOL: "BINANCE:SOLUSDT",
-    ES: "CME_MINI:ES1!",
-    NQ: "CME_MINI:NQ1!",
-    CL: "NYMEX:CL1!",
-    GC: "COMEX:GC1!",
-  };
-  if (explicit[s]) return explicit[s];
-  // Crypto fallback: pair against USDT on Binance.
-  if (assetClass === "crypto") return `BINANCE:${s.replace(/-?PERP$|-USDT$|USDT$/, "")}USDT`;
-  // Futures fallback: front-month continuous.
-  if (assetClass === "futures") return `CME_MINI:${s}1!`;
-  // Stocks/options default to NASDAQ; users can change in-chart.
-  return `NASDAQ:${s}`;
-}
+/** Back-compat re-export — symbol mapping now lives in src/lib/tradingview.ts. */
+export const toTradingViewSymbol = mapTvSymbol;
+
 
 export interface TradingViewChartProps {
   symbol: string;
@@ -97,13 +67,31 @@ export function TradingViewChart({
   const containerId = `tv_${reactId}`;
   const ref = useRef<HTMLDivElement | null>(null);
   const tvSymbol = toTradingViewSymbol(symbol, assetClass);
+  const [visible, setVisible] = useState(false);
+
+  // Defer widget initialisation until the chart scrolls into view.
+  useEffect(() => {
+    if (visible || !ref.current) return;
+    const el = ref.current;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisible(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [visible]);
 
   useEffect(() => {
+    if (!visible) return;
     let cancelled = false;
     loadTradingView()
       .then(() => {
         if (cancelled || !ref.current || !window.TradingView) return;
-        // Clear previous widget DOM before re-instantiation.
         ref.current.innerHTML = "";
         // eslint-disable-next-line new-cap
         new window.TradingView.widget({
@@ -126,7 +114,6 @@ export function TradingViewChart({
           studies,
           backgroundColor: "rgba(0,0,0,0)",
           gridColor: "rgba(255,255,255,0.06)",
-          // Hint to TradingView to use our font in the UI chrome where supported.
           custom_css_url: undefined,
         });
       })
@@ -140,7 +127,8 @@ export function TradingViewChart({
       cancelled = true;
       if (ref.current) ref.current.innerHTML = "";
     };
-  }, [containerId, tvSymbol, interval, style, withDrawingTools, studies.join("|")]);
+  }, [visible, containerId, tvSymbol, interval, style, withDrawingTools, studies.join("|")]);
+
 
   return (
     <div

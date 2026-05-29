@@ -1,13 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import {
   getFollowedStrategies, getRecentSignals, getUserPerformance,
 } from "@/lib/api";
-import { getQuotes } from "@/lib/api/finnhub.functions";
-
-
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,8 +21,9 @@ import { TrendingUp, Inbox } from "lucide-react";
 import { useAssetFilter } from "@/lib/asset-filter";
 import { LiveTrackerChart } from "@/components/common/LiveTrackerChart";
 import { NewsTicker } from "@/components/common/NewsTicker";
-import { useWatchlist } from "@/lib/user-prefs";
+import { TVMarketOverview } from "@/components/common/TVMarketOverview";
 import { CustomizeButton } from "@/components/common/CustomizeButton";
+
 
 export const Route = createFileRoute("/app/home")({
   head: () => ({ meta: [{ title: "Home — Bayn" }] }),
@@ -40,24 +37,10 @@ function HomePage() {
   const [days, setDays] = useState(30);
   const { assetClass } = useAssetFilter();
 
-  const [watchlist] = useWatchlist();
-  const quotesFn = useServerFn(getQuotes);
-  const market = useQuery({
-    queryKey: ["finnhub-quotes", watchlist],
-    queryFn: () => quotesFn({ data: { symbols: watchlist } }),
-    enabled: watchlist.length > 0,
-    refetchInterval: 30_000,
-    staleTime: 25_000,
-  });
   const followed = useQuery({ queryKey: ["followed"], queryFn: getFollowedStrategies });
   const recent = useQuery({ queryKey: ["recent"], queryFn: () => getRecentSignals(20) });
   const perf = useQuery({ queryKey: ["perf", days], queryFn: () => getUserPerformance(days) });
 
-  const tiles = useMemo(() => {
-    const arr = market.data ?? [];
-    const order = new Map(watchlist.map((s, i) => [s.toUpperCase(), i] as const));
-    return [...arr].sort((a, b) => (order.get(a.symbol) ?? 0) - (order.get(b.symbol) ?? 0));
-  }, [market.data, watchlist]);
 
 
 
@@ -101,41 +84,16 @@ function HomePage() {
       {/* Market wire ticker */}
       <NewsTicker />
 
-      {/* Market overview — live Finnhub quotes for watched tickers */}
+      {/* Market overview — TradingView widget with stocks/crypto/futures/vol tabs */}
       <section>
         <h2 className="mb-3 text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
           Market overview {assetClass !== "all" && <span className="text-foreground">· {assetClass}</span>}
         </h2>
-        {watchlist.length === 0 ? (
-          <Card className="border-dashed border-border bg-elevated/40 p-6 text-center text-sm text-muted-foreground">
-            No tickers yet. Add some in Customize to see live quotes here.
-          </Card>
-        ) : (
-          <div className="flex gap-3 overflow-x-auto pb-2">
-            {(market.isLoading ? Array.from({ length: Math.min(watchlist.length, 4) }) : tiles).map((tile: any, i: number) => (
-              <Card key={tile?.symbol ?? i} className="flex w-52 shrink-0 flex-col gap-2 border-border bg-elevated p-3">
-                {tile ? (
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="font-mono text-sm font-semibold">{tile.symbol}</div>
-                      <div className="text-[11px] text-muted-foreground">Live</div>
-                    </div>
-                    <div className={tile.changePct >= 0 ? "text-cyan" : "text-danger"}>
-                      <div className="text-right font-mono text-sm">{fmtMoney(tile.price)}</div>
-                      <div className="text-right font-mono text-[11px]">{fmtPct(tile.changePct / 100)}</div>
-                    </div>
-                  </div>
-                ) : <div className="h-12 animate-pulse rounded bg-muted/50" />}
-              </Card>
-            ))}
-            {!market.isLoading && tiles.length === 0 && (
-              <Card className="w-full border-dashed border-border bg-elevated/40 p-6 text-center text-sm text-muted-foreground">
-                Quotes unavailable right now. Try again shortly.
-              </Card>
-            )}
-          </div>
-        )}
+        <Card className="overflow-hidden border-border bg-elevated p-0">
+          <TVMarketOverview height={460} />
+        </Card>
       </section>
+
 
 
 

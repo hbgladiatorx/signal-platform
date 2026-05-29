@@ -9,12 +9,15 @@ import { PipelineBadge } from "@/components/common/PipelineBadge";
 import { DirectionPill } from "@/components/common/DirectionPill";
 import { StatusPill } from "@/components/common/StatusPill";
 import { Disclaimer } from "@/components/common/Disclaimer";
+import { TradingViewChart } from "@/components/common/TradingViewChart";
 import {
-  Area, AreaChart, Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Line, LineChart,
+  Area, AreaChart, Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid,
 } from "recharts";
 import { format } from "date-fns";
 import { useState } from "react";
+
 import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/app/strategy/$id")({
   head: ({ params }) => ({ meta: [{ title: `Strategy ${params.id} — Bayn` }] }),
@@ -31,6 +34,8 @@ function StrategyDetail() {
   if (strat.isFetched && !strat.data) throw notFound();
   const s = strat.data;
   if (!s) return <div className="p-6 text-muted-foreground">Loading…</div>;
+  const primarySymbol = s.symbols?.[0];
+
 
   const ddData = (equity.data ?? []).reduce<{ t: string; dd: number; peak: number }[]>((acc, p) => {
     const peak = Math.max(p.equity, acc[acc.length - 1]?.peak ?? p.equity);
@@ -84,6 +89,11 @@ function StrategyDetail() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4 pt-4">
+          {primarySymbol && (
+            <Card className="overflow-hidden border-border bg-elevated p-0">
+              <TradingViewChart symbol={primarySymbol} assetClass={s.assetClass} interval="60" height={420} />
+            </Card>
+          )}
           <Card className="border-border bg-elevated p-5">
             <h3 className="mb-2 font-semibold">How it works</h3>
             <p className="text-sm text-muted-foreground">{s.longDescription}</p>
@@ -99,6 +109,7 @@ function StrategyDetail() {
             </Card>
           </div>
         </TabsContent>
+
 
         <TabsContent value="backtest" className="space-y-4 pt-4">
           <ChartCard title="Equity curve (90D)" data={equity.data ?? []} dataKey="equity" gradient="cyan" />
@@ -138,7 +149,13 @@ function StrategyDetail() {
           <Disclaimer variant="inline" />
         </TabsContent>
 
-        <TabsContent value="signals" className="pt-4">
+        <TabsContent value="signals" className="space-y-4 pt-4">
+          {primarySymbol && (
+            <Card className="overflow-hidden border-border bg-elevated p-0">
+              <TradingViewChart symbol={primarySymbol} assetClass={s.assetClass} interval="60" height={360} />
+            </Card>
+          )}
+
           <Card className="border-border bg-elevated">
             <div className="divide-y divide-border">
               {(sigs.data ?? []).slice(0, 20).map((sig) => (

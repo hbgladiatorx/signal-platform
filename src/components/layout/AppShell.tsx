@@ -13,7 +13,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AssetFilterProvider, useAssetFilter, ASSET_OPTIONS } from "@/lib/asset-filter";
-import { MarketTicker } from "@/components/common/MarketTicker";
+import { TVTickerTape } from "@/components/common/TVTickerTape";
+
 import { PlanBadge } from "@/components/billing/PlanBadge";
 import { getCurrentPlan } from "@/lib/api/billing";
 
@@ -166,12 +167,14 @@ function Shell({ mode }: { mode: "trader" | "studio" }) {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+        {/* TradingView ticker tape — trader only, above asset filter on /app/* */}
+        {!isStudio && <TVTickerTape />}
 
         {/* Asset-class filter — trader only, cascades through context */}
         {!isStudio && <AssetChipRow />}
 
-        {/* Bloomberg-style market ticker — trader only */}
-        {!isStudio && <MarketTicker />}
+        {!isStudio && <TVTickerTape />}
+
       </header>
 
       <main className="min-w-0 flex-1 pb-32">
