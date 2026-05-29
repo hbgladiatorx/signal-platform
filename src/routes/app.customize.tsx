@@ -15,9 +15,11 @@ import {
   useNewsSources, useOnlyNewsForWatched, useEnabledAssetClasses, ALL_ASSET_CLASSES,
   useHomeLayout, useHiddenSections, DEFAULT_HOME_LAYOUT,
   useAccountSize, useRiskPerTrade, useDefaultTimeframe, useDefaultChartType,
-  useNotifications, useLiveTrackingStrategy,
+  useNotifications, useLiveTrackingStrategy, type HomeSection,
 } from "@/lib/user-prefs";
 import { useFollowedIds, unsubscribeFromStrategy } from "@/lib/api";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+
 
 import { getCurrentPlan, getTotalSlots, isFreeStrategy, formatLimit } from "@/lib/api/billing";
 import { strategies } from "@/lib/mockData";
