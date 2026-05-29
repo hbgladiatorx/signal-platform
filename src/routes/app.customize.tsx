@@ -312,7 +312,8 @@ function StrategiesTab() {
                       variant="ghost"
                       size="icon"
                       className="size-7 text-danger"
-                      onClick={() => toggleFollow(id, false)}
+                      onClick={() => unfollow.mutate(id)}
+
                       title="Unfollow"
                     >
                       <Trash2 className="size-3.5" />
