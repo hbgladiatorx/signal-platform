@@ -4,10 +4,9 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import {
   getFollowedStrategies, getRecentSignals, getUserPerformance,
-  getEffectiveFollowedIds,
 } from "@/lib/api";
 import { getQuotes } from "@/lib/api/finnhub.functions";
-import { useFollowedOverlay } from "@/lib/user-prefs";
+
 
 
 import { Card } from "@/components/ui/card";
@@ -67,14 +66,14 @@ function HomePage() {
     return assetClass === "all" ? all : all.filter((s) => s.assetClass === assetClass);
   }, [followed.data, assetClass]);
 
-  useFollowedOverlay();
   const recentFiltered = useMemo(() => {
     const all = recent.data ?? [];
-    const followed = new Set(getEffectiveFollowedIds());
+    const followedSet = new Set((followed.data ?? []).map((s) => s.id));
     return (assetClass === "all" ? all : all.filter((s) => s.assetClass === assetClass))
-      .filter((s) => followed.has(s.strategyId))
+      .filter((s) => followedSet.has(s.strategyId))
       .slice(0, 10);
-  }, [recent.data, assetClass]);
+  }, [recent.data, assetClass, followed.data]);
+
 
   return (
     <div className="space-y-6 p-4 md:p-6">

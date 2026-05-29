@@ -1,11 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { getSignals, getEffectiveFollowedIds } from "@/lib/api";
+import { getSignals, useFollowedIds } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useAssetFilter } from "@/lib/asset-filter";
 import { SignalRow, SignalGroup } from "@/components/common/SignalRow";
-import { useFollowedOverlay } from "@/lib/user-prefs";
+
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Inbox } from "lucide-react";
@@ -28,9 +28,10 @@ function SignalsPage() {
   const { assetClass } = useAssetFilter();
   const [status, setStatus] = useState<"all" | SignalStatus>("all");
   const { data } = useQuery({ queryKey: ["signals-all"], queryFn: () => getSignals() });
-  // re-render on follow/unfollow
-  useFollowedOverlay();
-  const followedIds = useMemo(() => new Set(getEffectiveFollowedIds()), [data]);
+
+  const followedList = useFollowedIds();
+  const followedIds = useMemo(() => new Set<string>(followedList), [followedList]);
+
 
   useEffect(() => { setStatus("all"); }, [assetClass]);
 

@@ -1,8 +1,8 @@
 import { createFileRoute, useParams, notFound, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { getSignalById, getStrategyById, getEffectiveFollowedIds, subscribeToStrategy } from "@/lib/api";
-import { useFollowedOverlay } from "@/lib/user-prefs";
+import { getSignalById, getStrategyById, subscribeToStrategy, useFollowedIds } from "@/lib/api";
+
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,7 +49,8 @@ function SignalDetail() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [fillPrice, setFillPrice] = useState<string>("");
   const [interval, setIntervalKey] = useState<string>("60");
-  useFollowedOverlay();
+  const followedIds = useFollowedIds();
+
   const qc = useQueryClient();
   const subscribe = useMutation({
     mutationFn: subscribeToStrategy,
@@ -62,9 +63,9 @@ function SignalDetail() {
   if (sig.isFetched && !sig.data) throw notFound();
   const s = sig.data;
   if (!s) return <div className="p-6 text-muted-foreground">Loading…</div>;
+  const isFollowed = new Set(followedIds).has(s.strategyId);
+  const followedNonFree = followedIds.filter((strategyId: string) => !isFreeStrategy(strategyId));
 
-  const isFollowed = new Set(getEffectiveFollowedIds()).has(s.strategyId);
-  const followedNonFree = getEffectiveFollowedIds().filter((strategyId) => !isFreeStrategy(strategyId));
   const tryUnlock = () => {
     const check = checkSlotAvailability(s.strategyId, followedNonFree);
     if (check.ok) subscribe.mutate(s.strategyId);

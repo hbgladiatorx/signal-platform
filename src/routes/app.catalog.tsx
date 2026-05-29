@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import {
-  getStrategies, subscribeToStrategy, unsubscribeFromStrategy, getEffectiveFollowedIds,
+  getStrategies, subscribeToStrategy, unsubscribeFromStrategy, useFollowedIds,
 } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,8 @@ import { PipelineBadge } from "@/components/common/PipelineBadge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Users, Check, Plus, Lock } from "lucide-react";
 import { useAssetFilter } from "@/lib/asset-filter";
-import { useFollowedOverlay, useEnabledAssetClasses } from "@/lib/user-prefs";
+import { useEnabledAssetClasses } from "@/lib/user-prefs";
+
 import { checkSlotAvailability, isFreeStrategy } from "@/lib/api/billing";
 import { PaywallModal } from "@/components/billing/PaywallModal";
 import { toast } from "sonner";
@@ -33,9 +34,10 @@ function CatalogPage() {
   const { data } = useQuery({ queryKey: ["strategies"], queryFn: getStrategies });
   const queryClient = useQueryClient();
 
-  useFollowedOverlay();
-  const followedNow = new Set(getEffectiveFollowedIds());
+  const followedIds = useFollowedIds();
+  const followedNow = new Set<string>(followedIds);
   const followedNonFree = [...followedNow].filter((id) => !isFreeStrategy(id));
+
 
   const subscribe = useMutation({
     mutationFn: subscribeToStrategy,

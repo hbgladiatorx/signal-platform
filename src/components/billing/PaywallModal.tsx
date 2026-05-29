@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Link } from "@tanstack/react-router";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
@@ -10,12 +10,14 @@ import { Button } from "@/components/ui/button";
 import {
   ArrowUpRight, Plus, RefreshCcw, Crown, Lock,
 } from "lucide-react";
-import { getEffectiveFollowedIds, subscribeToStrategy, unsubscribeFromStrategy } from "@/lib/api";
+import {
+  getStrategies, subscribeToStrategy, unsubscribeFromStrategy, useFollowedIds,
+} from "@/lib/api";
 import {
   getCurrentPlan, getTotalSlots, getTier, isFreeStrategy,
   purchaseAddOn, upgradePlan, type TierId,
 } from "@/lib/api/billing";
-import { strategies } from "@/lib/mockData";
+
 
 export function PaywallModal({
   strategyId,
@@ -28,14 +30,16 @@ export function PaywallModal({
   onOpenChange: (v: boolean) => void;
   onResolved?: () => void;
 }) {
+  const allStrategiesQ = useQuery({ queryKey: ["strategies"], queryFn: getStrategies });
+  const allStrategies = allStrategiesQ.data ?? [];
   const strategy = useMemo(
-    () => (strategyId ? strategies.find((s) => s.id === strategyId) : null),
-    [strategyId],
+    () => (strategyId ? allStrategies.find((s) => s.id === strategyId) ?? null : null),
+    [strategyId, allStrategies],
   );
   const plan = getCurrentPlan();
   const total = getTotalSlots();
-  const followed = getEffectiveFollowedIds();
-  const followedNonFree = followed.filter((id) => !isFreeStrategy(id));
+  const followed = useFollowedIds();
+  const followedNonFree = followed.filter((id: string) => !isFreeStrategy(id));
   const used = followedNonFree.length;
 
   const nextTier: TierId | null =
@@ -46,9 +50,10 @@ export function PaywallModal({
 
   const qc = useQueryClient();
   const handleResolve = async (toastMsg: string, followAfterPurchase = true) => {
-    if (followAfterPurchase && strategyId && !getEffectiveFollowedIds().includes(strategyId)) {
+    if (followAfterPurchase && strategyId && !followed.includes(strategyId)) {
       await subscribeToStrategy(strategyId);
     }
+
     qc.invalidateQueries({ queryKey: ["followed"] });
     qc.invalidateQueries({ queryKey: ["plan"] });
     toast.success(toastMsg);
@@ -157,7 +162,8 @@ export function PaywallModal({
             {followedNonFree.length > 0 && (
               <div className="space-y-1">
                 {followedNonFree.slice(0, 4).map((id) => {
-                  const s = strategies.find((x) => x.id === id);
+                  const s = allStrategies.find((x) => x.id === id);
+
                   if (!s) return null;
                   return (
                     <button
