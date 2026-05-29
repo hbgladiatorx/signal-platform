@@ -199,7 +199,7 @@ export function subscribeToSignalUpdates(onUpdate: (signal: any) => void) {
 // Follow/unfollow now hits product_subscriptions (no localStorage).
 // ─────────────────────────────────────────────────────────────
 import { useQuery } from "@tanstack/react-query";
-import type { Strategy, Signal, EquityPoint, TakenSignal, AssetClass } from "../types";
+import type { Strategy, Signal, EquityPoint, TakenSignal, AssetClass, SignalStatus, Direction } from "../types";
 
 function mapProductRow(row: any): Strategy {
   const ac = (row.asset_class ?? "stocks") as AssetClass;
@@ -285,16 +285,146 @@ export async function unsubscribeFromStrategy(id: string) {
   return { ok: true };
 }
 
-export async function getSignals(_opts?: { strategyId?: string; limit?: number }): Promise<Signal[]> { return []; }
-export async function getSignalById(_id: string): Promise<Signal | undefined> { return undefined; }
-export async function getStrategyEquity(_strategyId: string, _days = 30): Promise<EquityPoint[]> { return []; }
-export async function getUserPerformance(_days = 30) {
+// ─────────────────────────────────────────────────────────────
+// Signals + performance (real DB).
+// ─────────────────────────────────────────────────────────────
+
+function mapSignalStatus(row: any): SignalStatus {
+  if (row.status === 'open' || row.status === 'OPEN') return 'OPEN';
+  const o = (row.outcome ?? '').toString().toLowerCase();
+  if (o === 'win' || o === 'target' || o === 'hit_target') return 'HIT_TARGET';
+  if (o === 'loss' || o === 'stop' || o === 'hit_stop') return 'HIT_STOP';
+  if (o === 'expired') return 'EXPIRED';
+  if (row.status === 'closed') return 'EXPIRED';
+  return 'OPEN';
+}
+
+function mapSignalRow(row: any): Signal {
+  const prod = row.signal_products ?? {};
+  const dir: Direction = (row.direction ?? '').toString().toLowerCase() === 'short' ? 'SHORT' : 'LONG';
+  const entry = Number(row.entry_price ?? 0);
+  const stop = Number(row.stop_price ?? 0);
+  const target = Number(row.target_price ?? 0);
+  const ac = (prod.asset_class ?? 'stocks') as AssetClass;
+  const risk = Math.abs(entry - stop);
+  let pnlR: number | undefined;
+  if (row.pnl_pct != null && entry > 0 && risk > 0) {
+    const moved = entry * (Number(row.pnl_pct) / 100);
+    pnlR = (dir === 'LONG' ? moved : -moved) / risk;
+  }
   return {
-    equity: [] as EquityPoint[],
-    taken: [] as TakenSignal[],
-    kpis: { totalTaken: 0, winRate: 0, avgR: 0, maxDrawdown: 0 },
+    id: row.id,
+    strategyId: row.product_id,
+    strategyName: prod.name ?? 'Strategy',
+    assetClass: ac,
+    symbol: row.symbol ?? '',
+    direction: dir,
+    entry,
+    stop,
+    target,
+    status: mapSignalStatus(row),
+    firedAt: row.fired_at ?? new Date().toISOString(),
+    closedAt: row.closed_at ?? undefined,
+    pnlR,
+    reasoning: row.reasoning ?? '',
+    priceSeries: [],
   };
 }
+
+
+export async function getSignals(opts?: { strategyId?: string; limit?: number }): Promise<Signal[]> {
+  let q = supabase
+    .from('signals')
+    .select('*, signal_products(name, asset_class, slug)')
+    .order('fired_at', { ascending: false })
+    .limit(opts?.limit ?? 200);
+  if (opts?.strategyId) q = q.eq('product_id', opts.strategyId);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []).map(mapSignalRow);
+}
+
+export async function getSignalById(id: string): Promise<Signal | undefined> {
+  const { data, error } = await supabase
+    .from('signals')
+    .select('*, signal_products(name, asset_class, slug, description)')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? mapSignalRow(data) : undefined;
+}
+
+export async function getStrategyEquity(strategyId: string, days = 90): Promise<EquityPoint[]> {
+  const since = new Date(Date.now() - days * 86_400_000).toISOString();
+  const { data, error } = await supabase
+    .from('signals')
+    .select('closed_at, pnl_pct')
+    .eq('product_id', strategyId)
+    .not('closed_at', 'is', null)
+    .gte('closed_at', since)
+    .order('closed_at', { ascending: true });
+  if (error) throw error;
+  let eq = 1;
+  return (data ?? []).map((r: any) => {
+    eq = eq * (1 + Number(r.pnl_pct ?? 0) / 100);
+    return { t: r.closed_at, equity: eq };
+  });
+}
+
+export async function getUserPerformance(days = 90) {
+  const since = new Date(Date.now() - days * 86_400_000).toISOString();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { equity: [] as EquityPoint[], taken: [] as TakenSignal[], kpis: { totalTaken: 0, winRate: 0, avgR: 0, maxDrawdown: 0 } };
+  }
+  const { data, error } = await supabase
+    .from('taken_signals')
+    .select('*, signals(*, signal_products(name, asset_class, slug))')
+    .eq('user_id', user.id)
+    .gte('taken_at', since)
+    .order('taken_at', { ascending: true });
+  if (error) throw error;
+  const rows = data ?? [];
+  const taken: TakenSignal[] = rows.map((r: any) => {
+    const sig = r.signals ? mapSignalRow(r.signals) : ({} as Signal);
+    const pnlR = r.r_multiple != null ? Number(r.r_multiple) : undefined;
+    const outcome: SignalStatus =
+      r.outcome === 'win' ? 'HIT_TARGET' :
+      r.outcome === 'loss' ? 'HIT_STOP' :
+      r.outcome === 'expired' ? 'EXPIRED' : sig.status ?? 'OPEN';
+    return {
+      id: r.id,
+      signalId: r.signal_id,
+      signal: sig,
+      takenAt: r.taken_at,
+      fillPrice: Number(r.fill_price ?? 0),
+      pnlR,
+      outcome,
+    };
+  });
+  // Equity curve from R-multiples (1R per trade baseline).
+  let eq = 0;
+  const equity: EquityPoint[] = taken
+    .filter((t) => t.pnlR != null)
+    .map((t) => { eq += t.pnlR!; return { t: t.takenAt, equity: eq }; });
+  const closed = taken.filter((t) => t.outcome !== 'OPEN');
+  const wins = closed.filter((t) => t.outcome === 'HIT_TARGET').length;
+  const rs = taken.filter((t) => t.pnlR != null).map((t) => t.pnlR!);
+  const avgR = rs.length ? rs.reduce((a, b) => a + b, 0) / rs.length : 0;
+  let peak = 0, maxDD = 0;
+  for (const p of equity) { peak = Math.max(peak, p.equity); maxDD = Math.min(maxDD, p.equity - peak); }
+  return {
+    equity,
+    taken: taken.slice().reverse(),
+    kpis: {
+      totalTaken: taken.length,
+      winRate: closed.length ? wins / closed.length : 0,
+      avgR,
+      maxDrawdown: Math.abs(maxDD) / 100,
+    },
+  };
+}
+
 export async function sendOrderToBroker(_signalId: string, _broker: string) { return { ok: true }; }
 export async function getMarketOverview(): Promise<never[]> { return []; }
 export async function getMarketNews(): Promise<never[]> { return []; }
