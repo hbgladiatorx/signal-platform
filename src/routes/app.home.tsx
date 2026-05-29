@@ -4,10 +4,9 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import {
   getFollowedStrategies, getRecentSignals, getUserPerformance,
-  getEffectiveFollowedIds,
 } from "@/lib/api";
 import { getQuotes } from "@/lib/api/finnhub.functions";
-import { useFollowedOverlay } from "@/lib/user-prefs";
+
 
 
 import { Card } from "@/components/ui/card";
