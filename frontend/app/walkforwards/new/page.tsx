@@ -1,121 +1,99 @@
 "use client";
 
 // frontend/app/walkforwards/new/page.tsx
-// Form to create a new walk-forward analysis: strategy + symbol +
-// param grid + windowing config + selection metric.
+// Create form for a new walk-forward analysis.
 
 import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
+import { AppShell } from "@/components/nav/AppShell";
+import { useApi } from "@/lib/useApi";
 import {
   CreateWalkforwardRequest,
   SelectionMetric,
   SELECTION_METRICS,
   BAR_RESOLUTIONS,
 } from "@/lib/walkforward-types";
-import { fetchAuthed, API_BASE } from "@/lib/api";
 
 interface ParamRow {
   key: string;
-  values: string; // comma-separated raw input
+  values: string;
 }
 
-const MAX_COMBOS = 200; // walk-forward × combos can balloon; keep room
-const DEFAULT_BAR_RESOLUTION = "1d";
+const MAX_COMBOS = 200;
 
 export default function NewWalkforwardPage() {
+  const api = useApi();
   const router = useRouter();
 
-  // --- Strategy list (built-ins; user strategies are picked up server-side) ---
-  const [strategies, setStrategies] = useState<string[] | null>(null);
+  // Load strategy + instrument options
+  const stratQuery = useQuery({
+    queryKey: ["strategies"],
+    queryFn: () => api.get<unknown[]>("/strategies"),
+  });
+  const instrQuery = useQuery({
+    queryKey: ["instruments"],
+    queryFn: () => api.get<unknown[]>("/instruments"),
+  });
+
+  const strategies = useMemo(() => {
+    if (!stratQuery.data) return null;
+    return stratQuery.data
+      .map((s) =>
+        typeof s === "string"
+          ? s
+          : (s as { name?: string }).name ?? "",
+      )
+      .filter(Boolean) as string[];
+  }, [stratQuery.data]);
+
+  const symbols = useMemo(() => {
+    if (!instrQuery.data) return null;
+    return instrQuery.data
+      .map((i) => (i as { canonical_symbol?: string }).canonical_symbol ?? "")
+      .filter(Boolean) as string[];
+  }, [instrQuery.data]);
+
+  // Form state
   const [strategyName, setStrategyName] = useState<string>("");
-
-  // --- Symbol list ---
-  const [allSymbols, setAllSymbols] = useState<string[] | null>(null);
   const [symbol, setSymbol] = useState<string>("");
-
-  // --- Configurable fields ---
-  const [barResolution, setBarResolution] =
-    useState<string>(DEFAULT_BAR_RESOLUTION);
+  const [barResolution, setBarResolution] = useState<string>("1d");
   const [startingCash, setStartingCash] = useState<number>(10000);
   const [feeRateBps, setFeeRateBps] = useState<number>(10);
   const [slippageBps, setSlippageBps] = useState<number>(5);
-
-  // --- Param grid ---
   const [paramRows, setParamRows] = useState<ParamRow[]>([
     { key: "slow_period", values: "30, 50, 100, 150" },
   ]);
-
-  // --- Windowing ---
   const [trainBars, setTrainBars] = useState<number>(180);
   const [testBars, setTestBars] = useState<number>(30);
   const [numWindows, setNumWindows] = useState<number>(5);
   const [selectionMetric, setSelectionMetric] =
     useState<SelectionMetric>("sharpe");
 
-  // --- Submit state ---
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Load strategies and symbols on mount
+  // Default to first option once data lands
   useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const [stratRes, instrRes] = await Promise.all([
-          fetchAuthed(`${API_BASE}/strategies`),
-          fetchAuthed(`${API_BASE}/instruments`),
-        ]);
-        if (stratRes.ok) {
-          const data = await stratRes.json();
-          if (alive) {
-            const names = Array.isArray(data)
-              ? data.map((s: { name?: string } | string) =>
-                  typeof s === "string" ? s : (s.name ?? ""),
-                ).filter(Boolean)
-              : [];
-            setStrategies(names);
-            if (names.length > 0) setStrategyName(names[0]);
-          }
-        }
-        if (instrRes.ok) {
-          const data = await instrRes.json();
-          if (alive) {
-            const syms = Array.isArray(data)
-              ? data
-                  .map(
-                    (i: { canonical_symbol?: string; active?: boolean }) =>
-                      i.canonical_symbol ?? "",
-                  )
-                  .filter(Boolean)
-              : [];
-            setAllSymbols(syms);
-            if (syms.length > 0 && !symbol) setSymbol(syms[0]);
-          }
-        }
-      } catch (e) {
-        if (alive)
-          setError(
-            `Failed to load strategies/instruments: ${e instanceof Error ? e.message : "error"}`,
-          );
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (strategies && strategies.length > 0 && !strategyName) {
+      setStrategyName(strategies[0]);
+    }
+  }, [strategies, strategyName]);
+  useEffect(() => {
+    if (symbols && symbols.length > 0 && !symbol) {
+      setSymbol(symbols[0]);
+    }
+  }, [symbols, symbol]);
 
-  // Parse a comma-separated values string into typed values
   function parseValues(raw: string): unknown[] {
     return raw
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean)
       .map((s) => {
-        const n = Number(s);
-        if (!Number.isNaN(n) && /^-?\d+(\.\d+)?$/.test(s)) return n;
+        if (/^-?\d+(\.\d+)?$/.test(s)) {
+          const n = Number(s);
+          if (!Number.isNaN(n)) return n;
+        }
         if (s === "true") return true;
         if (s === "false") return false;
         return s;
@@ -125,9 +103,10 @@ export default function NewWalkforwardPage() {
   const paramGrid = useMemo(() => {
     const out: Record<string, unknown[]> = {};
     for (const row of paramRows) {
-      if (!row.key.trim()) continue;
+      const key = row.key.trim();
+      if (!key) continue;
       const vals = parseValues(row.values);
-      if (vals.length > 0) out[row.key.trim()] = vals;
+      if (vals.length > 0) out[key] = vals;
     }
     return out;
   }, [paramRows]);
@@ -143,31 +122,36 @@ export default function NewWalkforwardPage() {
   function addParamRow() {
     setParamRows([...paramRows, { key: "", values: "" }]);
   }
-
   function removeParamRow(idx: number) {
     setParamRows(paramRows.filter((_, i) => i !== idx));
   }
-
   function updateParamRow(idx: number, patch: Partial<ParamRow>) {
     setParamRows(paramRows.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
   }
 
-  const canSubmit =
+  const createMutation = useMutation({
+    mutationFn: (req: CreateWalkforwardRequest) =>
+      api.post<{ id: string }>("/walkforwards", req),
+    onSuccess: (data) => {
+      router.push(`/walkforwards/${data.id}`);
+    },
+  });
+
+  const canSubmit = Boolean(
     strategyName &&
-    symbol &&
-    barResolution &&
-    trainBars > 0 &&
-    testBars > 0 &&
-    numWindows > 0 &&
-    Object.keys(paramGrid).length > 0 &&
-    numCombos <= MAX_COMBOS &&
-    !submitting;
+      symbol &&
+      barResolution &&
+      trainBars > 0 &&
+      testBars > 0 &&
+      numWindows > 0 &&
+      Object.keys(paramGrid).length > 0 &&
+      numCombos <= MAX_COMBOS &&
+      !createMutation.isPending,
+  );
 
-  async function submit() {
-    setSubmitting(true);
-    setError(null);
-
-    const req: CreateWalkforwardRequest = {
+  function submit() {
+    if (!canSubmit) return;
+    createMutation.mutate({
       strategy_name: strategyName,
       symbols: [symbol],
       bar_resolution: barResolution,
@@ -179,51 +163,34 @@ export default function NewWalkforwardPage() {
       test_bars: testBars,
       num_windows: numWindows,
       selection_metric: selectionMetric,
-    };
-
-    try {
-      const res = await fetchAuthed(`${API_BASE}/walkforwards`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(req),
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`HTTP ${res.status}: ${text}`);
-      }
-      const created = await res.json();
-      router.push(`/walkforwards/${created.id}`);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Unknown error");
-      setSubmitting(false);
-    }
+    });
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-4xl">
-      <div className="mb-6">
-        <Link
-          href="/walkforwards"
-          className="text-sm text-indigo-600 hover:underline"
-        >
-          ← Walk-Forwards
-        </Link>
-        <h1 className="text-2xl font-bold text-gray-900 mt-2">
-          New Walk-Forward Analysis
-        </h1>
-        <p className="text-sm text-gray-600 mt-1">
-          Sweep your parameter grid on a rolling training window, then test the
-          best params on the next (held-out) segment. Repeated{" "}
-          <em>N</em> times to estimate honest out-of-sample performance.
-        </p>
-      </div>
+    <AppShell title="New Walk-Forward">
+      <div className="space-y-4 max-w-4xl">
+        <div>
+          <Link
+            href="/walkforwards"
+            className="text-sm text-indigo-600 hover:underline"
+          >
+            ← Walk-Forwards
+          </Link>
+          <h2 className="text-base font-semibold text-navy-700 mt-2">
+            Configure a new walk-forward analysis
+          </h2>
+          <p className="mt-1 text-xs text-gray-500 max-w-2xl">
+            Sweep your parameter grid on a rolling training window, then test
+            the best params on the next held-out segment. Repeated <em>N</em>{" "}
+            times to estimate honest out-of-sample performance.
+          </p>
+        </div>
 
-      <div className="space-y-6">
         {/* Card 1: Strategy + symbol */}
         <section className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm">
-          <h2 className="text-base font-semibold text-gray-900 mb-4">
-            Strategy & Symbol
-          </h2>
+          <h3 className="text-sm font-semibold text-navy-700 mb-4">
+            Strategy &amp; Symbol
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -234,7 +201,7 @@ export default function NewWalkforwardPage() {
                 onChange={(e) => setStrategyName(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               >
-                {strategies === null && <option>Loading…</option>}
+                {!strategies && <option>Loading…</option>}
                 {strategies?.map((s) => (
                   <option key={s} value={s}>
                     {s}
@@ -251,8 +218,8 @@ export default function NewWalkforwardPage() {
                 onChange={(e) => setSymbol(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               >
-                {allSymbols === null && <option>Loading…</option>}
-                {allSymbols?.map((s) => (
+                {!symbols && <option>Loading…</option>}
+                {symbols?.map((s) => (
                   <option key={s} value={s}>
                     {s}
                   </option>
@@ -319,14 +286,13 @@ export default function NewWalkforwardPage() {
         {/* Card 2: Param grid */}
         <section className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm">
           <div className="flex items-baseline justify-between mb-3">
-            <h2 className="text-base font-semibold text-gray-900">
+            <h3 className="text-sm font-semibold text-navy-700">
               Parameter Grid
-            </h2>
+            </h3>
             <span className="text-xs text-gray-500">
-              Cartesian product across each row's values.
+              Cartesian product across each row&apos;s values.
             </span>
           </div>
-
           <div className="space-y-2">
             {paramRows.map((row, idx) => (
               <div key={idx} className="flex gap-2 items-start">
@@ -359,7 +325,6 @@ export default function NewWalkforwardPage() {
               </div>
             ))}
           </div>
-
           <button
             type="button"
             onClick={addParamRow}
@@ -367,7 +332,6 @@ export default function NewWalkforwardPage() {
           >
             + Add parameter
           </button>
-
           <div className="mt-4 flex items-center gap-4 text-sm">
             <div className="text-gray-700">
               Combos:{" "}
@@ -393,9 +357,9 @@ export default function NewWalkforwardPage() {
 
         {/* Card 3: Windowing */}
         <section className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm">
-          <h2 className="text-base font-semibold text-gray-900 mb-3">
+          <h3 className="text-sm font-semibold text-navy-700 mb-3">
             Walk-Forward Windowing
-          </h2>
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -471,13 +435,13 @@ export default function NewWalkforwardPage() {
           </div>
         </section>
 
-        {error && (
+        {createMutation.isError && (
           <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-md text-sm">
-            {error}
+            {(createMutation.error as Error).message}
           </div>
         )}
 
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end gap-2 pt-2">
           <Link
             href="/walkforwards"
             className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
@@ -490,18 +454,17 @@ export default function NewWalkforwardPage() {
             disabled={!canSubmit}
             className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
           >
-            {submitting ? "Submitting…" : "Run Walk-Forward"}
+            {createMutation.isPending ? "Submitting…" : "Run Walk-Forward"}
           </button>
         </div>
 
-        <div className="text-xs text-gray-500 leading-relaxed">
+        <div className="text-xs text-gray-500 leading-relaxed pt-2">
           <strong className="text-gray-700">Educational use only.</strong>{" "}
           Walk-forward results are diagnostic, not predictive. Past performance
-          on held-out historical windows does not predict future returns.
-          Trading involves substantial risk; you may lose your entire
-          investment.
+          on historical windows does not predict future returns. Trading
+          involves substantial risk; you may lose your entire investment.
         </div>
       </div>
-    </div>
+    </AppShell>
   );
 }

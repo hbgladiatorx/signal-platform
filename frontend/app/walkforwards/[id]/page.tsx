@@ -1,13 +1,14 @@
 "use client";
 
 // frontend/app/walkforwards/[id]/page.tsx
-// Detail view of a single walk-forward: summary cards, per-window cards
-// (visual), dense table (scan), and risk disclaimer.
+// Detail view: summary cards, per-window cards, dense table.
 
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 
+import { AppShell } from "@/components/nav/AppShell";
+import { useApi } from "@/lib/useApi";
 import {
   WalkforwardDetail,
   WindowResult,
@@ -20,60 +21,42 @@ import {
   fmtDate,
   fmtDateTime,
 } from "@/lib/walkforward-types";
-import { fetchAuthed, API_BASE } from "@/lib/api";
 
 export default function WalkforwardDetailPage() {
+  const api = useApi();
   const params = useParams();
   const id = String(params?.id ?? "");
 
-  const [wf, setWf] = useState<WalkforwardDetail | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!id) return;
-    let alive = true;
-    let pollHandle: ReturnType<typeof setTimeout> | null = null;
-
-    async function load() {
-      try {
-        const res = await fetchAuthed(`${API_BASE}/walkforwards/${id}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data: WalkforwardDetail = await res.json();
-        if (!alive) return;
-        setWf(data);
-        setError(null);
-
-        if (data.status === "pending" || data.status === "running") {
-          pollHandle = setTimeout(load, 2000);
-        }
-      } catch (e) {
-        if (!alive) return;
-        setError(e instanceof Error ? e.message : "Unknown error");
-      }
-    }
-
-    load();
-    return () => {
-      alive = false;
-      if (pollHandle) clearTimeout(pollHandle);
-    };
-  }, [id]);
+  const {
+    data: wf,
+    error,
+    isLoading,
+  } = useQuery({
+    queryKey: ["walkforward", id],
+    queryFn: () => api.get<WalkforwardDetail>(`/walkforwards/${id}`),
+    enabled: !!id,
+    refetchInterval: (q) => {
+      const w = q.state.data as WalkforwardDetail | undefined;
+      if (!w) return false;
+      return w.status === "pending" || w.status === "running" ? 2000 : false;
+    },
+  });
 
   if (error) {
     return (
-      <div className="container mx-auto p-6 max-w-7xl">
+      <AppShell title="Walk-Forward">
         <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-md">
-          Error loading walk-forward: {error}
+          Error loading walk-forward: {(error as Error).message}
         </div>
-      </div>
+      </AppShell>
     );
   }
 
-  if (!wf) {
+  if (isLoading || !wf) {
     return (
-      <div className="container mx-auto p-6 max-w-7xl">
+      <AppShell title="Walk-Forward">
         <div className="text-gray-500 py-8">Loading…</div>
-      </div>
+      </AppShell>
     );
   }
 
@@ -81,289 +64,285 @@ export default function WalkforwardDetailPage() {
   const windows = wf.windows_result ?? [];
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
-      {/* Header */}
-      <div className="mb-6">
-        <Link
-          href="/walkforwards"
-          className="text-sm text-indigo-600 hover:underline"
-        >
-          ← Walk-Forwards
-        </Link>
-        <div className="flex items-start justify-between mt-2 gap-4">
-          <div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-2xl font-bold text-gray-900">
-                {wf.strategy_name}
-              </h1>
-              <span
-                className={`inline-block px-2 py-0.5 text-xs font-medium rounded border ${statusColor(wf.status)}`}
-              >
-                {wf.status}
-              </span>
-            </div>
-            <p className="text-sm text-gray-600 mt-1">
-              <span className="font-mono">{wf.symbols.join(", ")}</span>
-              {" · "}
-              <span className="font-mono">{wf.bar_resolution}</span>
-              {" · "}
-              {wf.num_windows} windows
-              {" · "}
-              train {wf.train_bars} / test {wf.test_bars} bars
-              {" · "}
-              selected by {wf.selection_metric}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              Started {wf.started_at ? fmtDateTime(wf.started_at) : "—"}
-              {" · "}
-              Finished{" "}
-              {wf.completed_at ? fmtDateTime(wf.completed_at) : "—"}
-              {" · "}
-              Runtime {fmtDuration(wf.duration_seconds)}
-              {" · "}
-              {fmtNum(wf.total_backtests_run)} backtests run
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {wf.error_message && (
-        <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
-          <h2 className="text-sm font-semibold text-red-900 mb-2">
-            Run failed
-          </h2>
-          <pre className="text-xs text-red-800 whitespace-pre-wrap overflow-x-auto max-h-64 font-mono">
-            {wf.error_message}
-          </pre>
-        </div>
-      )}
-
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <SummaryCard
-          label="Avg Train Sharpe"
-          value={fmtSharpe(wf.avg_train_sharpe)}
-          hint="In-sample (param-selection bias)"
-          tone="neutral"
-        />
-        <SummaryCard
-          label="Avg Test Sharpe"
-          value={fmtSharpe(wf.avg_test_sharpe)}
-          hint="Out-of-sample (honest estimate)"
-          tone={
-            wf.avg_test_sharpe === null
-              ? "neutral"
-              : wf.avg_test_sharpe > 0
-                ? "good"
-                : "bad"
-          }
-        />
-        <SummaryCard
-          label="Overfit Drop"
-          value={fmtSharpe(wf.overfit_drop)}
-          hint={overfit.description}
-          tone={
-            wf.overfit_drop === null
-              ? "neutral"
-              : wf.overfit_drop > 1
-                ? "bad"
-                : wf.overfit_drop > 0
-                  ? "warn"
-                  : "good"
-          }
-          badge={overfit.label}
-        />
-        <SummaryCard
-          label="Test Win Rate"
-          value={fmtPct(wf.win_rate_windows_pct, 0)}
-          hint="% of test windows with return > 0"
-          tone={
-            wf.win_rate_windows_pct === null
-              ? "neutral"
-              : wf.win_rate_windows_pct >= 50
-                ? "good"
-                : "bad"
-          }
-        />
-      </div>
-
-      {/* Param grid summary */}
-      <section className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm mb-6">
-        <h2 className="text-sm font-semibold text-gray-900 mb-3">
-          Parameter Grid
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-          {Object.entries(wf.param_grid).map(([k, vs]) => (
-            <div
-              key={k}
-              className="flex items-baseline gap-2 font-mono text-xs"
+    <AppShell title={`Walk-Forward: ${wf.strategy_name}`}>
+      <div className="space-y-4">
+        {/* Header */}
+        <div>
+          <Link
+            href="/walkforwards"
+            className="text-sm text-indigo-600 hover:underline"
+          >
+            ← Walk-Forwards
+          </Link>
+          <div className="flex items-center gap-3 flex-wrap mt-2">
+            <h2 className="text-base font-semibold text-navy-700">
+              {wf.strategy_name}
+            </h2>
+            <span
+              className={`inline-block px-2 py-0.5 text-xs font-medium rounded border ${statusColor(wf.status)}`}
             >
-              <span className="text-gray-500">{k}:</span>
-              <span className="text-gray-900">
-                [{vs.map((v) => String(v)).join(", ")}]
-              </span>
-            </div>
-          ))}
+              {wf.status}
+            </span>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            <span className="font-mono">{wf.symbols.join(", ")}</span>
+            {" · "}
+            <span className="font-mono">{wf.bar_resolution}</span>
+            {" · "}
+            {wf.num_windows} windows
+            {" · "}
+            train {wf.train_bars} / test {wf.test_bars} bars
+            {" · "}
+            selected by {wf.selection_metric}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            Started {wf.started_at ? fmtDateTime(wf.started_at) : "—"}
+            {" · "}
+            Finished {wf.completed_at ? fmtDateTime(wf.completed_at) : "—"}
+            {" · "}
+            Runtime {fmtDuration(wf.duration_seconds)}
+            {" · "}
+            {fmtNum(wf.total_backtests_run)} backtests run
+          </p>
         </div>
-        <div className="mt-3 text-xs text-gray-500">
-          {wf.total_combos ?? "?"} combo
-          {wf.total_combos === 1 ? "" : "s"} ×{" "}
-          {wf.num_windows} windows ={" "}
-          {fmtNum(wf.total_backtests_run)} total backtests
-        </div>
-      </section>
 
-      {/* Per-window cards */}
-      {windows.length > 0 && (
-        <section className="mb-8">
-          <h2 className="text-base font-semibold text-gray-900 mb-3">
-            Per-Window Results
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {windows.map((w) => (
-              <WindowCard key={w.window_index} window={w} />
+        {wf.error_message && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <h3 className="text-sm font-semibold text-red-900 mb-2">
+              Run failed
+            </h3>
+            <pre className="text-xs text-red-800 whitespace-pre-wrap overflow-x-auto max-h-64 font-mono">
+              {wf.error_message}
+            </pre>
+          </div>
+        )}
+
+        {/* Summary cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <SummaryCard
+            label="Avg Train Sharpe"
+            value={fmtSharpe(wf.avg_train_sharpe)}
+            hint="In-sample (param-selection bias)"
+            tone="neutral"
+          />
+          <SummaryCard
+            label="Avg Test Sharpe"
+            value={fmtSharpe(wf.avg_test_sharpe)}
+            hint="Out-of-sample (honest estimate)"
+            tone={
+              wf.avg_test_sharpe === null
+                ? "neutral"
+                : wf.avg_test_sharpe > 0
+                  ? "good"
+                  : "bad"
+            }
+          />
+          <SummaryCard
+            label="Overfit Drop"
+            value={fmtSharpe(wf.overfit_drop)}
+            hint={overfit.description}
+            tone={
+              wf.overfit_drop === null
+                ? "neutral"
+                : wf.overfit_drop > 1
+                  ? "bad"
+                  : wf.overfit_drop > 0
+                    ? "warn"
+                    : "good"
+            }
+            badge={overfit.label}
+          />
+          <SummaryCard
+            label="Test Win Rate"
+            value={fmtPct(wf.win_rate_windows_pct, 0)}
+            hint="% of test windows with return > 0"
+            tone={
+              wf.win_rate_windows_pct === null
+                ? "neutral"
+                : wf.win_rate_windows_pct >= 50
+                  ? "good"
+                  : "bad"
+            }
+          />
+        </div>
+
+        {/* Param grid */}
+        <section className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm">
+          <h3 className="text-sm font-semibold text-navy-700 mb-3">
+            Parameter Grid
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+            {Object.entries(wf.param_grid).map(([k, vs]) => (
+              <div
+                key={k}
+                className="flex items-baseline gap-2 font-mono text-xs"
+              >
+                <span className="text-gray-500">{k}:</span>
+                <span className="text-gray-900">
+                  [{(vs as unknown[]).map((v) => String(v)).join(", ")}]
+                </span>
+              </div>
             ))}
           </div>
-        </section>
-      )}
-
-      {/* Dense table */}
-      {windows.length > 0 && (
-        <section className="mb-8">
-          <h2 className="text-base font-semibold text-gray-900 mb-3">
-            Per-Window Table
-          </h2>
-          <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto shadow-sm">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-3 py-2 text-left font-medium text-gray-700">
-                    #
-                  </th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-700">
-                    Train Range
-                  </th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-700">
-                    Test Range
-                  </th>
-                  <th className="px-3 py-2 text-left font-medium text-gray-700">
-                    Best Params
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium text-gray-700">
-                    Train Sharpe
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium text-gray-700">
-                    Test Sharpe
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium text-gray-700">
-                    Test Return
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium text-gray-700">
-                    Test MaxDD
-                  </th>
-                  <th className="px-3 py-2 text-right font-medium text-gray-700">
-                    Test Trades
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {windows.map((w) => (
-                  <tr key={w.window_index} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 text-gray-600 tabular-nums">
-                      {w.window_index}
-                    </td>
-                    <td className="px-3 py-2 text-gray-700 text-xs whitespace-nowrap">
-                      {fmtDate(w.train_start_ts)} →{" "}
-                      {fmtDate(w.train_end_ts)}
-                    </td>
-                    <td className="px-3 py-2 text-gray-700 text-xs whitespace-nowrap">
-                      {fmtDate(w.test_start_ts)} →{" "}
-                      {fmtDate(w.test_end_ts)}
-                    </td>
-                    <td className="px-3 py-2 font-mono text-xs text-gray-800">
-                      {Object.entries(w.best_params)
-                        .map(([k, v]) => `${k}=${v}`)
-                        .join(", ")}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      {fmtSharpe(w.train_sharpe)}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      <span
-                        className={
-                          w.test_sharpe === null
-                            ? "text-gray-400"
-                            : w.test_sharpe > 0
-                              ? "text-emerald-700 font-medium"
-                              : "text-red-700 font-medium"
-                        }
-                      >
-                        {fmtSharpe(w.test_sharpe)}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums">
-                      <span
-                        className={
-                          w.test_total_return_pct === null
-                            ? "text-gray-400"
-                            : w.test_total_return_pct > 0
-                              ? "text-emerald-700"
-                              : w.test_total_return_pct < 0
-                                ? "text-red-700"
-                                : "text-gray-600"
-                        }
-                      >
-                        {fmtPct(w.test_total_return_pct)}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-gray-700">
-                      {fmtPct(w.test_max_drawdown_pct)}
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums text-gray-700">
-                      {fmtNum(w.test_num_closed_trades)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="mt-3 text-xs text-gray-500">
+            {wf.total_combos ?? "?"} combo
+            {wf.total_combos === 1 ? "" : "s"} × {wf.num_windows} windows ={" "}
+            {fmtNum(wf.total_backtests_run)} total backtests
           </div>
         </section>
-      )}
 
-      {/* Risk disclaimer */}
-      <div className="bg-amber-50 border border-amber-200 rounded-md p-4 mb-4">
-        <h3 className="text-sm font-semibold text-amber-900 mb-2">
-          Interpreting these results
-        </h3>
-        <ul className="text-xs text-amber-900 space-y-1 list-disc pl-5">
-          <li>
-            <strong>Train Sharpe</strong> is the best-of-N from a parameter
-            sweep — it's the maximum of a sample distribution, so it's
-            mechanically biased upward.
-          </li>
-          <li>
-            <strong>Test Sharpe</strong> is computed on held-out bars after
-            params were chosen, so it's the honest out-of-sample estimate.
-          </li>
-          <li>
-            <strong>Overfit drop</strong> = train Sharpe − test Sharpe. Drops
-            above ~1.0 suggest the strategy fits noise rather than signal.
-          </li>
-          <li>
-            Walk-forward is a diagnostic, not a forecast. Real markets are
-            non-stationary; even strong OOS performance does not guarantee
-            future returns.
-          </li>
-        </ul>
-      </div>
+        {/* Per-window cards */}
+        {windows.length > 0 && (
+          <section>
+            <h3 className="text-sm font-semibold text-navy-700 mb-3">
+              Per-Window Results
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {windows.map((w) => (
+                <WindowCard key={w.window_index} window={w} />
+              ))}
+            </div>
+          </section>
+        )}
 
-      <div className="text-xs text-gray-500 leading-relaxed">
-        <strong className="text-gray-700">Educational use only.</strong> All
-        backtest results — including walk-forward — are based on historical
-        data and do not predict future performance. Trading involves
-        substantial risk; you may lose your entire investment.
+        {/* Dense table */}
+        {windows.length > 0 && (
+          <section>
+            <h3 className="text-sm font-semibold text-navy-700 mb-3">
+              Per-Window Table
+            </h3>
+            <div className="bg-white border border-gray-200 rounded-lg overflow-x-auto shadow-sm">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium text-gray-700">
+                      #
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-700">
+                      Train Range
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-700">
+                      Test Range
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-700">
+                      Best Params
+                    </th>
+                    <th className="px-3 py-2 text-right font-medium text-gray-700">
+                      Train Sharpe
+                    </th>
+                    <th className="px-3 py-2 text-right font-medium text-gray-700">
+                      Test Sharpe
+                    </th>
+                    <th className="px-3 py-2 text-right font-medium text-gray-700">
+                      Test Return
+                    </th>
+                    <th className="px-3 py-2 text-right font-medium text-gray-700">
+                      Test MaxDD
+                    </th>
+                    <th className="px-3 py-2 text-right font-medium text-gray-700">
+                      Test Trades
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {windows.map((w) => (
+                    <tr key={w.window_index} className="hover:bg-gray-50">
+                      <td className="px-3 py-2 text-gray-600 tabular-nums">
+                        {w.window_index}
+                      </td>
+                      <td className="px-3 py-2 text-gray-700 text-xs whitespace-nowrap">
+                        {fmtDate(w.train_start_ts)} →{" "}
+                        {fmtDate(w.train_end_ts)}
+                      </td>
+                      <td className="px-3 py-2 text-gray-700 text-xs whitespace-nowrap">
+                        {fmtDate(w.test_start_ts)} →{" "}
+                        {fmtDate(w.test_end_ts)}
+                      </td>
+                      <td className="px-3 py-2 font-mono text-xs text-gray-800">
+                        {Object.entries(w.best_params)
+                          .map(([k, v]) => `${k}=${v}`)
+                          .join(", ")}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {fmtSharpe(w.train_sharpe)}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        <span
+                          className={
+                            w.test_sharpe === null
+                              ? "text-gray-400"
+                              : w.test_sharpe > 0
+                                ? "text-emerald-700 font-medium"
+                                : "text-red-700 font-medium"
+                          }
+                        >
+                          {fmtSharpe(w.test_sharpe)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        <span
+                          className={
+                            w.test_total_return_pct === null
+                              ? "text-gray-400"
+                              : w.test_total_return_pct > 0
+                                ? "text-emerald-700"
+                                : w.test_total_return_pct < 0
+                                  ? "text-red-700"
+                                  : "text-gray-600"
+                          }
+                        >
+                          {fmtPct(w.test_total_return_pct)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-gray-700">
+                        {fmtPct(w.test_max_drawdown_pct)}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-gray-700">
+                        {fmtNum(w.test_num_closed_trades)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        <div className="bg-amber-50 border border-amber-200 rounded-md p-4">
+          <h3 className="text-sm font-semibold text-amber-900 mb-2">
+            Interpreting these results
+          </h3>
+          <ul className="text-xs text-amber-900 space-y-1 list-disc pl-5">
+            <li>
+              <strong>Train Sharpe</strong> is the best-of-N from a parameter
+              sweep — the maximum of a sample distribution, so it&apos;s
+              mechanically biased upward.
+            </li>
+            <li>
+              <strong>Test Sharpe</strong> is computed on held-out bars after
+              params were chosen — the honest out-of-sample estimate.
+            </li>
+            <li>
+              <strong>Overfit drop</strong> = train Sharpe − test Sharpe.
+              Drops above ~1.0 suggest the strategy fits noise rather than
+              signal.
+            </li>
+            <li>
+              Walk-forward is diagnostic, not predictive. Real markets are
+              non-stationary; even strong OOS performance does not guarantee
+              future returns.
+            </li>
+          </ul>
+        </div>
+
+        <div className="text-xs text-gray-500 leading-relaxed">
+          <strong className="text-gray-700">Educational use only.</strong> All
+          backtest results — including walk-forward — are based on historical
+          data and do not predict future performance. Trading involves
+          substantial risk; you may lose your entire investment.
+        </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
 
@@ -449,9 +428,9 @@ function WindowCard({ window: w }: { window: WindowResult }) {
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
       <div className="flex items-baseline justify-between mb-3">
-        <h3 className="text-sm font-semibold text-gray-900">
+        <h4 className="text-sm font-semibold text-navy-700">
           Window {w.window_index + 1}
-        </h3>
+        </h4>
         <span
           className={`inline-block px-2 py-0.5 text-[10px] font-medium rounded border ${overfitInfo.color}`}
           title={overfitInfo.description}
