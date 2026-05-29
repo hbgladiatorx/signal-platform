@@ -26,7 +26,10 @@ from typing import Any
 
 import pandas as pd
 
+import dataclasses
+
 from packages.backtest import BacktestConfig, compute_analytics, run_backtest
+from packages.backtest.types import BacktestResult
 
 
 log = logging.getLogger(__name__)
@@ -159,6 +162,51 @@ def slice_bars(
 
 
 # ============================================================
+# Test-window result filtering (for walkforward warmup)
+# ============================================================
+def _filter_result_to_window(
+    result: BacktestResult,
+    window_start_ts: pd.Timestamp,
+) -> BacktestResult:
+    """Return a new BacktestResult containing only fills and equity points
+    whose timestamp is >= window_start_ts. starting_cash is re-anchored to
+    the first equity point in the window so total_return_pct reflects only
+    test-window performance, not the warmup prelude.
+
+    Round-trip pairing in analytics is per-symbol position-zero crossings;
+    trades that span the train/test boundary will count as open rather
+    than closed within the test window.
+    """
+    filtered_fills = [
+        f for f in result.fills
+        if pd.Timestamp(f.filled_ts) >= window_start_ts
+    ]
+    filtered_equity = [
+        p for p in result.equity_curve
+        if pd.Timestamp(p.ts) >= window_start_ts
+    ]
+
+    if filtered_equity:
+        new_starting_cash = filtered_equity[0].total_equity
+    else:
+        new_starting_cash = result.config.starting_cash
+
+    new_config = dataclasses.replace(result.config, starting_cash=new_starting_cash)
+
+    return BacktestResult(
+        config=new_config,
+        fills=filtered_fills,
+        equity_curve=filtered_equity,
+        final_cash=result.final_cash,
+        final_positions=result.final_positions,
+        rejected_orders=[],
+        cancelled_orders=[],
+        expired_orders=[],
+        strategy_state_final=result.strategy_state_final,
+    )
+
+
+# ============================================================
 # Single window
 # ============================================================
 def _run_window(
@@ -213,10 +261,17 @@ def _run_window(
             f"(tried {len(param_combos)} combos, {combos_succeeded} succeeded)"
         )
 
-    # Run test segment with the best params
+    # Run test segment with the best params, using the train+test slice
+    # so the strategy can warm up its indicators on the train data. Test
+    # analytics are then computed on the test-window slice only by
+    # filtering fills and equity points by timestamp.
     test_params = strategy_cls.PARAMS_MODEL(**best_combo)
     test_strategy = strategy_cls(symbols=symbols, params=test_params)
-    test_result = run_backtest(test_strategy, test_bars, config)
+    extended_bars = slice_bars(all_bars, tr_start, te_end)
+    extended_result = run_backtest(test_strategy, extended_bars, config)
+
+    test_window_start_ts = pd.Timestamp(all_bars[symbols[0]].index[te_start])
+    test_result = _filter_result_to_window(extended_result, test_window_start_ts)
     test_analytics = compute_analytics(test_result)
 
     # Pull window timestamps from the first symbol's index
