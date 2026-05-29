@@ -149,6 +149,11 @@ function AuthPage() {
                 </p>
               </div>
               <Field icon={Mail} label="Email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@firm.com" />
+              <PrimaryButton loading={loading}>
+                Send reset link <ArrowRight className="ml-1.5 size-4" />
+              </PrimaryButton>
+            </form>
+          ) : (
             <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)}>
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="signin">Sign in</TabsTrigger>
@@ -178,11 +183,6 @@ function AuthPage() {
 
               <TabsContent value="signin" className="mt-4">
 
-                <TabsTrigger value="signin">Sign in</TabsTrigger>
-                <TabsTrigger value="signup">Create account</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="signin" className="mt-6">
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <Field icon={Mail} label="Email" type="email" placeholder="you@firm.com" required value={email} onChange={(e) => setEmail(e.target.value)} />
                   <Field icon={Lock} label="Password" type="password" placeholder="••••••••" required value={password} onChange={(e) => setPassword(e.target.value)} />
