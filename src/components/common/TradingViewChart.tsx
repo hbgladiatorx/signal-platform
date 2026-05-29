@@ -1,5 +1,6 @@
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { AssetClass } from "@/lib/types";
+import { tvSymbol as mapTvSymbol } from "@/lib/tradingview";
 
 declare global {
   interface Window {
@@ -31,40 +32,9 @@ function loadTradingView(): Promise<void> {
   return scriptPromise;
 }
 
-/** Map our internal symbols + asset classes to TradingView exchange-qualified symbols. */
-export function toTradingViewSymbol(symbol: string, assetClass?: AssetClass | "index"): string {
-  const s = symbol.toUpperCase();
-  // Explicit, hand-tuned mappings for our mock universe.
-  const explicit: Record<string, string> = {
-    SPY: "AMEX:SPY",
-    QQQ: "NASDAQ:QQQ",
-    IWM: "AMEX:IWM",
-    AAPL: "NASDAQ:AAPL",
-    MSFT: "NASDAQ:MSFT",
-    NVDA: "NASDAQ:NVDA",
-    AMZN: "NASDAQ:AMZN",
-    META: "NASDAQ:META",
-    GOOGL: "NASDAQ:GOOGL",
-    TSLA: "NASDAQ:TSLA",
-    VIX: "TVC:VIX",
-    BTC: "BINANCE:BTCUSDT",
-    "BTC-PERP": "BINANCE:BTCUSDT.P",
-    ETH: "BINANCE:ETHUSDT",
-    "ETH-PERP": "BINANCE:ETHUSDT.P",
-    SOL: "BINANCE:SOLUSDT",
-    ES: "CME_MINI:ES1!",
-    NQ: "CME_MINI:NQ1!",
-    CL: "NYMEX:CL1!",
-    GC: "COMEX:GC1!",
-  };
-  if (explicit[s]) return explicit[s];
-  // Crypto fallback: pair against USDT on Binance.
-  if (assetClass === "crypto") return `BINANCE:${s.replace(/-?PERP$|-USDT$|USDT$/, "")}USDT`;
-  // Futures fallback: front-month continuous.
-  if (assetClass === "futures") return `CME_MINI:${s}1!`;
-  // Stocks/options default to NASDAQ; users can change in-chart.
-  return `NASDAQ:${s}`;
-}
+/** Back-compat re-export — symbol mapping now lives in src/lib/tradingview.ts. */
+export const toTradingViewSymbol = mapTvSymbol;
+
 
 export interface TradingViewChartProps {
   symbol: string;
