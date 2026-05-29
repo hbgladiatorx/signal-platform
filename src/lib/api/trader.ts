@@ -195,15 +195,55 @@ export function subscribeToSignalUpdates(onUpdate: (signal: any) => void) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Legacy compatibility shims — keep old call sites compiling
-// while the app migrates to the new signal_products schema.
-// These return empty data; replace usage incrementally.
+// Legacy compatibility shims — bridge old UI to new schema.
+// getStrategies / getStrategyById now hit signal_products.
+// Follow flow stays on localStorage overlay until auth is fully wired.
 // ─────────────────────────────────────────────────────────────
-import type { Strategy, Signal, EquityPoint, TakenSignal } from "../types";
+import type { Strategy, Signal, EquityPoint, TakenSignal, AssetClass } from "../types";
+import { readFollowedOverlay, toggleFollow } from "../user-prefs";
 
-export async function getStrategies(): Promise<Strategy[]> { return []; }
-export async function getStrategyById(_id: string): Promise<Strategy | undefined> { return undefined; }
-export async function getFollowedStrategies(): Promise<Strategy[]> { return []; }
+function mapProductRow(row: any): Strategy {
+  const ac = (row.asset_class ?? "stocks") as AssetClass;
+  return {
+    id: row.id,
+    name: row.name ?? row.slug ?? "Untitled",
+    description: row.description ?? "",
+    longDescription: row.description ?? "",
+    entryRules: "",
+    exitRules: "",
+    assetClass: ac,
+    devHandle: "@bayn",
+    status: "Watching",
+    stage: "Published",
+    edgeVerified: row.gate_status === "passed" || row.gate_status === "live",
+    symbols: [],
+    lastSignalAt: row.updated_at ?? row.created_at ?? new Date().toISOString(),
+    createdAt: row.created_at ?? new Date().toISOString(),
+    stats: {
+      sharpe: 0,
+      winRate: typeof row.forward_win_rate === "number" ? row.forward_win_rate : 0,
+      maxDrawdown: 0,
+      sampleSize: 0,
+      avgR: 0,
+      liveDays: 0,
+      subscribers: 0,
+    },
+  };
+}
+
+export async function getStrategies(): Promise<Strategy[]> {
+  const rows = await getCatalog();
+  return rows.map(mapProductRow);
+}
+export async function getStrategyById(id: string): Promise<Strategy | undefined> {
+  try { const row = await getProduct(id); return row ? mapProductRow(row) : undefined; }
+  catch { return undefined; }
+}
+export async function getFollowedStrategies(): Promise<Strategy[]> {
+  const followed = new Set(getEffectiveFollowedIds());
+  const all = await getStrategies();
+  return all.filter((s) => followed.has(s.id));
+}
 export async function getSignals(_opts?: { strategyId?: string; limit?: number }): Promise<Signal[]> { return []; }
 export async function getSignalById(_id: string): Promise<Signal | undefined> { return undefined; }
 export async function getStrategyEquity(_strategyId: string, _days = 30): Promise<EquityPoint[]> { return []; }
@@ -214,9 +254,16 @@ export async function getUserPerformance(_days = 30) {
     kpis: { totalTaken: 0, winRate: 0, avgR: 0, maxDrawdown: 0 },
   };
 }
-export function getEffectiveFollowedIds(): string[] { return []; }
-export async function subscribeToStrategy(productId: string) { await subscribeToProduct(productId); return { ok: true }; }
-export async function unsubscribeFromStrategy(productId: string) { await unsubscribeFromProduct(productId); return { ok: true }; }
+export function getEffectiveFollowedIds(): string[] {
+  const overlay = readFollowedOverlay();
+  const set = new Set<string>();
+  overlay.added.forEach((id) => set.add(id));
+  overlay.removed.forEach((id) => set.delete(id));
+  return [...set];
+}
+export async function subscribeToStrategy(id: string) { toggleFollow(id, true); return { ok: true }; }
+export async function unsubscribeFromStrategy(id: string) { toggleFollow(id, false); return { ok: true }; }
 export async function sendOrderToBroker(_signalId: string, _broker: string) { return { ok: true }; }
 export async function getMarketOverview(): Promise<never[]> { return []; }
 export async function getMarketNews(): Promise<never[]> { return []; }
+
