@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Link } from "@tanstack/react-router";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
@@ -10,12 +10,14 @@ import { Button } from "@/components/ui/button";
 import {
   ArrowUpRight, Plus, RefreshCcw, Crown, Lock,
 } from "lucide-react";
-import { getEffectiveFollowedIds, subscribeToStrategy, unsubscribeFromStrategy } from "@/lib/api";
+import {
+  getStrategies, subscribeToStrategy, unsubscribeFromStrategy, useFollowedIds,
+} from "@/lib/api";
 import {
   getCurrentPlan, getTotalSlots, getTier, isFreeStrategy,
   purchaseAddOn, upgradePlan, type TierId,
 } from "@/lib/api/billing";
-import { strategies } from "@/lib/mockData";
+
 
 export function PaywallModal({
   strategyId,
