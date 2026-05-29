@@ -33,6 +33,8 @@ function StrategyDetail() {
   if (strat.isFetched && !strat.data) throw notFound();
   const s = strat.data;
   if (!s) return <div className="p-6 text-muted-foreground">Loading…</div>;
+  const primarySymbol = s.symbols?.[0];
+
 
   const ddData = (equity.data ?? []).reduce<{ t: string; dd: number; peak: number }[]>((acc, p) => {
     const peak = Math.max(p.equity, acc[acc.length - 1]?.peak ?? p.equity);
