@@ -15,11 +15,10 @@ import {
   useNewsSources, useOnlyNewsForWatched, useEnabledAssetClasses, ALL_ASSET_CLASSES,
   useHomeLayout, useHiddenSections, DEFAULT_HOME_LAYOUT,
   useAccountSize, useRiskPerTrade, useDefaultTimeframe, useDefaultChartType,
-  useNotifications, useFollowedOverlay, useLiveTrackingStrategy,
-  type HomeSection,
+  useNotifications, useLiveTrackingStrategy,
 } from "@/lib/user-prefs";
-import { getEffectiveFollowedIds } from "@/lib/api";
-import { toggleFollow } from "@/lib/user-prefs";
+import { useFollowedIds, unsubscribeFromStrategy } from "@/lib/api";
+
 import { getCurrentPlan, getTotalSlots, isFreeStrategy, formatLimit } from "@/lib/api/billing";
 import { strategies } from "@/lib/mockData";
 import type { AssetClass } from "@/lib/types";
