@@ -171,8 +171,9 @@ function Shell({ mode }: { mode: "trader" | "studio" }) {
         {/* Asset-class filter — trader only, cascades through context */}
         {!isStudio && <AssetChipRow />}
 
-        {/* Bloomberg-style market ticker — trader only */}
-        {!isStudio && <MarketTicker />}
+        {/* TradingView ticker tape — trader only, above asset filter on /app/* */}
+        {!isStudio && <TVTickerTape />}
+
       </header>
 
       <main className="min-w-0 flex-1 pb-32">
