@@ -86,6 +86,11 @@ function StrategyDetail() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4 pt-4">
+          {primarySymbol && (
+            <Card className="overflow-hidden border-border bg-elevated p-0">
+              <TradingViewChart symbol={primarySymbol} assetClass={s.assetClass} interval="60" height={420} />
+            </Card>
+          )}
           <Card className="border-border bg-elevated p-5">
             <h3 className="mb-2 font-semibold">How it works</h3>
             <p className="text-sm text-muted-foreground">{s.longDescription}</p>
@@ -101,6 +106,7 @@ function StrategyDetail() {
             </Card>
           </div>
         </TabsContent>
+
 
         <TabsContent value="backtest" className="space-y-4 pt-4">
           <ChartCard title="Equity curve (90D)" data={equity.data ?? []} dataKey="equity" gradient="cyan" />
