@@ -34,9 +34,10 @@ function CatalogPage() {
   const { data } = useQuery({ queryKey: ["strategies"], queryFn: getStrategies });
   const queryClient = useQueryClient();
 
-  useFollowedOverlay();
-  const followedNow = new Set(getEffectiveFollowedIds());
+  const followedIds = useFollowedIds();
+  const followedNow = new Set<string>(followedIds);
   const followedNonFree = [...followedNow].filter((id) => !isFreeStrategy(id));
+
 
   const subscribe = useMutation({
     mutationFn: subscribeToStrategy,
