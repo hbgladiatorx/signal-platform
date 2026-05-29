@@ -28,7 +28,7 @@ function SignalsPage() {
   const { assetClass } = useAssetFilter();
   const [status, setStatus] = useState<"all" | SignalStatus>("all");
   const { data } = useQuery({ queryKey: ["signals-all"], queryFn: () => getSignals() });
-  const { data } = useQuery({ queryKey: ["signals-all"], queryFn: () => getSignals() });
+
   const followedList = useFollowedIds();
   const followedIds = useMemo(() => new Set<string>(followedList), [followedList]);
 
