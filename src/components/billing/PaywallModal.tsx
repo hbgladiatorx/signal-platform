@@ -162,7 +162,8 @@ export function PaywallModal({
             {followedNonFree.length > 0 && (
               <div className="space-y-1">
                 {followedNonFree.slice(0, 4).map((id) => {
-                  const s = strategies.find((x) => x.id === id);
+                  const s = allStrategies.find((x) => x.id === id);
+
                   if (!s) return null;
                   return (
                     <button
