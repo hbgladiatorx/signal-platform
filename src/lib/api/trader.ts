@@ -196,11 +196,10 @@ export function subscribeToSignalUpdates(onUpdate: (signal: any) => void) {
 
 // ─────────────────────────────────────────────────────────────
 // Legacy compatibility shims — bridge old UI to new schema.
-// getStrategies / getStrategyById now hit signal_products.
-// Follow flow stays on localStorage overlay until auth is fully wired.
+// Follow/unfollow now hits product_subscriptions (no localStorage).
 // ─────────────────────────────────────────────────────────────
+import { useQuery } from "@tanstack/react-query";
 import type { Strategy, Signal, EquityPoint, TakenSignal, AssetClass } from "../types";
-import { readFollowedOverlay, toggleFollow } from "../user-prefs";
 
 function mapProductRow(row: any): Strategy {
   const ac = (row.asset_class ?? "stocks") as AssetClass;
@@ -215,7 +214,7 @@ function mapProductRow(row: any): Strategy {
     devHandle: "@bayn",
     status: "Watching",
     stage: "Published",
-    edgeVerified: row.gate_status === "passed" || row.gate_status === "live",
+    edgeVerified: row.gate_status === "passed" || row.gate_status === "live" || row.gate_status === 3,
     symbols: [],
     lastSignalAt: row.updated_at ?? row.created_at ?? new Date().toISOString(),
     createdAt: row.created_at ?? new Date().toISOString(),
@@ -239,11 +238,53 @@ export async function getStrategyById(id: string): Promise<Strategy | undefined>
   try { const row = await getProduct(id); return row ? mapProductRow(row) : undefined; }
   catch { return undefined; }
 }
-export async function getFollowedStrategies(): Promise<Strategy[]> {
-  const followed = new Set(getEffectiveFollowedIds());
-  const all = await getStrategies();
-  return all.filter((s) => followed.has(s.id));
+
+// ---- Followed (real DB) ----
+let _followedCache: string[] = [];
+
+export async function getFollowedProductIds(): Promise<string[]> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) { _followedCache = []; return []; }
+  const { data, error } = await supabase
+    .from("product_subscriptions")
+    .select("product_id")
+    .eq("user_id", user.id)
+    .is("ended_at", null);
+  if (error) throw error;
+  const ids = (data ?? []).map((r: any) => r.product_id as string);
+  _followedCache = ids;
+  return ids;
 }
+
+/** React hook — drives the cache for sync callers. */
+export function useFollowedIds() {
+  const q = useQuery({ queryKey: ["followed"], queryFn: getFollowedProductIds });
+  if (q.data) _followedCache = q.data;
+  return q.data ?? [];
+}
+
+/** Legacy sync accessor — reads cache last hydrated by useFollowedIds(). */
+export function getEffectiveFollowedIds(): string[] {
+  return _followedCache;
+}
+
+export async function getFollowedStrategies(): Promise<Strategy[]> {
+  const ids = new Set(await getFollowedProductIds());
+  const all = await getStrategies();
+  return all.filter((s) => ids.has(s.id));
+}
+
+export async function subscribeToStrategy(id: string) {
+  const row = await subscribeToProduct(id);
+  _followedCache = [..._followedCache.filter((x) => x !== id), id];
+  return row;
+}
+export async function unsubscribeFromStrategy(id: string) {
+  await unsubscribeFromProduct(id);
+  _followedCache = _followedCache.filter((x) => x !== id);
+  return { ok: true };
+}
+
 export async function getSignals(_opts?: { strategyId?: string; limit?: number }): Promise<Signal[]> { return []; }
 export async function getSignalById(_id: string): Promise<Signal | undefined> { return undefined; }
 export async function getStrategyEquity(_strategyId: string, _days = 30): Promise<EquityPoint[]> { return []; }
@@ -254,15 +295,6 @@ export async function getUserPerformance(_days = 30) {
     kpis: { totalTaken: 0, winRate: 0, avgR: 0, maxDrawdown: 0 },
   };
 }
-export function getEffectiveFollowedIds(): string[] {
-  const overlay = readFollowedOverlay();
-  const set = new Set<string>();
-  overlay.added.forEach((id) => set.add(id));
-  overlay.removed.forEach((id) => set.delete(id));
-  return [...set];
-}
-export async function subscribeToStrategy(id: string) { toggleFollow(id, true); return { ok: true }; }
-export async function unsubscribeFromStrategy(id: string) { toggleFollow(id, false); return { ok: true }; }
 export async function sendOrderToBroker(_signalId: string, _broker: string) { return { ok: true }; }
 export async function getMarketOverview(): Promise<never[]> { return []; }
 export async function getMarketNews(): Promise<never[]> { return []; }
