@@ -9,12 +9,14 @@ import { PipelineBadge } from "@/components/common/PipelineBadge";
 import { DirectionPill } from "@/components/common/DirectionPill";
 import { StatusPill } from "@/components/common/StatusPill";
 import { Disclaimer } from "@/components/common/Disclaimer";
+import { TradingViewChart } from "@/components/common/TradingViewChart";
 import {
-  Area, AreaChart, Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid, Line, LineChart,
+  Area, AreaChart, Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid,
 } from "recharts";
 import { format } from "date-fns";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/app/strategy/$id")({
   head: ({ params }) => ({ meta: [{ title: `Strategy ${params.id} — Bayn` }] }),
