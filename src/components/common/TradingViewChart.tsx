@@ -67,13 +67,31 @@ export function TradingViewChart({
   const containerId = `tv_${reactId}`;
   const ref = useRef<HTMLDivElement | null>(null);
   const tvSymbol = toTradingViewSymbol(symbol, assetClass);
+  const [visible, setVisible] = useState(false);
+
+  // Defer widget initialisation until the chart scrolls into view.
+  useEffect(() => {
+    if (visible || !ref.current) return;
+    const el = ref.current;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisible(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [visible]);
 
   useEffect(() => {
+    if (!visible) return;
     let cancelled = false;
     loadTradingView()
       .then(() => {
         if (cancelled || !ref.current || !window.TradingView) return;
-        // Clear previous widget DOM before re-instantiation.
         ref.current.innerHTML = "";
         // eslint-disable-next-line new-cap
         new window.TradingView.widget({
@@ -96,7 +114,6 @@ export function TradingViewChart({
           studies,
           backgroundColor: "rgba(0,0,0,0)",
           gridColor: "rgba(255,255,255,0.06)",
-          // Hint to TradingView to use our font in the UI chrome where supported.
           custom_css_url: undefined,
         });
       })
@@ -110,7 +127,8 @@ export function TradingViewChart({
       cancelled = true;
       if (ref.current) ref.current.innerHTML = "";
     };
-  }, [containerId, tvSymbol, interval, style, withDrawingTools, studies.join("|")]);
+  }, [visible, containerId, tvSymbol, interval, style, withDrawingTools, studies.join("|")]);
+
 
   return (
     <div
