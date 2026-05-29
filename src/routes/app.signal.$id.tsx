@@ -63,9 +63,9 @@ function SignalDetail() {
   if (sig.isFetched && !sig.data) throw notFound();
   const s = sig.data;
   if (!s) return <div className="p-6 text-muted-foreground">Loading…</div>;
+  const isFollowed = new Set(followedIds).has(s.strategyId);
+  const followedNonFree = followedIds.filter((strategyId: string) => !isFreeStrategy(strategyId));
 
-  const isFollowed = new Set(getEffectiveFollowedIds()).has(s.strategyId);
-  const followedNonFree = getEffectiveFollowedIds().filter((strategyId) => !isFreeStrategy(strategyId));
   const tryUnlock = () => {
     const check = checkSlotAvailability(s.strategyId, followedNonFree);
     if (check.ok) subscribe.mutate(s.strategyId);
