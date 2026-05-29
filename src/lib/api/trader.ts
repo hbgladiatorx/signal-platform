@@ -199,7 +199,7 @@ export function subscribeToSignalUpdates(onUpdate: (signal: any) => void) {
 // Follow/unfollow now hits product_subscriptions (no localStorage).
 // ─────────────────────────────────────────────────────────────
 import { useQuery } from "@tanstack/react-query";
-import type { Strategy, Signal, EquityPoint, TakenSignal, AssetClass } from "../types";
+import type { Strategy, Signal, EquityPoint, TakenSignal, AssetClass, SignalStatus, Direction } from "../types";
 
 function mapProductRow(row: any): Strategy {
   const ac = (row.asset_class ?? "stocks") as AssetClass;
