@@ -1,8 +1,8 @@
 import { createFileRoute, useParams, notFound, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { getSignalById, getStrategyById, getEffectiveFollowedIds, subscribeToStrategy } from "@/lib/api";
-import { useFollowedOverlay } from "@/lib/user-prefs";
+import { getSignalById, getStrategyById, subscribeToStrategy, useFollowedIds } from "@/lib/api";
+
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
