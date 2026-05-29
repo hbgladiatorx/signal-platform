@@ -167,11 +167,12 @@ function Shell({ mode }: { mode: "trader" | "studio" }) {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+        {/* TradingView ticker tape — trader only, above asset filter on /app/* */}
+        {!isStudio && <TVTickerTape />}
 
         {/* Asset-class filter — trader only, cascades through context */}
         {!isStudio && <AssetChipRow />}
 
-        {/* TradingView ticker tape — trader only, above asset filter on /app/* */}
         {!isStudio && <TVTickerTape />}
 
       </header>
