@@ -115,22 +115,11 @@ export function useOnlyNewsForWatched() {
   return usePref<boolean>("news.onlyWatched", false);
 }
 
-/* ---------------- Followed strategy ids (overlay) ---------------- */
-export function useFollowedOverlay() {
-  return usePref<{ added: string[]; removed: string[] }>("follows", { added: [], removed: [] });
-}
-export function readFollowedOverlay() {
-  return read<{ added: string[]; removed: string[] }>("follows", { added: [], removed: [] });
-}
-export function toggleFollow(id: string, follow: boolean) {
-  const cur = readFollowedOverlay();
-  const added = new Set(cur.added);
-  const removed = new Set(cur.removed);
-  if (follow) { added.add(id); removed.delete(id); }
-  else { removed.add(id); added.delete(id); }
-  write("follows", { added: [...added], removed: [...removed] });
-  logDebugEvent({ type: "follow", message: `${follow ? "Followed" : "Unfollowed"} strategy ${id}`, meta: { id, follow } });
-}
+/* ---------------- Followed strategy ids -----------------
+ * Following is persisted in the product_subscriptions table.
+ * See useFollowedIds() in @/lib/api/trader.
+ */
+
 
 /* ---------------- Enabled asset classes (master cascade) ---------------- */
 export const ALL_ASSET_CLASSES: AssetClass[] = ["stocks", "crypto", "options", "futures"];
