@@ -30,14 +30,16 @@ export function PaywallModal({
   onOpenChange: (v: boolean) => void;
   onResolved?: () => void;
 }) {
+  const allStrategiesQ = useQuery({ queryKey: ["strategies"], queryFn: getStrategies });
+  const allStrategies = allStrategiesQ.data ?? [];
   const strategy = useMemo(
-    () => (strategyId ? strategies.find((s) => s.id === strategyId) : null),
-    [strategyId],
+    () => (strategyId ? allStrategies.find((s) => s.id === strategyId) ?? null : null),
+    [strategyId, allStrategies],
   );
   const plan = getCurrentPlan();
   const total = getTotalSlots();
-  const followed = getEffectiveFollowedIds();
-  const followedNonFree = followed.filter((id) => !isFreeStrategy(id));
+  const followed = useFollowedIds();
+  const followedNonFree = followed.filter((id: string) => !isFreeStrategy(id));
   const used = followedNonFree.length;
 
   const nextTier: TierId | null =
@@ -48,7 +50,10 @@ export function PaywallModal({
 
   const qc = useQueryClient();
   const handleResolve = async (toastMsg: string, followAfterPurchase = true) => {
-    if (followAfterPurchase && strategyId && !getEffectiveFollowedIds().includes(strategyId)) {
+    if (followAfterPurchase && strategyId && !followed.includes(strategyId)) {
+      await subscribeToStrategy(strategyId);
+    }
+
       await subscribeToStrategy(strategyId);
     }
     qc.invalidateQueries({ queryKey: ["followed"] });
