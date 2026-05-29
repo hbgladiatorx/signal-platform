@@ -331,7 +331,6 @@ function mapSignalRow(row: any): Signal {
   };
 }
 
-import type { Direction } from '../types';
 
 export async function getSignals(opts?: { strategyId?: string; limit?: number }): Promise<Signal[]> {
   let q = supabase
