@@ -37,24 +37,10 @@ function HomePage() {
   const [days, setDays] = useState(30);
   const { assetClass } = useAssetFilter();
 
-  const [watchlist] = useWatchlist();
-  const quotesFn = useServerFn(getQuotes);
-  const market = useQuery({
-    queryKey: ["finnhub-quotes", watchlist],
-    queryFn: () => quotesFn({ data: { symbols: watchlist } }),
-    enabled: watchlist.length > 0,
-    refetchInterval: 30_000,
-    staleTime: 25_000,
-  });
   const followed = useQuery({ queryKey: ["followed"], queryFn: getFollowedStrategies });
   const recent = useQuery({ queryKey: ["recent"], queryFn: () => getRecentSignals(20) });
   const perf = useQuery({ queryKey: ["perf", days], queryFn: () => getUserPerformance(days) });
 
-  const tiles = useMemo(() => {
-    const arr = market.data ?? [];
-    const order = new Map(watchlist.map((s, i) => [s.toUpperCase(), i] as const));
-    return [...arr].sort((a, b) => (order.get(a.symbol) ?? 0) - (order.get(b.symbol) ?? 0));
-  }, [market.data, watchlist]);
 
 
 
