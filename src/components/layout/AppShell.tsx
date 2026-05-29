@@ -13,7 +13,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AssetFilterProvider, useAssetFilter, ASSET_OPTIONS } from "@/lib/asset-filter";
-import { MarketTicker } from "@/components/common/MarketTicker";
+import { TVTickerTape } from "@/components/common/TVTickerTape";
+
 import { PlanBadge } from "@/components/billing/PlanBadge";
 import { getCurrentPlan } from "@/lib/api/billing";
 
