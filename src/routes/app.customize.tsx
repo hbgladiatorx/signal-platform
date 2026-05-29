@@ -256,11 +256,16 @@ function NewsTab() {
 
 /* ---------------- Strategies ---------------- */
 function StrategiesTab() {
-  useFollowedOverlay();
+  const followedIds = useFollowedIds();
   const [liveId, setLiveId] = useLiveTrackingStrategy();
-  const followedIds = useMemo(() => getEffectiveFollowedIds(), []);
   const total = getTotalSlots();
-  const nonFree = followedIds.filter((id) => !isFreeStrategy(id));
+  const nonFree = followedIds.filter((id: string) => !isFreeStrategy(id));
+  const qc = useQueryClient();
+  const unfollow = useMutation({
+    mutationFn: (id: string) => unsubscribeFromStrategy(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["followed"] }),
+  });
+
 
   return (
     <div className="space-y-4">
