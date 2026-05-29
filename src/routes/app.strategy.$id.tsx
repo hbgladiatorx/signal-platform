@@ -148,7 +148,13 @@ function StrategyDetail() {
           <Disclaimer variant="inline" />
         </TabsContent>
 
-        <TabsContent value="signals" className="pt-4">
+        <TabsContent value="signals" className="space-y-4 pt-4">
+          {primarySymbol && (
+            <Card className="overflow-hidden border-border bg-elevated p-0">
+              <TradingViewChart symbol={primarySymbol} assetClass={s.assetClass} interval="60" height={360} />
+            </Card>
+          )}
+
           <Card className="border-border bg-elevated">
             <div className="divide-y divide-border">
               {(sigs.data ?? []).slice(0, 20).map((sig) => (
