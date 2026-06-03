@@ -67,11 +67,68 @@ from packages.backtest.types import (
     BacktestResult,
     EquityPoint,
     Fill,
+    InstrumentMeta,
 )
 from packages.strategy.base import Order, OrderSide, OrderType, Strategy
 from packages.strategy.context import BarContext
 
 log = logging.getLogger(__name__)
+
+
+def _option_settlement_price(
+    meta: InstrumentMeta, symbol: str, last_marks: dict[str, Decimal]
+) -> Decimal:
+    """Settlement price for an expiring option: intrinsic value vs the
+    underlying mark when known, else the option's last mark, else worthless."""
+    if meta.underlying and meta.strike is not None and meta.right:
+        underlying = last_marks.get(meta.underlying)
+        if underlying is not None:
+            if meta.right.upper() == "C":
+                return max(Decimal(0), underlying - meta.strike)
+            return max(Decimal(0), meta.strike - underlying)
+    last = last_marks.get(symbol)
+    return last if last is not None else Decimal(0)
+
+
+def _settle_expiring_options(
+    ts: pd.Timestamp,
+    bar_count: int,
+    portfolio: Portfolio,
+    config: BacktestConfig,
+    last_marks: dict[str, Decimal],
+    fills: list[Fill],
+    settled: set[str],
+) -> None:
+    if not config.instrument_meta:
+        return
+    today = ts.date() if hasattr(ts, "date") else ts
+    for sym, pos in list(portfolio.positions.items()):
+        if pos.quantity == 0 or sym in settled:
+            continue
+        meta = config.instrument_meta.get(sym)
+        if meta is None or meta.asset_class != "option" or meta.expiry is None:
+            continue
+        if today < meta.expiry:
+            continue
+        settle_price = _option_settlement_price(meta, sym, last_marks)
+        qty = pos.quantity
+        # Settlement/exercise carries no commission in this model.
+        portfolio.apply_sell(sym, qty, settle_price, Decimal(0))
+        fills.append(
+            Fill(
+                client_order_id=f"expiry-{sym}-{bar_count}",
+                symbol=sym,
+                side=OrderSide.SELL,
+                order_type=OrderType.MARKET,
+                quantity=qty,
+                price=settle_price,
+                fee=Decimal(0),
+                filled_ts=ts,
+                order_submitted_ts=ts,
+                is_partial=False,
+            )
+        )
+        settled.add(sym)
 
 
 REQUIRED_COLUMNS = ("open", "high", "low", "close", "volume")
@@ -146,6 +203,21 @@ def run_backtest(
     portfolio = Portfolio(config.starting_cash)
     strategy.on_init()
 
+    # Static snapshot of option contracts in this run, exposed to strategies via
+    # ctx.option_chain(). Empty unless option instrument_meta was supplied.
+    option_chain_snapshot: list[dict[str, Any]] = [
+        {
+            "symbol": s,
+            "underlying": m.underlying,
+            "right": m.right,
+            "strike": float(m.strike) if m.strike is not None else None,
+            "expiry": str(m.expiry) if m.expiry is not None else None,
+            "multiplier": float(m.multiplier),
+        }
+        for s, m in (config.instrument_meta or {}).items()
+        if m.asset_class == "option"
+    ]
+
     fills: list[Fill] = []
     equity_curve: list[EquityPoint] = []
     rejected_orders: list[tuple[Order, str]] = []
@@ -153,6 +225,7 @@ def run_backtest(
     expired_orders: list[Order] = []
     pending_orders: list[Order] = []
     last_marks: dict[str, Decimal] = {}
+    settled_options: set[str] = set()
 
     # Cancellation requests collected during the PREVIOUS on_bar(), to be
     # processed at the start of THIS bar's Phase 2.
@@ -165,6 +238,15 @@ def run_backtest(
             this_bar = bar_by_ts.get(sym, {}).get(ts)
             if this_bar is not None:
                 last_marks[sym] = Decimal(str(this_bar["close"]))
+
+        # --- (1b) OPTION EXPIRY SETTLEMENT ---
+        # Force-close any open option position whose expiry date has been
+        # reached, settling at intrinsic value vs the underlying (if its mark is
+        # known) else the option's last mark, else worthless. No-op unless the
+        # backtest was given option instrument_meta.
+        _settle_expiring_options(
+            ts, bar_count, portfolio, config, last_marks, fills, settled_options
+        )
 
         # --- (2a) EXPIRATIONS ---
         # Remove orders whose expiry has been reached.
@@ -217,7 +299,8 @@ def run_backtest(
 
             # --- (2d) Apply fill against portfolio; REJECT if insufficient ---
             if fill.side == OrderSide.BUY:
-                cost = fill.price * fill.quantity + fill.fee
+                mult = config.multiplier_for(order.symbol)
+                cost = fill.price * fill.quantity * mult + fill.fee
                 if cost > portfolio.cash:
                     reason = (
                         f"insufficient cash: need {cost:.2f}, "
@@ -227,7 +310,7 @@ def run_backtest(
                     _safe_callback(strategy.on_order_rejected, order, reason)
                     continue
                 portfolio.apply_buy(
-                    order.symbol, fill.quantity, fill.price, fill.fee
+                    order.symbol, fill.quantity, fill.price, fill.fee, mult
                 )
             else:  # SELL
                 pos = portfolio.get_position(order.symbol)
@@ -270,6 +353,7 @@ def run_backtest(
             cash=portfolio.cash,
             pending_orders=pending_orders,
             bar_count=bar_count,
+            option_chain=option_chain_snapshot,
         )
 
         try:

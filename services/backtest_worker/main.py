@@ -44,10 +44,10 @@ from uuid import UUID
 import pandas as pd
 import redis.asyncio as redis
 import structlog
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from packages.backtest import BacktestConfig, compute_analytics, run_backtest
+from packages.backtest.instruments import load_instrument_meta
 from packages.backtest.walkforward import run_walkforward
 from packages.backtest.walkforward_persistence import (
     load_walkforward,
@@ -63,6 +63,7 @@ from packages.backtest.persistence import (
 )
 from packages.data.db import get_engine
 from packages.data.messagebus import QUEUE_BACKTEST_JOBS, QUEUE_WALKFORWARD_JOBS
+from packages.livetrade.bars import load_bars
 from packages.strategy.base import Strategy
 from packages.strategy.registry import discover_strategies
 from packages.data.db import session_scope
@@ -97,56 +98,13 @@ REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 WORKER_NAME = os.environ.get("HOSTNAME", "backtest-worker-1")
 POP_TIMEOUT_S = 5  # BRPOP blocking time
 
-RESOLUTION_TABLE: dict[str, str] = {
-    "1m": "cagg_bars_1m",
-    "5m": "cagg_bars_5m",
-    "15m": "cagg_bars_15m",
-    "1h": "cagg_bars_1h",
-    "4h": "cagg_bars_4h",
-    "1d": "cagg_bars_1d",
-}
-
 STRATEGIES_DIR = Path("/app/strategies")
 
 
-# ============================================================
-# Bar loading
-# ============================================================
-async def _load_bars(
-    engine: AsyncEngine,
-    symbol: str,
-    resolution: str,
-) -> pd.DataFrame:
-    """Load OHLCV bars for `symbol` at `resolution`, indexed by bucket."""
-    table = RESOLUTION_TABLE.get(resolution)
-    if table is None:
-        raise ValueError(
-            f"Unknown bar_resolution: {resolution!r}. "
-            f"Valid: {list(RESOLUTION_TABLE.keys())}"
-        )
-
-    async with engine.connect() as conn:
-        result = await conn.execute(
-            text(f"""
-                SELECT b.bucket, b.open, b.high, b.low, b.close, b.volume
-                FROM {table} b
-                JOIN instruments i ON i.id = b.instrument_id
-                WHERE i.canonical_symbol = :symbol
-                ORDER BY b.bucket
-            """),
-            {"symbol": symbol},
-        )
-        rows = result.mappings().all()
-
-    if not rows:
-        return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
-
-    df = pd.DataFrame(rows)
-    df["bucket"] = pd.to_datetime(df["bucket"], utc=True)
-    df = df.set_index("bucket")
-    for col in ("open", "high", "low", "close", "volume"):
-        df[col] = df[col].astype(float)
-    return df
+# Bar loading is shared with the live paper-trading runner; see
+# packages/livetrade/bars.py. `_load_bars` remains as a thin alias so the
+# existing call sites and any external imports keep working.
+_load_bars = load_bars
 
 
 # ============================================================
@@ -243,11 +201,15 @@ async def _process_job(
             bars_end=str(bars_end),
         )
 
-        # 5) Run backtest
+        # 5) Run backtest. Load instrument metadata so options get their
+        # contract multiplier + expiry settlement; for crypto/equity this is a
+        # no-op (multiplier 1, no expiry).
+        instrument_meta = await load_instrument_meta(engine, symbols)
         config = BacktestConfig(
             starting_cash=Decimal(str(header["starting_cash"])),
             fee_rate_bps=int(header["fee_rate_bps"]),
             slippage_bps=int(header["slippage_bps"]),
+            instrument_meta=instrument_meta,
         )
         result = run_backtest(strategy, bars, config)
 
@@ -355,10 +317,12 @@ async def _process_walkforward_job(
                 raise RuntimeError(f"No bars available for {symbol!r} at resolution {resolution!r}")
             bars[symbol] = df
 
+        instrument_meta = await load_instrument_meta(engine, symbols)
         config = BacktestConfig(
             starting_cash=Decimal(str(header["starting_cash"])),
             fee_rate_bps=int(header["fee_rate_bps"]),
             slippage_bps=int(header["slippage_bps"]),
+            instrument_meta=instrument_meta,
         )
         result = run_walkforward(
             strategy_cls=strategy_cls,

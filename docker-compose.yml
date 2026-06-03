@@ -90,6 +90,67 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  ingestion_alpaca:
+    build:
+      context: .
+      dockerfile: infra/docker/python.Dockerfile
+    container_name: signal_ingestion_alpaca
+    restart: unless-stopped
+    command: ["python", "-m", "services.ingestion_alpaca.main"]
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - signal_net
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+        reservations:
+          memory: 100M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  ingestion_polygon:
+    build:
+      context: .
+      dockerfile: infra/docker/python.Dockerfile
+    container_name: signal_ingestion_polygon
+    restart: unless-stopped
+    command: ["python", "-m", "services.ingestion_polygon.main"]
+    env_file:
+      - .env
+    environment:
+      # Idle by default (empty symbol list) until the operator turns it on with
+      # INGESTION_POLYGON_SYMBOLS="*" (full equity universe) or a curated list.
+      INGESTION_POLYGON_SYMBOLS: "${INGESTION_POLYGON_SYMBOLS:-}"
+      INGESTION_POLYGON_CHANNEL: "${INGESTION_POLYGON_CHANNEL:-aggregates_sec}"
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - signal_net
+    deploy:
+      resources:
+        limits:
+          memory: 500M
+        reservations:
+          memory: 150M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   persistence_worker:
     build:
       context: .
@@ -171,6 +232,47 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  paper_trader:
+    build:
+      context: .
+      dockerfile: infra/docker/python.Dockerfile
+    container_name: signal_paper_trader
+    restart: unless-stopped
+    command: ["python", "-m", "services.paper_trader.main"]
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - signal_net
+    deploy:
+      resources:
+        limits:
+          memory: 400M
+        reservations:
+          memory: 150M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Test runner — opt-in via the `test` profile, never starts on a normal `up`.
+  # Run:  docker compose --profile test run --rm test
+  test:
+    build:
+      context: .
+      dockerfile: infra/docker/test.Dockerfile
+    profiles: ["test"]
+    env_file:
+      - .env
+    networks:
+      - signal_net
+    command: ["pytest", "-q"]
 
   api:
     build:

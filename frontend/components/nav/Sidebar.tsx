@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Database,
   LayoutDashboard,
+  Radio,
   Settings,
   Workflow,
 } from "lucide-react";
@@ -28,6 +29,7 @@ const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Instruments", href: "/instruments", icon: Database },
   { label: "Strategies", href: "/strategies", icon: Workflow },
+  { label: "Live & Paper", href: "/paper", icon: Radio },
   { label: "System Health", href: "/system/health", icon: Activity },
   { label: "Settings", href: "/settings", icon: Settings },
 ];

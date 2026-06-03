@@ -86,7 +86,7 @@ def simulate_market_fill(
     else:
         fill_price = open_price * (Decimal(1) - config.slippage)
 
-    fee = fill_price * fillable_qty * config.fee_rate
+    fee = config.fee_for(order.symbol, fill_price, fillable_qty)
     remainder = order.quantity - fillable_qty
     is_partial = remainder > 0
 
@@ -138,7 +138,7 @@ def try_fill_limit_order(
     if fillable_qty is None:
         return None  # zero-volume bar with cap; order persists
 
-    fee = fill_price * fillable_qty * config.fee_rate
+    fee = config.fee_for(order.symbol, fill_price, fillable_qty)
     remainder = order.quantity - fillable_qty
     is_partial = remainder > 0
 

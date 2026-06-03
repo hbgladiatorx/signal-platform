@@ -50,3 +50,8 @@ logs/
 # Database dumps
 *.sql.gz
 *.dump
+
+# accidental nested clone of this repo
+/signal-platform/
+# stray empty file
+/main

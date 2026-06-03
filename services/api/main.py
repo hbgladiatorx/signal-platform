@@ -22,8 +22,10 @@ from services.api.routers import (
     backtests,
     health,
     instruments,
+    live,
     market,
     me,
+    paper_sessions,
     settings as settings_router,
     strategies,
     system,
@@ -123,6 +125,8 @@ app.include_router(strategies.router)
 app.include_router(backtests.router)
 app.include_router(user_strategies.router)
 app.include_router(walkforwards.router)
+app.include_router(paper_sessions.router)
+app.include_router(live.router)
 app.include_router(ws.router)
 
 

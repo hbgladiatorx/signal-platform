@@ -46,14 +46,20 @@ class Portfolio:
         quantity: Decimal,
         price: Decimal,
         fee: Decimal,
+        multiplier: Decimal = Decimal(1),
     ) -> None:
-        """Apply a buy fill: deduct cash, update qty and weighted-avg cost."""
-        cost = quantity * price + fee
+        """Apply a buy fill: deduct cash, update qty and weighted-avg cost.
+
+        `multiplier` is the contract multiplier (1 for equity/crypto, 100 for
+        options); it scales the cash notional but not the per-unit avg_cost.
+        """
+        cost = quantity * price * multiplier + fee
         self.cash -= cost
 
         pos = self.get_position(symbol)
         if pos.quantity == 0:
             pos.avg_cost = price
+            pos.multiplier = multiplier
         else:
             # Quantity-weighted average. Fees not included in basis.
             new_basis_total = pos.quantity * pos.avg_cost + quantity * price
@@ -68,19 +74,22 @@ class Portfolio:
         price: Decimal,
         fee: Decimal,
     ) -> None:
-        """Apply a sell fill: add proceeds (net of fee), realize P&L."""
-        proceeds = quantity * price - fee
+        """Apply a sell fill: add proceeds (net of fee), realize P&L.
+
+        The contract multiplier is read from the open position (set on buy)."""
+        pos = self.get_position(symbol)
+        mult = pos.multiplier
+        proceeds = quantity * price * mult - fee
         self.cash += proceeds
 
-        pos = self.get_position(symbol)
-        gross_pnl = (price - pos.avg_cost) * quantity
+        gross_pnl = (price - pos.avg_cost) * quantity * mult
         pos.realized_pnl += gross_pnl - fee
         pos.quantity -= quantity
         if pos.quantity == 0:
             pos.avg_cost = Decimal(0)
 
     def mark_to_market(self, marks: dict[str, Decimal]) -> Decimal:
-        """Sum of position quantity × mark for all open positions.
+        """Sum of position quantity × mark × multiplier for all open positions.
 
         Symbols missing from `marks` contribute 0 — callers should
         carry-forward their most recent known mark.
@@ -92,5 +101,5 @@ class Portfolio:
             mark = marks.get(sym)
             if mark is None:
                 continue
-            total += pos.quantity * mark
+            total += pos.quantity * mark * pos.multiplier
         return total

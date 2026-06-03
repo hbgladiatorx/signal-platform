@@ -19,6 +19,7 @@ processing order deterministic and prevents same-bar cancel-after-fill races.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -57,10 +58,20 @@ class BarContext:
         cash: Decimal,
         pending_orders: list[Order] | None = None,
         bar_count: int = 0,
+        order_id_factory: Callable[[], str] | None = None,
+        option_chain: list[dict[str, Any]] | None = None,
     ) -> None:
         self.ts = ts
         self.symbols = list(symbols)
+        # Read-only snapshot of option contracts available this bar (each a dict
+        # with keys: symbol, underlying, right, strike, expiry, multiplier).
+        self._option_chain: list[dict[str, Any]] = list(option_chain or [])
         self.bar_count = bar_count  # engine-maintained bar index, 0-based
+        # Live trading injects a factory that yields deterministic, namespaced
+        # ids (pt_{session}_{bar}_{seq}) so re-running a bar produces the same
+        # ids (broker-side dedup) and strategies can still cancel by the id
+        # submit_*() returned. Backtest leaves this None → random ids.
+        self._order_id_factory = order_id_factory
         self._history = history
         self._positions = positions
         self._cash = cash
@@ -200,6 +211,8 @@ class BarContext:
     # Order submission
     # ============================================================
     def _new_order_id(self) -> str:
+        if self._order_id_factory is not None:
+            return self._order_id_factory()
         # 8 chars of UUID is plenty for uniqueness within a backtest run
         return uuid.uuid4().hex[:8]
 
@@ -261,6 +274,51 @@ class BarContext:
         )
         self._orders.append(order)
         return order.client_order_id
+
+    # ----- Options -----
+
+    def option_chain(
+        self,
+        underlying: str | None = None,
+        *,
+        right: str | None = None,
+        expiry: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Available option contracts this bar, optionally filtered by underlying
+        canonical symbol, right ('C'/'P'), and/or expiry (YYYY-MM-DD)."""
+        out = self._option_chain
+        if underlying is not None:
+            out = [c for c in out if c.get("underlying") == underlying]
+        if right is not None:
+            out = [c for c in out if (c.get("right") or "").upper() == right.upper()]
+        if expiry is not None:
+            out = [c for c in out if str(c.get("expiry")) == expiry]
+        return list(out)
+
+    def option_quote(self, occ_symbol: str) -> Decimal | None:
+        """Latest known price (last close) for an option contract symbol."""
+        return self.close(occ_symbol)
+
+    def submit_option_market(
+        self,
+        occ_symbol: str,
+        side: OrderSide,
+        contracts: Numeric,
+        expires_after_bars: int | None = None,
+    ) -> str:
+        """Submit a single-leg option market order (quantity is # of contracts)."""
+        return self.submit_market(occ_symbol, side, contracts, expires_after_bars)
+
+    def submit_option_limit(
+        self,
+        occ_symbol: str,
+        side: OrderSide,
+        contracts: Numeric,
+        price: Numeric,
+        expires_after_bars: int | None = None,
+    ) -> str:
+        """Submit a single-leg option limit order (quantity is # of contracts)."""
+        return self.submit_limit(occ_symbol, side, contracts, price, expires_after_bars)
 
     # ----- Convenience helpers -----
 
