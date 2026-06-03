@@ -21,6 +21,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from packages.adapters.crypto.binance_universe import fetch_universe
+from packages.adapters.crypto.binance_universe_sync import sync_universe
 from packages.core.models import Instrument
 from packages.core.types import AssetClass
 from services.api.auth import get_current_user
@@ -248,6 +250,63 @@ async def create_instrument(
     if row is None:
         raise HTTPException(status_code=500, detail="Insert returned no row")
     return Instrument.model_validate(row)
+
+
+class BinanceSyncRequest(BaseModel):
+    """Options for a full Binance.US universe sync."""
+
+    quote_assets: list[str] | None = Field(
+        default=None,
+        description="Restrict to these quote assets (e.g. ['USDT','USD','USDC']). "
+                    "Omit to import every TRADING spot pair.",
+    )
+    activate: bool = Field(
+        default=False,
+        description="Mark newly-inserted instruments active (eligible for ingestion). "
+                    "Existing rows' active flag is left untouched.",
+    )
+
+
+class BinanceSyncResponse(BaseModel):
+    venue: str = "BINANCEUS"
+    pairs_fetched: int
+    inserted_or_updated: int
+    activated: bool
+
+
+@router.post("/sync/binanceus", response_model=BinanceSyncResponse)
+async def sync_binanceus_universe(
+    body: BinanceSyncRequest | None = None,
+    session: AsyncSession = Depends(get_db_session),
+    _user: dict = Depends(get_current_user),
+) -> BinanceSyncResponse:
+    """Import the full Binance.US spot universe into the instrument catalog.
+
+    Pulls every TRADING spot pair from Binance.US exchangeInfo and upserts it
+    as an instrument, making the whole universe available for backtesting,
+    paper, and live trading. Idempotent; safe to re-run.
+    """
+    body = body or BinanceSyncRequest()
+    quote_assets = {q.upper() for q in body.quote_assets} if body.quote_assets else None
+    try:
+        universe = await fetch_universe(trading_only=True, quote_assets=quote_assets)
+    except Exception as exc:  # noqa: BLE001 — surface as a gateway error
+        raise HTTPException(
+            status_code=502,
+            detail=f"Could not fetch Binance.US universe: {exc}",
+        )
+
+    # sync_universe issues a single multi-row upsert; run it on the request's
+    # underlying connection so it shares the session transaction.
+    conn = await session.connection()
+    result = await sync_universe(conn, universe, activate=body.activate)
+    await session.commit()
+
+    return BinanceSyncResponse(
+        pairs_fetched=len(universe),
+        inserted_or_updated=result["inserted_or_updated"],
+        activated=body.activate,
+    )
 
 
 @router.put("/{canonical_symbol}/active", response_model=Instrument)

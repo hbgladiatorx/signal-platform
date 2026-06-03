@@ -19,6 +19,7 @@ class Venue(StrEnum):
     BINANCEUS = "BINANCEUS"
     COINBASE = "COINBASE"
     ALPACA = "ALPACA"
+    POLYGON = "POLYGON"
 
 
 class IngestionStatus(StrEnum):

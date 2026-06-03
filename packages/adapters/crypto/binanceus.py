@@ -25,6 +25,11 @@ import structlog
 import websockets
 
 from packages.adapters.base import AssetAdapter
+from packages.adapters.crypto.binance_universe import (
+    BinanceInstrument,
+    build_translation_maps,
+    fetch_universe,
+)
 from packages.core.exceptions import AdapterError
 from packages.core.models import QuoteL1Event, TradeEvent
 from packages.core.types import TradeSide
@@ -33,18 +38,59 @@ log = structlog.get_logger(__name__)
 
 WS_BASE = "wss://stream.binance.us:9443/stream"
 
-# Hardcoded translation table for Phase 1.
-# In Phase 2 this is replaced by a startup query against the instruments table.
-_NATIVE_TO_CANONICAL: dict[str, str] = {
+# Bootstrap translation table. Historically this was the *entire* Phase 1
+# universe; it now serves only as an offline fallback for the two majors so
+# the adapter keeps working before `load_universe()` runs. Once the universe
+# is loaded (from exchangeInfo), the full set of TRADING pairs is available.
+_NATIVE_TO_CANONICAL_FALLBACK: dict[str, str] = {
     "BTCUSDT": "BTC-USDT@BINANCEUS",
     "ETHUSDT": "ETH-USDT@BINANCEUS",
 }
 
 
 class BinanceUSAdapter(AssetAdapter):
-    """Adapter for Binance.US spot trade and L1 quote streams."""
+    """Adapter for Binance.US spot trade and L1 quote streams.
+
+    Symbol translation works against a loadable universe. Construct with an
+    explicit ``native_to_canonical`` map, or call :meth:`load_universe` to pull
+    the full Binance.US spot universe from exchangeInfo. With no universe
+    loaded the adapter still resolves the two majors via the offline fallback.
+    """
 
     venue = "BINANCEUS"
+
+    def __init__(
+        self,
+        native_to_canonical: dict[str, str] | None = None,
+    ) -> None:
+        self._native_to_canonical: dict[str, str] = dict(
+            _NATIVE_TO_CANONICAL_FALLBACK
+        )
+        if native_to_canonical:
+            self._native_to_canonical.update(
+                {k.upper(): v for k, v in native_to_canonical.items()}
+            )
+
+    def set_universe(self, universe: list[BinanceInstrument]) -> None:
+        """Install a fetched universe as the translation table."""
+        native_to_canonical, _ = build_translation_maps(universe)
+        # Always keep the offline fallback so the majors resolve even if a
+        # filtered universe excluded them.
+        merged = dict(_NATIVE_TO_CANONICAL_FALLBACK)
+        merged.update(native_to_canonical)
+        self._native_to_canonical = merged
+
+    async def load_universe(self, **kwargs: object) -> int:
+        """Fetch the full Binance.US universe and install it.
+
+        Returns the number of pairs loaded. Extra kwargs are forwarded to
+        :func:`packages.adapters.crypto.binance_universe.fetch_universe`
+        (e.g. ``quote_assets={"USDT"}``).
+        """
+        universe = await fetch_universe(**kwargs)  # type: ignore[arg-type]
+        self.set_universe(universe)
+        log.info("binanceus.universe_loaded", pairs=len(universe))
+        return len(universe)
 
     def to_native_symbol(self, canonical_symbol: str) -> str:
         """'BTC-USDT@BINANCEUS' -> 'BTCUSDT'."""
@@ -62,12 +108,17 @@ class BinanceUSAdapter(AssetAdapter):
     def to_canonical_symbol(self, native_symbol: str) -> str:
         """'BTCUSDT' -> 'BTC-USDT@BINANCEUS'.
 
-        Phase 1: lookup table. Phase 2: database-backed.
+        Resolves against the loaded universe; falls back to the offline table
+        for the majors. Unknown symbols raise AdapterError.
         """
         key = native_symbol.upper()
-        if key not in _NATIVE_TO_CANONICAL:
-            raise AdapterError(f"unknown native symbol: {native_symbol}")
-        return _NATIVE_TO_CANONICAL[key]
+        canonical = self._native_to_canonical.get(key)
+        if canonical is None:
+            raise AdapterError(
+                f"unknown native symbol: {native_symbol} "
+                f"(load_universe() may be required)"
+            )
+        return canonical
 
     def _build_stream_url(
         self,

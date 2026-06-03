@@ -90,6 +90,34 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  ingestion_polygon:
+    build:
+      context: .
+      dockerfile: infra/docker/python.Dockerfile
+    container_name: signal_ingestion_polygon
+    restart: unless-stopped
+    command: ["python", "-m", "services.ingestion_polygon.main"]
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - signal_net
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+        reservations:
+          memory: 100M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   persistence_worker:
     build:
       context: .

@@ -52,6 +52,11 @@ SERVICE_FIELDS: dict[str, dict[str, Any]] = {
         "primary": "api_key_id",
         "display_name": "Alpaca",
     },
+    "polygon": {
+        "fields": ["api_key"],
+        "primary": "api_key",
+        "display_name": "Polygon.io",
+    },
 }
 
 

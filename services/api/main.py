@@ -24,9 +24,11 @@ from services.api.routers import (
     instruments,
     market,
     me,
+    polygon,
     settings as settings_router,
     strategies,
     system,
+    trading,
     user_strategies,
     walkforwards,
     ws,
@@ -123,6 +125,8 @@ app.include_router(strategies.router)
 app.include_router(backtests.router)
 app.include_router(user_strategies.router)
 app.include_router(walkforwards.router)
+app.include_router(trading.router)
+app.include_router(polygon.router)
 app.include_router(ws.router)
 
 

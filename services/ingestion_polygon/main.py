@@ -1,15 +1,19 @@
-"""Binance.US ingestion service.
+"""Polygon.io ingestion service.
 
-Subscribes to trades and L1 quotes for the configured instruments and
-publishes canonical events to the Redis message bus.
+Subscribes to trades and L1 (NBBO) quotes for the configured equities and
+publishes canonical events to the Redis message bus — the same streams the
+Binance.US ingester uses, so persistence, bar building, and the live websocket
+all work unchanged for Polygon symbols.
 
 Configuration via environment:
-    INGESTION_SYMBOLS  comma-separated canonical symbols
-    REDIS_URL          Redis connection URL
-    LOG_LEVEL          INFO / DEBUG / WARNING (default INFO)
+    POLYGON_INGESTION_SYMBOLS  comma-separated canonical symbols
+                               (e.g. AAPL-USD@POLYGON,MSFT-USD@POLYGON)
+    POLYGON_API_KEY            Polygon API key
+    REDIS_URL                  Redis connection URL
+    LOG_LEVEL                  INFO / DEBUG / WARNING (default INFO)
 
 Run:
-    python -m services.ingestion_binanceus.main
+    python -m services.ingestion_polygon.main
 """
 from __future__ import annotations
 
@@ -18,12 +22,11 @@ import os
 import signal
 import sys
 from datetime import datetime, timezone
-from typing import Any
 
 import orjson
 import structlog
 
-from packages.adapters.crypto.binanceus import BinanceUSAdapter
+from packages.adapters.equity.polygon import PolygonAdapter
 from packages.core.exceptions import ConfigError
 from packages.core.models import QuoteL1Event, TradeEvent
 from packages.data.messagebus import (
@@ -52,34 +55,21 @@ def _configure_logging() -> None:
 log = structlog.get_logger(__name__)
 
 
-class IngestionService:
-    """Coordinates Binance.US trade and quote subscription tasks."""
+class PolygonIngestionService:
+    """Coordinates Polygon trade and quote subscription tasks."""
 
     def __init__(self, symbols: list[str]) -> None:
         if not symbols:
-            raise ConfigError("INGESTION_SYMBOLS resolved to an empty list")
+            raise ConfigError("POLYGON_INGESTION_SYMBOLS resolved to an empty list")
         self.symbols = symbols
-        self.adapter = BinanceUSAdapter()
+        self.adapter = PolygonAdapter()
         self.bus = RedisStreamsBus()
         self._shutdown = asyncio.Event()
         self._trade_count = 0
         self._quote_count = 0
 
     async def run(self) -> None:
-        log.info(
-            "ingestion.starting",
-            source="binanceus",
-            symbols=self.symbols,
-        )
-        # Load the full Binance.US universe so every configured symbol (not
-        # just the two majors) resolves to/from its native form. Best-effort:
-        # if exchangeInfo is unreachable we fall back to the offline majors.
-        if os.environ.get("BINANCEUS_LOAD_UNIVERSE", "true").lower() != "false":
-            try:
-                count = await self.adapter.load_universe()
-                log.info("ingestion.universe_loaded", source="binanceus", pairs=count)
-            except Exception as e:  # noqa: BLE001 — non-fatal; fallback table stands
-                log.warning("ingestion.universe_load_failed", error=str(e))
+        log.info("ingestion.starting", source="polygon", symbols=self.symbols)
         tasks = [
             asyncio.create_task(self._run_trades(), name="trades"),
             asyncio.create_task(self._run_quotes(), name="quotes"),
@@ -96,7 +86,7 @@ class IngestionService:
     async def _run_trades(self) -> None:
         try:
             async for event in self.adapter.stream_trades(self.symbols):
-                await self._publish_trade(event)
+                await self._publish(STREAM_TRADES_RAW, event)
                 self._trade_count += 1
         except asyncio.CancelledError:
             log.info("ingestion.trades_cancelled")
@@ -105,42 +95,27 @@ class IngestionService:
     async def _run_quotes(self) -> None:
         try:
             async for event in self.adapter.stream_quotes_l1(self.symbols):
-                await self._publish_quote(event)
+                await self._publish(STREAM_QUOTES_RAW, event)
                 self._quote_count += 1
         except asyncio.CancelledError:
             log.info("ingestion.quotes_cancelled")
             raise
 
-    async def _publish_trade(self, event: TradeEvent) -> None:
+    async def _publish(
+        self, stream: str, event: TradeEvent | QuoteL1Event
+    ) -> None:
         try:
-            payload = event.model_dump(mode="json")
-            await self.bus.publish(STREAM_TRADES_RAW, payload)
-        except Exception as e:
-            log.error(
-                "ingestion.publish_failed",
-                stream=STREAM_TRADES_RAW,
-                error=str(e),
-            )
-
-    async def _publish_quote(self, event: QuoteL1Event) -> None:
-        try:
-            payload = event.model_dump(mode="json")
-            await self.bus.publish(STREAM_QUOTES_RAW, payload)
-        except Exception as e:
-            log.error(
-                "ingestion.publish_failed",
-                stream=STREAM_QUOTES_RAW,
-                error=str(e),
-            )
+            await self.bus.publish(stream, event.model_dump(mode="json"))
+        except Exception as e:  # noqa: BLE001
+            log.error("ingestion.publish_failed", stream=stream, error=str(e))
 
     async def _heartbeat(self) -> None:
-        """Log message-count stats every 60 seconds."""
         try:
             while not self._shutdown.is_set():
                 await asyncio.sleep(60)
                 log.info(
                     "ingestion.heartbeat",
-                    source="binanceus",
+                    source="polygon",
                     trades_1m=self._trade_count,
                     quotes_1m=self._quote_count,
                     ts=datetime.now(timezone.utc).isoformat(),
@@ -157,13 +132,13 @@ class IngestionService:
 async def amain() -> None:
     _configure_logging()
 
-    symbols_env = os.environ.get("INGESTION_SYMBOLS", "")
+    symbols_env = os.environ.get("POLYGON_INGESTION_SYMBOLS", "")
     symbols = [s.strip() for s in symbols_env.split(",") if s.strip()]
     if not symbols:
         log.error("ingestion.no_symbols_configured")
         sys.exit(1)
 
-    service = IngestionService(symbols=symbols)
+    service = PolygonIngestionService(symbols=symbols)
 
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
