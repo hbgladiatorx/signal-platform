@@ -27,7 +27,7 @@ from typing import Any
 import pandas as pd
 
 from packages.strategy import indicators
-from packages.strategy.base import Order, OrderSide, OrderType
+from packages.strategy.base import Order, OrderSide, OrderType, SignalEvent
 
 
 # Numeric type accepted from strategy code for quantities/prices
@@ -83,6 +83,15 @@ class BarContext:
         self._orders: list[Order] = []
         # Cancellation requests the strategy makes this bar
         self._cancellation_requests: set[str] = set()
+        # Signal/filter events the strategy emits this bar (attribution).
+        self._signals: list[SignalEvent] = []
+        # PASSED signals emitted so far this bar, as (name, symbol) pairs.
+        # When an order is submitted, it is tagged with every active signal
+        # whose symbol is None (global) or matches the order's symbol — so a
+        # per-symbol signal only attributes that symbol's orders, while a
+        # global signal attributes all of them. Forms the causal
+        # "this signal drove this trade" link. Ordered; de-duped on submit.
+        self._active_signals: list[tuple[str, str | None]] = []
         # Cache key: (symbol, indicator_name, *params) -> pd.Series
         self._cache: dict[tuple, pd.Series] = {}
 
@@ -208,6 +217,71 @@ class BarContext:
         return self._cash
 
     # ============================================================
+    # Signals / filters (attribution — the "why")
+    # ============================================================
+    def signal(
+        self,
+        name: str,
+        *,
+        passed: bool = True,
+        value: Numeric | None = None,
+        symbol: str | None = None,
+        **meta: Any,
+    ) -> bool:
+        """Record that a signal fired or a filter was evaluated this bar.
+
+        This is the hook that lets a backtest explain *why* it traded. Emit a
+        signal right before you act on it, then submit your order; the order
+        (and the resulting fills and round trip) are tagged with this signal's
+        name, so attribution analytics can report the P&L, win rate, and trade
+        count attributable to each signal/filter.
+
+        Examples
+        --------
+        Tag an entry with the condition that triggered it::
+
+            rsi = ctx.rsi(sym)
+            if rsi is not None and rsi < self.params.oversold:
+                ctx.signal("rsi_oversold", value=rsi, symbol=sym)
+                ctx.submit_buy_market(sym, qty)   # tagged "rsi_oversold"
+
+        Record a filter that *blocked* an entry (passed=False) so you can later
+        see how much a filter is helping or hurting::
+
+            if ctx.atr(sym) is not None and ctx.atr(sym) > self.params.atr_max:
+                ctx.signal("atr_too_high", passed=False, value=ctx.atr(sym))
+                return  # no order — this signal is NOT attached as a tag
+
+        Only signals with ``passed=True`` become order tags; a ``passed=False``
+        event is still logged (for filter-frequency analysis) but does not
+        attribute trades. Returns ``passed`` so it can be used inline:
+        ``if ctx.signal("cooldown", passed=not in_cooldown): ...``.
+        """
+        self._signals.append(
+            SignalEvent(
+                ts=self.ts,
+                bar_count=self.bar_count,
+                name=name,
+                passed=passed,
+                symbol=symbol,
+                value=_to_decimal(value) if value is not None else None,
+                meta=dict(meta),
+            )
+        )
+        if passed and (name, symbol) not in self._active_signals:
+            self._active_signals.append((name, symbol))
+        return passed
+
+    def _tags_for(self, symbol: str) -> tuple[str, ...]:
+        """Active passed-signal names applicable to an order on `symbol`:
+        global signals (symbol=None) plus those emitted for this symbol."""
+        tags: list[str] = []
+        for name, sig_symbol in self._active_signals:
+            if (sig_symbol is None or sig_symbol == symbol) and name not in tags:
+                tags.append(name)
+        return tuple(tags)
+
+    # ============================================================
     # Order submission
     # ============================================================
     def _new_order_id(self) -> str:
@@ -244,6 +318,7 @@ class BarContext:
             submitted_ts=self.ts,
             client_order_id=self._new_order_id(),
             expires_at_bar_count=self._compute_expiry(expires_after_bars),
+            tags=self._tags_for(symbol),
         )
         self._orders.append(order)
         return order.client_order_id
@@ -271,6 +346,7 @@ class BarContext:
             submitted_ts=self.ts,
             client_order_id=self._new_order_id(),
             expires_at_bar_count=self._compute_expiry(expires_after_bars),
+            tags=self._tags_for(symbol),
         )
         self._orders.append(order)
         return order.client_order_id
@@ -405,3 +481,7 @@ class BarContext:
     def collected_cancellations(self) -> set[str]:
         """Return the cancellation requests collected this on_bar() call."""
         return set(self._cancellation_requests)
+
+    def collected_signals(self) -> list[SignalEvent]:
+        """Return the signal/filter events the strategy emitted this bar."""
+        return list(self._signals)

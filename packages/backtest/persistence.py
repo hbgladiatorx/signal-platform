@@ -33,6 +33,10 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from packages.backtest.analytics import BacktestAnalytics
+from packages.backtest.attribution import (
+    BacktestAttribution,
+    attribution_to_dict,
+)
 from packages.backtest.types import BacktestResult
 
 
@@ -133,6 +137,8 @@ async def save_backtest_results(
     result: BacktestResult,
     analytics: BacktestAnalytics,
     *,
+    attribution: BacktestAttribution | None = None,
+    ml_model_json: dict | None = None,
     bars_start: datetime | None = None,
     bars_end: datetime | None = None,
     num_bars: int | None = None,
@@ -141,6 +147,13 @@ async def save_backtest_results(
 
     Caller is expected to wrap this in a single transaction so partial
     writes can't leave the DB in an inconsistent state.
+
+    `attribution`, when supplied, is serialized into the backtests row's
+    `attribution_json` column (the per-symbol / per-signal "why"). None leaves
+    the column NULL — the detail view simply omits the attribution section.
+
+    `ml_model_json` is the already-serialized signal-edge model dict (from
+    `model_to_dict`); it is written to `ml_model_json`. None leaves it NULL.
     """
     # ----- Update header: status, summary metrics -----
     await conn.execute(
@@ -163,11 +176,21 @@ async def save_backtest_results(
                 num_closed_trades = :num_closed_trades,
                 num_open_trades = :num_open_trades,
                 win_rate_pct = :win_rate_pct,
-                profit_factor = :profit_factor
+                profit_factor = :profit_factor,
+                attribution_json = CAST(:attribution_json AS JSONB),
+                ml_model_json = CAST(:ml_model_json AS JSONB)
             WHERE id = :id
         """),
         {
             "id": backtest_id,
+            "attribution_json": (
+                json.dumps(attribution_to_dict(attribution))
+                if attribution is not None
+                else None
+            ),
+            "ml_model_json": (
+                json.dumps(ml_model_json) if ml_model_json is not None else None
+            ),
             "bars_start": bars_start,
             "bars_end": bars_end,
             "num_bars": num_bars,

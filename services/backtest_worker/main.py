@@ -46,7 +46,19 @@ import redis.asyncio as redis
 import structlog
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from packages.backtest import BacktestConfig, compute_analytics, run_backtest
+from packages.backtest import (
+    BacktestConfig,
+    compute_analytics,
+    compute_attribution,
+    run_backtest,
+)
+from packages.ml import (
+    build_dataset,
+    extract_samples,
+    model_to_dict,
+    train_signal_edge_model,
+)
+from packages.ml.persistence import save_training_samples
 from packages.backtest.instruments import load_instrument_meta
 from packages.backtest.walkforward import run_walkforward
 from packages.backtest.walkforward_persistence import (
@@ -213,8 +225,15 @@ async def _process_job(
         )
         result = run_backtest(strategy, bars, config)
 
-        # 6) Compute analytics
+        # 6) Compute analytics (the "how well"), attribution (the "why"), and
+        #    the signal-edge model (which signals predict profitable trades).
         analytics = compute_analytics(result)
+        attribution = compute_attribution(result, analytics)
+        dataset = build_dataset(result, analytics)
+        model = train_signal_edge_model(dataset)
+        ml_model_json = model_to_dict(model) if dataset.n_samples > 0 else None
+        # Portable per-trip samples for the cross-backtest store (Phase 4).
+        training_samples = extract_samples(result, analytics)
 
         log.info(
             "backtest_worker.job.computed",
@@ -222,6 +241,10 @@ async def _process_job(
             fills=result.num_trades,
             closed_trips=analytics.num_closed_trades,
             total_return_pct=analytics.total_return_pct,
+            best_symbol=attribution.best_symbol,
+            best_signal=attribution.best_signal,
+            model_fitted=model.fitted,
+            model_samples=model.n_samples,
         )
 
         # 7) Persist
@@ -231,9 +254,20 @@ async def _process_job(
                 backtest_id,
                 result,
                 analytics,
+                attribution=attribution,
+                ml_model_json=ml_model_json,
                 bars_start=bars_start.to_pydatetime() if bars_start else None,
                 bars_end=bars_end.to_pydatetime() if bars_end else None,
                 num_bars=max_bar_count,
+            )
+            # Accumulate this run's trips into the cross-backtest store, in the
+            # same transaction so samples and the saved backtest stay in sync.
+            await save_training_samples(
+                conn,
+                backtest_id,
+                header["user_id"],
+                strategy_name,
+                training_samples,
             )
 
         log.info(

@@ -14,7 +14,20 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
-from packages.strategy.base import Order, OrderSide, OrderType
+from packages.strategy.base import Order, OrderSide, OrderType, SignalEvent
+
+# Re-exported so downstream code can import SignalEvent from the backtest types
+# module alongside the other result types, even though it is defined in the
+# strategy package (it is part of the strategy-facing contract).
+__all__ = [
+    "InstrumentMeta",
+    "BacktestConfig",
+    "Fill",
+    "Position",
+    "EquityPoint",
+    "BacktestResult",
+    "SignalEvent",
+]
 
 
 # ============================================================
@@ -127,6 +140,10 @@ class Fill:
     filled_ts: datetime
     order_submitted_ts: datetime
     is_partial: bool = False
+    # Attribution tags copied from the originating Order (the signals active
+    # when the strategy decided to trade). Used to attribute round-trip P&L
+    # back to the signals/filters that caused entries. See SignalEvent.
+    tags: tuple[str, ...] = ()
 
 
 # ============================================================
@@ -190,6 +207,10 @@ class BacktestResult:
     cancelled_orders: list[Order] = field(default_factory=list)
     expired_orders: list[Order] = field(default_factory=list)
     strategy_state_final: dict[str, Any] = field(default_factory=dict)
+    # Every signal/filter event the strategy emitted, in chronological order.
+    # Drives attribution analytics (the "why"). Empty for strategies that
+    # never call ctx.signal().
+    signal_events: list["SignalEvent"] = field(default_factory=list)
 
     @property
     def final_equity(self) -> Decimal:

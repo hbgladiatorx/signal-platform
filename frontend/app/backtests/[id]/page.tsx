@@ -15,10 +15,16 @@ import { useEffect, useRef } from "react";
 
 import { AppShell } from "@/components/nav/AppShell";
 import type {
+  BacktestAttribution,
   BacktestDetail,
   BacktestEquityPoint,
   BacktestStatus,
   BacktestTrade,
+  SignalAttribution,
+  SignalEdge,
+  SignalEdgeModel,
+  SignalFeatureWeight,
+  SymbolAttribution,
 } from "@/lib/backtest-types";
 import { useApi } from "@/lib/useApi";
 
@@ -139,6 +145,12 @@ export default function BacktestDetailPage() {
               error={tradesQuery.error as Error | null}
               data={tradesQuery.data}
             />
+
+            {detail.attribution && (
+              <AttributionCard attribution={detail.attribution} />
+            )}
+
+            {detail.ml_model && <ModelCard model={detail.ml_model} />}
 
             <ConfigCard detail={detail} />
           </>
@@ -788,6 +800,309 @@ function TradesCard({
 
 
 // ============================================================
+// Attribution card (the "why": per-symbol + per-signal P&L)
+// ============================================================
+function AttributionCard({
+  attribution,
+}: {
+  attribution: BacktestAttribution;
+}) {
+  const { by_symbol, by_signal } = attribution;
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white">
+      <div className="border-b border-gray-200 px-6 py-3">
+        <h3 className="text-sm font-semibold text-navy-700">
+          Attribution
+        </h3>
+        <p className="mt-0.5 text-xs text-gray-500">
+          Where the P&amp;L came from. Per-symbol shares sum to 100% of net
+          P&amp;L; a round trip carrying multiple entry signals counts toward
+          each, so per-signal shares can overlap and need not sum to 100%.
+        </p>
+      </div>
+
+      {/* Quick-look highlights */}
+      <div className="grid grid-cols-2 gap-x-6 gap-y-3 border-b border-gray-100 px-6 py-4 text-sm sm:grid-cols-4">
+        <Field label="Best symbol" value={attribution.best_symbol ?? "—"} mono tone="neutral" />
+        <Field label="Worst symbol" value={attribution.worst_symbol ?? "—"} mono tone="red" />
+        <Field label="Best signal" value={attribution.best_signal ?? "—"} mono tone="neutral" />
+        <Field
+          label="Untagged P&L"
+          value={
+            attribution.untagged_trades > 0
+              ? `${fmtNumberStr(attribution.untagged_net_pnl, 4)} (${attribution.untagged_trades})`
+              : "—"
+          }
+        />
+      </div>
+
+      {/* By symbol */}
+      <div className="px-6 py-4">
+        <p className="mb-2 text-xs uppercase tracking-wide text-gray-500">
+          By symbol
+        </p>
+        {by_symbol.length === 0 ? (
+          <p className="text-sm text-gray-500">No closed trades to attribute.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Symbol</th>
+                  <th className="px-3 py-2 text-right font-medium">Trades</th>
+                  <th className="px-3 py-2 text-right font-medium">Win %</th>
+                  <th className="px-3 py-2 text-right font-medium">Net P&L</th>
+                  <th className="px-3 py-2 text-right font-medium">Avg</th>
+                  <th className="px-3 py-2 text-right font-medium">Share</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {by_symbol.map((s: SymbolAttribution) => (
+                  <tr key={s.symbol} className="hover:bg-gray-50">
+                    <td className="px-3 py-2 font-mono text-xs">{s.symbol}</td>
+                    <td className="px-3 py-2 text-right text-xs text-gray-600">
+                      {s.num_trades}{" "}
+                      <span className="text-gray-400">
+                        ({s.wins}/{s.losses})
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono text-xs">
+                      {fmtPct1(s.win_rate_pct)}
+                    </td>
+                    <td className={`px-3 py-2 text-right font-mono text-xs ${pnlColor(s.net_pnl)}`}>
+                      {fmtNumberStr(s.net_pnl, 4)}
+                    </td>
+                    <td className={`px-3 py-2 text-right font-mono text-xs ${pnlColor(s.avg_net_pnl)}`}>
+                      {fmtNumberStr(s.avg_net_pnl, 4)}
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono text-xs text-gray-600">
+                      {fmtPct1(s.pct_of_total_net_pnl)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* By signal */}
+      <div className="border-t border-gray-100 px-6 py-4">
+        <p className="mb-2 text-xs uppercase tracking-wide text-gray-500">
+          By signal / filter
+        </p>
+        {by_signal.length === 0 ? (
+          <p className="text-sm text-gray-500">
+            This strategy emitted no signals. Call{" "}
+            <code className="rounded bg-gray-100 px-1 font-mono text-xs">
+              ctx.signal(...)
+            </code>{" "}
+            to attribute P&amp;L to entry conditions and filters.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Signal</th>
+                  <th className="px-3 py-2 text-right font-medium">Fired</th>
+                  <th className="px-3 py-2 text-right font-medium">Blocked</th>
+                  <th className="px-3 py-2 text-right font-medium">Trades</th>
+                  <th className="px-3 py-2 text-right font-medium">Win %</th>
+                  <th className="px-3 py-2 text-right font-medium">Net P&L</th>
+                  <th className="px-3 py-2 text-right font-medium">Share</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {by_signal.map((s: SignalAttribution) => (
+                  <tr key={s.name} className="hover:bg-gray-50">
+                    <td className="px-3 py-2 font-mono text-xs">{s.name}</td>
+                    <td className="px-3 py-2 text-right text-xs text-gray-600">
+                      {s.num_fired}
+                    </td>
+                    <td className="px-3 py-2 text-right text-xs text-gray-600">
+                      {s.num_blocked > 0 ? (
+                        <span title={`${fmtPct1(s.block_rate_pct)} block rate`}>
+                          {s.num_blocked}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300">0</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right text-xs text-gray-600">
+                      {s.num_trades > 0 ? (
+                        <>
+                          {s.num_trades}{" "}
+                          <span className="text-gray-400">
+                            ({s.wins}/{s.losses})
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono text-xs">
+                      {fmtPct1(s.win_rate_pct)}
+                    </td>
+                    <td className={`px-3 py-2 text-right font-mono text-xs ${pnlColor(s.net_pnl)}`}>
+                      {s.num_trades > 0 ? fmtNumberStr(s.net_pnl, 4) : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono text-xs text-gray-600">
+                      {s.num_trades > 0 ? fmtPct1(s.pct_of_total_net_pnl) : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+// ============================================================
+// Signal-edge model card (Phase 3: which signals predict winners)
+// ============================================================
+function ModelCard({ model }: { model: SignalEdgeModel }) {
+  const base = model.base_profit_rate * 100;
+  // Top learned weights by magnitude, excluding raw value columns with ~0
+  // weight noise; show the strongest handful.
+  const topWeights = model.feature_weights
+    .filter((w: SignalFeatureWeight) => Math.abs(w.weight) > 1e-4)
+    .slice(0, 8);
+
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white">
+      <div className="border-b border-gray-200 px-6 py-3">
+        <h3 className="text-sm font-semibold text-navy-700">
+          Signal-edge model
+        </h3>
+        <p className="mt-0.5 text-xs text-gray-500">
+          In-sample logistic model of which signals precede profitable trades.
+          Trained on this run&apos;s {model.n_samples} closed trade
+          {model.n_samples === 1 ? "" : "s"} — interpretive, not a forward
+          predictor. Lift is predicted win-probability minus the{" "}
+          {base.toFixed(1)}% base rate.
+        </p>
+      </div>
+
+      {/* Fit summary */}
+      <div className="grid grid-cols-2 gap-x-6 gap-y-3 border-b border-gray-100 px-6 py-4 text-sm sm:grid-cols-4">
+        <Field label="Samples" value={String(model.n_samples)} />
+        <Field label="Base win rate" value={`${base.toFixed(1)}%`} />
+        <Field
+          label="Train accuracy"
+          value={model.train_accuracy != null ? `${(model.train_accuracy * 100).toFixed(1)}%` : "—"}
+          tone={model.fitted ? "neutral" : "amber"}
+        />
+        <Field
+          label="Log loss"
+          value={model.train_log_loss != null ? model.train_log_loss.toFixed(4) : "—"}
+        />
+      </div>
+
+      {/* Not-fitted notice */}
+      {!model.fitted && (
+        <div className="border-b border-gray-100 bg-amber-50 px-6 py-3 text-xs text-amber-900">
+          Model not fitted: {model.reason ?? "insufficient data"}. The
+          per-signal rates below are empirical (from the trades themselves).
+        </div>
+      )}
+
+      {/* Per-signal edge */}
+      <div className="px-6 py-4">
+        <p className="mb-2 text-xs uppercase tracking-wide text-gray-500">
+          Per-signal edge
+        </p>
+        {model.signal_edges.length === 0 ? (
+          <p className="text-sm text-gray-500">
+            No signal-tagged trades to evaluate.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Signal</th>
+                  <th className="px-3 py-2 text-right font-medium">Trades</th>
+                  <th className="px-3 py-2 text-right font-medium">Win %</th>
+                  <th className="px-3 py-2 text-right font-medium">Pred. win %</th>
+                  <th className="px-3 py-2 text-right font-medium">Lift</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {model.signal_edges.map((e: SignalEdge) => (
+                  <tr key={e.name} className="hover:bg-gray-50">
+                    <td className="px-3 py-2 font-mono text-xs">{e.name}</td>
+                    <td className="px-3 py-2 text-right text-xs text-gray-600">
+                      {e.num_trades}
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono text-xs">
+                      {(e.empirical_profit_rate * 100).toFixed(1)}%
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono text-xs text-gray-600">
+                      {(e.mean_predicted_prob * 100).toFixed(1)}%
+                    </td>
+                    <td className={`px-3 py-2 text-right font-mono text-xs ${liftColor(e.lift_vs_base_pp)}`}>
+                      {fmtLift(e.lift_vs_base_pp)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Learned weights (only when fitted and non-trivial) */}
+      {model.fitted && topWeights.length > 0 && (
+        <div className="border-t border-gray-100 px-6 py-4">
+          <p className="mb-2 text-xs uppercase tracking-wide text-gray-500">
+            Top feature weights (standardized)
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {topWeights.map((w: SignalFeatureWeight) => (
+              <span
+                key={w.feature}
+                className={`rounded px-2 py-1 font-mono text-xs ${
+                  w.weight > 0
+                    ? "bg-green-50 text-green-700"
+                    : "bg-red-50 text-red-700"
+                }`}
+                title={`${w.feature}: ${w.weight.toFixed(4)}`}
+              >
+                {prettyFeature(w.feature)} {w.weight > 0 ? "+" : ""}
+                {w.weight.toFixed(2)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function liftColor(pp: number): string {
+  if (pp > 0.05) return "text-green-700";
+  if (pp < -0.05) return "text-red-700";
+  return "text-gray-600";
+}
+
+function fmtLift(pp: number): string {
+  const sign = pp > 0 ? "+" : "";
+  return `${sign}${pp.toFixed(1)}pp`;
+}
+
+function prettyFeature(feature: string): string {
+  // "sig::trend::value" -> "trend·value"; "n_active_signals" stays as-is.
+  const m = feature.match(/^sig::(.+)::(active|value)$/);
+  return m ? `${m[1]}·${m[2]}` : feature;
+}
+
+
+// ============================================================
 // Config card (params + execution knobs)
 // ============================================================
 function ConfigCard({ detail }: { detail: BacktestDetail }) {
@@ -906,6 +1221,11 @@ function fmtInt(v: number | null | undefined): string {
 function fmtPctRich(v: number | null | undefined): string {
   if (v == null) return "—";
   return `${Number(v).toFixed(4)}%`;
+}
+
+function fmtPct1(v: number | null | undefined): string {
+  if (v == null) return "—";
+  return `${Number(v).toFixed(1)}%`;
 }
 
 function fmtNumberStr(v: number | string, digits: number): string {

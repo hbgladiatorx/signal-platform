@@ -74,6 +74,10 @@ class RoundTrip:
     net_pnl: Decimal    # gross_pnl - fees
     duration_seconds: float
     num_fills: int
+    # Attribution: the signal/filter names that were active on the entry
+    # (buy) fills of this trip. Drives per-signal P&L breakdown. Empty when
+    # the strategy emitted no signals. Ordered, de-duplicated.
+    entry_tags: tuple[str, ...] = ()
 
 
 @dataclass
@@ -171,6 +175,14 @@ def _round_trip_from_fills(fills: list[Fill]) -> RoundTrip:
     exit_ts = sells[-1].filled_ts if sells else fills[-1].filled_ts
     duration_seconds = (exit_ts - entry_ts).total_seconds()
 
+    # Union of attribution tags across the entry (buy) fills, preserving
+    # first-seen order and de-duplicating.
+    entry_tags: list[str] = []
+    for f in buys:
+        for tag in f.tags:
+            if tag not in entry_tags:
+                entry_tags.append(tag)
+
     return RoundTrip(
         symbol=symbol,
         side="long",
@@ -184,6 +196,7 @@ def _round_trip_from_fills(fills: list[Fill]) -> RoundTrip:
         net_pnl=net_pnl,
         duration_seconds=duration_seconds,
         num_fills=len(fills),
+        entry_tags=tuple(entry_tags),
     )
 
 

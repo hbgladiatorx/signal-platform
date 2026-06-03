@@ -25,6 +25,7 @@ from services.api.routers import (
     live,
     market,
     me,
+    ml,
     paper_sessions,
     settings as settings_router,
     strategies,
@@ -125,6 +126,7 @@ app.include_router(strategies.router)
 app.include_router(backtests.router)
 app.include_router(user_strategies.router)
 app.include_router(walkforwards.router)
+app.include_router(ml.router)
 app.include_router(paper_sessions.router)
 app.include_router(live.router)
 app.include_router(ws.router)

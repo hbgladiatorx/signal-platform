@@ -68,6 +68,7 @@ from packages.backtest.types import (
     EquityPoint,
     Fill,
     InstrumentMeta,
+    SignalEvent,
 )
 from packages.strategy.base import Order, OrderSide, OrderType, Strategy
 from packages.strategy.context import BarContext
@@ -219,6 +220,7 @@ def run_backtest(
     ]
 
     fills: list[Fill] = []
+    signal_events: list[SignalEvent] = []
     equity_curve: list[EquityPoint] = []
     rejected_orders: list[tuple[Order, str]] = []
     cancelled_orders: list[Order] = []
@@ -297,6 +299,12 @@ def run_backtest(
 
             fill, remainder_qty = fill_result
 
+            # Carry the order's attribution tags (the signals that were active
+            # when the strategy decided to trade) onto the fill, so round-trip
+            # analytics can attribute P&L back to those signals/filters.
+            if order.tags:
+                fill = dataclasses.replace(fill, tags=order.tags)
+
             # --- (2d) Apply fill against portfolio; REJECT if insufficient ---
             if fill.side == OrderSide.BUY:
                 mult = config.multiplier_for(order.symbol)
@@ -370,6 +378,8 @@ def run_backtest(
         pending_orders.extend(ctx.collected_orders())
         # Carry cancellation requests to next bar's Phase 2b
         pending_cancellations = ctx.collected_cancellations()
+        # Harvest this bar's signal/filter events for attribution analytics
+        signal_events.extend(ctx.collected_signals())
 
         # --- (4) MARK TO MARKET ---
         positions_value = portfolio.mark_to_market(last_marks)
@@ -393,4 +403,5 @@ def run_backtest(
         cancelled_orders=cancelled_orders,
         expired_orders=expired_orders,
         strategy_state_final=dict(strategy.state),
+        signal_events=signal_events,
     )

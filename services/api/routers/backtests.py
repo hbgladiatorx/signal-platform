@@ -189,6 +189,15 @@ class BacktestDetail(BaseModel):
     num_open_trades: int | None = None
     win_rate_pct: float | None = None
     profit_factor: float | None = None
+    # Performance attribution (the "why"): per-symbol / per-signal P&L
+    # decomposition and signal fire/block frequency. Stored verbatim as the
+    # JSON shape produced by attribution_to_dict(). None for runs with no
+    # closed trades or completed before attribution was added.
+    attribution: dict[str, Any] | None = None
+    # Signal-edge ML model (Phase 3): in-sample logistic fit over the
+    # feature/label store — which signals predict profitable trades. Verbatim
+    # model_to_dict() shape. None for runs with nothing to learn / pre-Phase-3.
+    ml_model: dict[str, Any] | None = None
 
 
 class TradeRow(BaseModel):
@@ -416,6 +425,8 @@ async def get_one_backtest(
         num_open_trades=row.get("num_open_trades"),
         win_rate_pct=_opt_float(row.get("win_rate_pct")),
         profit_factor=_opt_float(row.get("profit_factor")),
+        attribution=row.get("attribution_json"),
+        ml_model=row.get("ml_model_json"),
     )
 
 

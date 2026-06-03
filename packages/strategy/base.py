@@ -67,6 +67,11 @@ class Order:
     submitted_ts: datetime  # the bar close time at which the strategy decided
     client_order_id: str  # auto-generated; unique per strategy run
     expires_at_bar_count: int | None = None  # None = GTC (no expiry)
+    # Attribution tags: the names of the signals the strategy emitted (via
+    # ctx.signal(...)) in the same on_bar() before submitting this order. These
+    # are the causal link used by attribution analytics to answer "which signal
+    # / filter drove this trade". Empty for strategies that emit no signals.
+    tags: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.order_type == OrderType.LIMIT and self.limit_price is None:
@@ -75,6 +80,35 @@ class Order:
             raise ValueError("Market orders must not have limit_price")
         if self.quantity <= 0:
             raise ValueError(f"Order quantity must be positive: {self.quantity}")
+
+
+@dataclass(frozen=True)
+class SignalEvent:
+    """A discrete signal or filter outcome a strategy emitted during on_bar().
+
+    Strategies call ctx.signal(name, passed=..., value=..., symbol=...) to
+    record that a condition fired (e.g. "rsi_oversold") or that a filter
+    blocked an action (passed=False, e.g. "atr_filter" rejecting an entry).
+
+    These events are the raw material for attribution analytics: how often a
+    signal fired, what fraction passed its filters, and — when an order was
+    submitted in the same bar — how the resulting trades performed.
+
+    `value` carries an optional numeric reading (e.g. the RSI value) so the
+    same log doubles as a feature/label store for the later ML/DRL phase.
+
+    Lives in the strategy package (not backtest) because it is part of the
+    strategy-facing contract, exactly like Order — both backtest and live
+    paths emit and consume it without depending on the backtest package.
+    """
+
+    ts: datetime
+    bar_count: int
+    name: str
+    passed: bool = True
+    symbol: str | None = None
+    value: Decimal | None = None
+    meta: dict[str, Any] = field(default_factory=dict)
 
 
 P = TypeVar("P", bound=BaseModel)

@@ -23,6 +23,11 @@ from packages.backtest.analytics import (
     RoundTrip,
     compute_analytics,
 )
+from packages.backtest.attribution import (
+    BacktestAttribution,
+    attribution_to_dict,
+    compute_attribution,
+)
 from packages.backtest.engine import run_backtest
 from packages.backtest.portfolio import Portfolio
 from packages.backtest.types import (
@@ -35,6 +40,7 @@ from packages.backtest.types import (
 
 __all__ = [
     "BacktestAnalytics",
+    "BacktestAttribution",
     "BacktestConfig",
     "BacktestResult",
     "EquityPoint",
@@ -42,6 +48,8 @@ __all__ = [
     "Portfolio",
     "Position",
     "RoundTrip",
+    "attribution_to_dict",
     "compute_analytics",
+    "compute_attribution",
     "run_backtest",
 ]

@@ -83,10 +83,18 @@ class SMACrossover(Strategy[SMACrossoverParams]):
 
         position = ctx.position(self.symbol)
 
+        # The fast/slow gap (as a fraction of the slow SMA) is the conviction
+        # behind a crossover. Emitting it as the signal's numeric value lets
+        # attribution and the signal-edge model see *how strong* each entry was,
+        # not just that a crossover happened.
+        gap = float((fast - slow) / slow) if slow else 0.0
+
         if fast > slow and position == 0:
+            ctx.signal("sma_bull_cross", value=gap, symbol=self.symbol)
             ctx.submit_buy_market(self.symbol, self.params.position_size)
             self.state["signal"] = "long"
         elif fast < slow and position > 0:
             # Close the entire current position
+            ctx.signal("sma_bear_cross", value=gap, symbol=self.symbol)
             ctx.submit_sell_market(self.symbol, position)
             self.state["signal"] = "flat"
