@@ -7,9 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Briefcase, Bitcoin, Building2, Activity, Check, Sparkles, Settings as SettingsIcon, FlaskConical, ArrowRight } from "lucide-react";
+import { Sparkles, Settings as SettingsIcon, FlaskConical, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { MCPConnectionSection } from "@/components/agent/AgentConnections";
+import { ApiCredentialsCard } from "@/components/settings/ApiCredentialsCard";
 import { PlanBadge } from "@/components/billing/PlanBadge";
 import { getCurrentPlan, getTier, setCurrentPlan } from "@/lib/api/billing";
 
@@ -20,16 +21,7 @@ export const Route = createFileRoute("/app/settings")({
   component: SettingsPage,
 });
 
-const brokers = [
-  { id: "coinbase", name: "Coinbase",     icon: Bitcoin,    desc: "Crypto spot — submit pre-filled orders to your account." },
-  { id: "ibkr",     name: "Interactive Brokers", icon: Building2, desc: "Stocks & options worldwide." },
-  { id: "tradier",  name: "Tradier",      icon: Briefcase,  desc: "US equities & options." },
-  { id: "topstepx", name: "TopstepX",     icon: Activity,   desc: "Funded futures accounts." },
-];
-
 function SettingsPage() {
-  const [connected, setConnected] = useState<Record<string, boolean>>({ coinbase: true });
-
   const [accountSize, setAccountSize] = useState(25000);
   const [plan, setPlan] = useState(getCurrentPlan());
   const traderTier = plan.trader ? getTier(plan.trader) : null;
@@ -150,33 +142,7 @@ function SettingsPage() {
         </div>
       </Card>
 
-      <Card className="border-border bg-elevated p-5">
-        <h2 className="font-semibold">Broker connections</h2>
-        <p className="text-sm text-muted-foreground">Connect a broker to one-click pre-fill orders. Bayn never trades automatically.</p>
-        <Separator className="my-4" />
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {brokers.map((b) => {
-            const Icon = b.icon;
-            const isOn = !!connected[b.id];
-            return (
-              <Card key={b.id} className="flex items-start gap-3 border-border bg-background/40 p-4">
-                <Icon className="mt-0.5 size-5 text-cyan" />
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <div className="font-medium">{b.name}</div>
-                    {isOn ? <span className="inline-flex items-center gap-1 text-xs text-cyan"><Check className="size-3" /> Connected</span> : null}
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">{b.desc}</p>
-                  <Button size="sm" variant={isOn ? "outline" : "default"} className="mt-3"
-                    onClick={() => { setConnected((p) => ({ ...p, [b.id]: !p[b.id] })); toast(isOn ? `${b.name} disconnected` : `${b.name} connected (mock)`); }}>
-                    {isOn ? "Disconnect" : "Connect"}
-                  </Button>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
-      </Card>
+      <ApiCredentialsCard />
 
       <Card className="border-border bg-elevated p-5">
         <h2 className="font-semibold">Notifications</h2>

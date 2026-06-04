@@ -8,6 +8,8 @@
 // translate (LLM). Marketplace-side concerns (personal signals, earnings,
 // deploy/submit) remain stubbed until Phase 3/4.
 import { api, ApiError } from "@/lib/api/client";
+import { createSession } from "@/lib/api/sessions";
+import { listApiCredentials } from "@/lib/api/settings";
 import type {
   AssetClass,
   BacktestRun,
@@ -499,9 +501,48 @@ export async function getEarnings(): Promise<StudioEarning[]> {
   return [];
 }
 
-export async function deployStrategyLive(_id: string) {
-  // Phase 3: will start a paper/live session via /paper-sessions.
-  return { ok: true };
+// Start a live trading session for a strategy via /paper-sessions. Routes
+// through a stored broker credential: an Alpaca key runs a paper session,
+// a Binance.US key runs real-money live. Picks Alpaca first (safe default),
+// else the first available credential. Surfaces a clear error if none exist.
+export async function deployStrategyLive(
+  strategyId: string,
+): Promise<{ ok: boolean; sessionId?: string }> {
+  let name: string;
+  let graph: StrategyGraph = { nodes: [], edges: [] };
+  let assetClass: AssetClass = "crypto";
+  if (strategyId.startsWith(BUILTIN_PREFIX)) {
+    name = strategyId.slice(BUILTIN_PREFIX.length);
+  } else {
+    const s = await api.get<ApiUserStrategy>(`/user-strategies/${strategyId}`);
+    name = s.name;
+    graph = s.graph_json ?? graph;
+    assetClass = toAssetClass(s.asset_class);
+  }
+
+  const credentials = await listApiCredentials();
+  if (credentials.length === 0) {
+    throw new ApiError(
+      400,
+      "Connect a broker API key in Settings before deploying a strategy live.",
+    );
+  }
+  const credential =
+    credentials.find((c) => c.service === "alpaca") ?? credentials[0];
+
+  const symbols = await resolveSymbols(graph, assetClass);
+  if (symbols.length === 0) {
+    throw new ApiError(422, "No tradable instruments are available for this strategy.");
+  }
+
+  const { id } = await createSession({
+    strategy_name: name,
+    symbols,
+    asset_class: ASSET_TO_VENUE_CLASS[assetClass],
+    bar_resolution: "1m",
+    api_credential_id: credential.id,
+  });
+  return { ok: true, sessionId: id };
 }
 
 export async function submitStrategyToBayn(_id: string) {

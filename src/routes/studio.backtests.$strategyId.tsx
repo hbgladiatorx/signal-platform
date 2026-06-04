@@ -90,9 +90,13 @@ function BacktestDetail() {
       toast.success("Deployed to forward test (7-day window)");
     },
     forward: async () => {
-      advanceStage(strategyId, "deployable");
-      await deployStrategyLive(strategyId);
-      toast.success("Strategy is live in your personal signals");
+      try {
+        await deployStrategyLive(strategyId);
+        advanceStage(strategyId, "deployable");
+        toast.success("Strategy is live in your personal signals");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Could not deploy strategy");
+      }
     },
     deployable: async () => {
       advanceStage(strategyId, "eligible");
@@ -248,7 +252,15 @@ function BacktestDetail() {
 
       {/* Footer actions */}
       <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border pt-4">
-        <Button variant="outline" onClick={async () => { await deployStrategyLive(strategyId); advanceStage(strategyId, "deployable"); toast.success("Deployed to live forward test"); }}>
+        <Button variant="outline" onClick={async () => {
+          try {
+            await deployStrategyLive(strategyId);
+            advanceStage(strategyId, "deployable");
+            toast.success("Deployed to live forward test");
+          } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Could not deploy strategy");
+          }
+        }}>
           <Rocket className="mr-1 size-4" /> Deploy Live
         </Button>
         <Button className="bg-violet text-violet-foreground hover:bg-violet/90"
