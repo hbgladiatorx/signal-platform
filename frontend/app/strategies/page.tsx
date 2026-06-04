@@ -1,7 +1,8 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { useState } from "react";
 
 import { AppShell } from "@/components/nav/AppShell";
 import type { Strategy } from "@/lib/backtest-types";
@@ -98,6 +99,23 @@ export default function StrategiesPage() {
 }
 
 function StrategyCard({ strategy }: { strategy: StrategyWithSource }) {
+  const api = useApi();
+  const qc = useQueryClient();
+  const [confirming, setConfirming] = useState(false);
+
+  // Only user-authored strategies are deletable; built-ins are code on disk.
+  const isDeletable =
+    strategy.source === "user" && Boolean(strategy.user_strategy_id);
+
+  const deleteMutation = useMutation({
+    mutationFn: () =>
+      api.delete<void>(`/user-strategies/${strategy.user_strategy_id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["strategies"] });
+      setConfirming(false);
+    },
+  });
+
   const paramKeys = Object.keys(strategy.params_schema.properties ?? {});
 
   return (
@@ -164,7 +182,62 @@ function StrategyCard({ strategy }: { strategy: StrategyWithSource }) {
         </dl>
       </div>
 
-      <div className="border-t border-gray-200 bg-gray-50 px-6 py-3 text-right">
+      <div className="flex items-center justify-between gap-3 border-t border-gray-200 bg-gray-50 px-6 py-3">
+        <div className="min-h-[1.25rem]">
+          {isDeletable &&
+            (deleteMutation.isError ? (
+              <span className="inline-flex items-center gap-2">
+                <span className="text-xs text-red-600">
+                  Failed to delete
+                </span>
+                <button
+                  type="button"
+                  onClick={() => deleteMutation.mutate()}
+                  className="text-xs font-medium text-red-600 hover:text-red-700"
+                >
+                  Retry
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    deleteMutation.reset();
+                    setConfirming(false);
+                  }}
+                  className="text-xs text-gray-500 hover:text-gray-700"
+                >
+                  Cancel
+                </button>
+              </span>
+            ) : confirming ? (
+              <span className="inline-flex items-center gap-2">
+                <span className="text-xs text-gray-500">Delete this strategy?</span>
+                <button
+                  type="button"
+                  onClick={() => deleteMutation.mutate()}
+                  disabled={deleteMutation.isPending}
+                  className="text-xs font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+                >
+                  {deleteMutation.isPending ? "Deleting…" : "Delete"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirming(false)}
+                  disabled={deleteMutation.isPending}
+                  className="text-xs text-gray-500 hover:text-gray-700"
+                >
+                  Cancel
+                </button>
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirming(true)}
+                className="text-xs text-gray-500 hover:text-red-600"
+              >
+                Delete
+              </button>
+            ))}
+        </div>
         <Link
           href={`/backtests/new?strategy=${encodeURIComponent(strategy.name)}`}
           className="text-sm font-medium text-navy-600 hover:underline"
