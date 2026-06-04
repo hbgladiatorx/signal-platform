@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
-import { getBacktestsForStrategy, getDevStrategy, submitStrategyToBayn, deployStrategyLive, runBacktest } from "@/lib/api/studio";
+import { getBacktestsForStrategy, getBacktest, getDevStrategy, submitStrategyToBayn, deployStrategyLive, runBacktest } from "@/lib/api/studio";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -42,7 +42,18 @@ function BacktestDetail() {
   const [selectedId, setSelectedId] = useState<string | undefined>(runId);
   useEffect(() => { if (runId) setSelectedId(runId); }, [runId]);
 
-  const run = useMemo(() => runs?.find((r) => r.id === (selectedId ?? runId)) ?? runs?.[0], [runs, selectedId, runId]);
+  const selectedRunId = selectedId ?? runId ?? runs?.[0]?.id;
+  // The list gives light runs (stats only); fetch the selected run's full
+  // detail (equity, trades, monthly returns) for the charts below.
+  const { data: fullRun } = useQuery({
+    queryKey: ["bt", selectedRunId],
+    queryFn: () => getBacktest(selectedRunId!),
+    enabled: !!selectedRunId,
+  });
+  const run = useMemo(
+    () => fullRun ?? runs?.find((r) => r.id === selectedRunId) ?? runs?.[0],
+    [fullRun, runs, selectedRunId],
+  );
 
   // Stage tracking — viewing a backtest run implies the strategy is at least "backtested"
   const [stage, setStageState] = useState<DeployStage>(() => getStage(strategyId));

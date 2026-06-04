@@ -232,7 +232,7 @@ function Builder() {
       })),
       edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle ?? undefined, targetHandle: e.targetHandle ?? undefined })),
     };
-    const draft = ensureDevStrategyDraft({ id: isNew ? undefined : id, name, assetClass, graph });
+    const draft = await ensureDevStrategyDraft({ id: isNew ? undefined : id, name, assetClass, graph });
     const run = await runBacktest(draft.id, params);
     advanceStage(draft.id, "backtested");
     setLogs((l) => [...l, { ts: new Date().toISOString(), level: "ok", msg: `Backtest ${run.id} completed. Opening results…` }]);
