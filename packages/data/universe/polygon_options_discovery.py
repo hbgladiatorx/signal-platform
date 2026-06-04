@@ -21,6 +21,7 @@ import asyncio
 import json
 import os
 from dataclasses import dataclass
+from datetime import date
 
 import aiohttp
 from sqlalchemy import text
@@ -88,6 +89,10 @@ def _to_row(c: dict) -> dict | None:
     native = pticker[2:] if pticker.startswith("O:") else pticker
     underlying = c.get("underlying_ticker")
     right = "C" if c.get("contract_type") == "call" else "P"
+    # Polygon returns expiration_date as an ISO string; the instruments.expiry
+    # column is a DATE, and asyncpg requires a date object (not a str).
+    exp_raw = c.get("expiration_date")
+    expiry = date.fromisoformat(exp_raw) if isinstance(exp_raw, str) else exp_raw
     meta = {
         "data_source": "polygon",
         "polygon_ticker": pticker,
@@ -103,7 +108,7 @@ def _to_row(c: dict) -> dict | None:
         "underlying": f"{underlying}@{VENUE}" if underlying else None,
         "option_right": right,
         "strike": c.get("strike_price"),
-        "expiry": c.get("expiration_date"),
+        "expiry": expiry,
         "multiplier": c.get("shares_per_contract") or 100,
         "metadata": json.dumps(meta),
     }

@@ -170,7 +170,10 @@ async def amain() -> None:
         await _idle_until_signal()
         return
 
-    adapter = PolygonDataAdapter(api_key, channel=channel, cluster=cluster)
+    # Plans without the real-time entitlement can still use the 15-min delayed
+    # websocket. Set POLYGON_DELAYED=1 to connect there.
+    delayed = os.environ.get("POLYGON_DELAYED", "").strip().lower() in ("1", "true", "yes")
+    adapter = PolygonDataAdapter(api_key, channel=channel, cluster=cluster, delayed=delayed)
 
     # Entitlement probe: detect a missing real-time plan up front. A timeout is
     # inconclusive (markets may be closed), so we only treat auth_failed as fatal

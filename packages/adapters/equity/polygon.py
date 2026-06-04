@@ -46,6 +46,11 @@ _CLUSTER_URL = {
     "stocks": "wss://socket.polygon.io/stocks",
     "options": "wss://socket.polygon.io/options",
 }
+# Delayed (15-min) feed — available on plans without the real-time entitlement.
+_CLUSTER_URL_DELAYED = {
+    "stocks": "wss://delayed.polygon.io/stocks",
+    "options": "wss://delayed.polygon.io/options",
+}
 # channel -> (subscribe prefix, websocket event tag)
 _CHANNEL_SPEC: dict[str, tuple[str, str]] = {
     "trades": ("T", "T"),
@@ -65,6 +70,7 @@ class PolygonDataAdapter(AssetAdapter):
         *,
         channel: Channel = "aggregates_sec",
         cluster: Cluster = "stocks",
+        delayed: bool = False,
     ) -> None:
         if not api_key:
             raise ConfigError("PolygonDataAdapter requires a Polygon API key")
@@ -73,7 +79,8 @@ class PolygonDataAdapter(AssetAdapter):
         self._key = api_key
         self.channel = channel
         self.cluster = cluster
-        self._url = _CLUSTER_URL[cluster]
+        self.delayed = delayed
+        self._url = (_CLUSTER_URL_DELAYED if delayed else _CLUSTER_URL)[cluster]
         self._prefix, self._ev = _CHANNEL_SPEC[channel]
 
     # --- Symbol translation ---
