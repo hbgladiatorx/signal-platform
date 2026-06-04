@@ -48,8 +48,11 @@ from packages.backtest.persistence import (
     load_backtest_trades,
 )
 from packages.data.messagebus import QUEUE_BACKTEST_JOBS
-from services.api.auth import get_current_user
-from services.api.deps import get_db_session
+from services.api.deps import (
+    CurrentUserRecord,
+    get_current_user_record,
+    get_db_session,
+)
 from services.api.routers.strategies import get_strategy_registry
 from packages.strategy.loader import StrategyLoadError
 from packages.strategy.resolver import StrategyNotFoundError, resolve_strategy
@@ -74,47 +77,6 @@ async def _get_redis() -> redis.Redis:
         url = os.environ.get("REDIS_URL", "redis://redis:6379/0")
         _redis_client = redis.from_url(url, decode_responses=True)
     return _redis_client
-
-
-# ============================================================
-# Current-user helper (Auth0 sub → users row)
-# ============================================================
-class CurrentUserRecord(BaseModel):
-    id: UUID
-    org_id: UUID
-    email: str | None = None
-    role: str
-
-
-async def get_current_user_record(
-    claims: dict[str, Any] = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db_session),
-) -> CurrentUserRecord:
-    """Look up the platform `users` row for the JWT's `sub` claim.
-
-    Raises 404 if no row exists; this happens for M2M tokens that haven't
-    been pre-provisioned.
-    """
-    auth0_sub = claims.get("sub")
-    if not auth0_sub:
-        raise HTTPException(401, "Token missing 'sub' claim")
-    result = await session.execute(
-        text(
-            "SELECT id, org_id, email, role FROM users WHERE auth0_sub = :sub"
-        ),
-        {"sub": auth0_sub},
-    )
-    row = result.mappings().first()
-    if row is None:
-        raise HTTPException(
-            status_code=404,
-            detail=(
-                f"No user record found for Auth0 subject {auth0_sub!r}. "
-                "Use a user-issued token (not M2M) or pre-provision a "
-                "users row with this auth0_sub."
-            ),
-        )
-    return CurrentUserRecord(**dict(row))
 
 
 # ============================================================

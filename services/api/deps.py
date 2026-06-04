@@ -46,32 +46,49 @@ class CurrentUserRecord(BaseModel):
     role: str
 
 
+def _claim_name(claims: dict[str, Any]) -> str | None:
+    """Best-effort display name across IdPs.
+
+    Auth0 puts it in `name`; Supabase nests it under `user_metadata`.
+    """
+    if claims.get("name"):
+        return claims["name"]
+    meta = claims.get("user_metadata") or {}
+    return meta.get("name") or meta.get("full_name")
+
+
 async def get_current_user_record(
     claims: dict[str, Any] = Depends(get_current_user),
     session: AsyncSession = Depends(get_db_session),
 ) -> CurrentUserRecord:
-    """Look up the platform `users` row for the JWT's `sub` claim.
+    """Resolve the platform `users` row for the JWT's `sub`, provisioning it
+    on first sight.
 
-    Raises 404 if no row exists; this happens for M2M tokens that haven't
-    been pre-provisioned.
+    The subject is opaque — an Auth0 sub or a Supabase user UUID — and is
+    stored in `users.auth0_sub`. Lazy provisioning means a freshly signed-up
+    Supabase user gets a platform row on their very first authenticated
+    request, with no separate sync job. M2M tokens without a `sub` are
+    rejected (401).
     """
-    auth0_sub = claims.get("sub")
-    if not auth0_sub:
+    sub = claims.get("sub")
+    if not sub:
         raise HTTPException(401, "Token missing 'sub' claim")
     result = await session.execute(
         text(
-            "SELECT id, org_id, email, role FROM users WHERE auth0_sub = :sub"
+            """
+            INSERT INTO users (auth0_sub, email, name)
+            VALUES (:sub, :email, :name)
+            ON CONFLICT (auth0_sub) DO UPDATE SET updated_at = NOW()
+            RETURNING id, org_id, email, role
+            """
         ),
-        {"sub": auth0_sub},
+        {
+            "sub": sub,
+            "email": claims.get("email"),
+            "name": _claim_name(claims),
+        },
     )
     row = result.mappings().first()
     if row is None:
-        raise HTTPException(
-            status_code=404,
-            detail=(
-                f"No user record found for Auth0 subject {auth0_sub!r}. "
-                "Use a user-issued token (not M2M) or pre-provision a "
-                "users row with this auth0_sub."
-            ),
-        )
+        raise HTTPException(status_code=500, detail="Failed to provision user")
     return CurrentUserRecord(**dict(row))

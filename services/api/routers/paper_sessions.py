@@ -33,13 +33,12 @@ from packages.data.messagebus import QUEUE_PAPER_CONTROL
 from packages.livetrade import persistence as P
 from packages.strategy.loader import StrategyLoadError
 from packages.strategy.resolver import StrategyNotFoundError, resolve_strategy
-from services.api.deps import get_db_session
-from services.api.routers.backtests import (
+from services.api.deps import (
     CurrentUserRecord,
-    _get_redis,
-    _validate_symbols,
     get_current_user_record,
+    get_db_session,
 )
+from services.api.routers.backtests import _get_redis, _validate_symbols
 from services.api.routers.strategies import get_strategy_registry
 
 log = logging.getLogger(__name__)

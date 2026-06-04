@@ -18,11 +18,8 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from packages.livetrade.guards import KILL_SWITCH_KEY
-from services.api.routers.backtests import (
-    CurrentUserRecord,
-    _get_redis,
-    get_current_user_record,
-)
+from services.api.deps import CurrentUserRecord, get_current_user_record
+from services.api.routers.backtests import _get_redis
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/live", tags=["live-trading"])
