@@ -4,7 +4,7 @@
 #
 # Routing:
 #   /api/*  -> api:8000 (FastAPI backend, /api prefix stripped)
-#   /*      -> frontend:3000 (Next.js)
+#   /*      -> thebayn:3000 (TanStack Start frontend)
 #
 # All HTTP traffic auto-redirects to HTTPS.
 # SSL cert auto-provisioned and renewed via Let's Encrypt.
@@ -25,9 +25,9 @@ signal.cimcha.com {
         }
     }
 
-    # Frontend: everything else goes to Next.js.
+    # Frontend: everything else goes to the thebayn TanStack Start app.
     handle {
-        reverse_proxy frontend:3000 {
+        reverse_proxy thebayn:3000 {
             header_up Host {host}
             header_up X-Real-IP {remote_host}
         }
