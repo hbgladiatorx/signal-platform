@@ -12,6 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, PlayCircle, Search, Globe } from "lucide-react";
+import { toast } from "sonner";
 import { getInstrumentsForAsset } from "@/lib/api/studio";
 import type { AssetClass } from "@/lib/types";
 
@@ -105,6 +106,9 @@ export function BacktestRunModal({
     try {
       await onRun({ ...params, symbols: chosen });
       onOpenChange(false);
+    } catch (e) {
+      // Surface the failure instead of silently doing nothing.
+      toast.error(e instanceof Error ? e.message : "Backtest failed to start");
     } finally {
       setRunning(false);
     }

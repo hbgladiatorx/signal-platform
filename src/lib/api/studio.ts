@@ -358,6 +358,34 @@ export async function ensureDevStrategyDraft(input: {
   graph: StrategyGraph;
 }): Promise<DevStrategy> {
   const nl = graphToNL(input.name, input.assetClass, input.graph);
+
+  // LLM-free fast path: if we're updating an existing strategy whose stored
+  // graph already matches and which already has generated source, skip the
+  // /translate call entirely (it costs an Anthropic request). This lets an
+  // already-built strategy re-run — and param-only re-runs work — without
+  // depending on the LLM. We only re-translate when the graph actually changed.
+  if (input.id && !input.id.startsWith(BUILTIN_PREFIX)) {
+    try {
+      const existing = await api.get<ApiUserStrategy>(`/user-strategies/${input.id}`);
+      const sameGraph =
+        JSON.stringify(existing.graph_json ?? null) === JSON.stringify(input.graph ?? null);
+      if (sameGraph && existing.source_code) {
+        // Keep name/asset in sync without touching source.
+        if (existing.name !== input.name || existing.asset_class !== input.assetClass) {
+          const u = await api.put<ApiUserStrategy>(`/user-strategies/${input.id}`, {
+            name: input.name,
+            asset_class: input.assetClass,
+          });
+          return userToDev(u);
+        }
+        return userToDev(existing);
+      }
+    } catch (e) {
+      if (!(e instanceof ApiError && e.status === 404)) throw e;
+      // 404 -> fall through to create.
+    }
+  }
+
   const translated = await api.post<{
     ok: boolean;
     source_code?: string;
