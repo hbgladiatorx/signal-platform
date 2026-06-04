@@ -60,6 +60,9 @@ class CreateUserStrategyRequest(BaseModel):
     description: Optional[str] = Field(None, max_length=2000)
     nl_description: Optional[str] = Field(None, max_length=4000)
     source_code: str = Field(..., min_length=10, max_length=64_000)
+    # thebayn visual builder metadata (editable view; source stays runnable).
+    graph_json: Optional[dict[str, Any]] = None
+    asset_class: Optional[str] = Field(None, max_length=32)
 
 
 class UpdateUserStrategyRequest(BaseModel):
@@ -67,6 +70,8 @@ class UpdateUserStrategyRequest(BaseModel):
     description: Optional[str] = Field(None, max_length=2000)
     nl_description: Optional[str] = Field(None, max_length=4000)
     source_code: Optional[str] = Field(None, min_length=10, max_length=64_000)
+    graph_json: Optional[dict[str, Any]] = None
+    asset_class: Optional[str] = Field(None, max_length=32)
 
 
 class ValidateRequest(BaseModel):
@@ -87,6 +92,8 @@ class UserStrategySummary(BaseModel):
     description: Optional[str]
     class_name: str
     params_schema: dict[str, Any]
+    graph_json: Optional[dict[str, Any]] = None
+    asset_class: Optional[str] = None
     is_active: bool
     created_at: Any
     updated_at: Any
@@ -198,6 +205,8 @@ async def create_endpoint(
         class_name=result.class_name,
         source_code=req.source_code,
         params_schema=result.params_schema,
+        graph_json=req.graph_json,
+        asset_class=req.asset_class,
     )
 
     return CreateUserStrategyResponse(
@@ -270,6 +279,8 @@ async def update_endpoint(
         class_name=class_name,
         source_code=req.source_code,
         params_schema=params_schema,
+        graph_json=req.graph_json,
+        asset_class=req.asset_class,
     )
     if not updated:
         raise HTTPException(status_code=404, detail="Strategy not found")
@@ -413,6 +424,8 @@ def _row_to_summary(row: dict[str, Any]) -> UserStrategySummary:
         description=row.get("description"),
         class_name=row["class_name"],
         params_schema=row["params_schema"],
+        graph_json=row.get("graph_json"),
+        asset_class=row.get("asset_class"),
         is_active=row["is_active"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
@@ -427,6 +440,8 @@ def _row_to_detail(row: dict[str, Any]) -> UserStrategyDetail:
         nl_description=row.get("nl_description"),
         class_name=row["class_name"],
         params_schema=row["params_schema"],
+        graph_json=row.get("graph_json"),
+        asset_class=row.get("asset_class"),
         source_code=row["source_code"],
         is_active=row["is_active"],
         created_at=row["created_at"],
