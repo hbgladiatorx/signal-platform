@@ -1,7 +1,8 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { getDevStrategies } from "@/lib/api/studio";
+import { getDevStrategies, runBacktest } from "@/lib/api/studio";
+import { BacktestRunModal } from "@/components/studio/BacktestRunModal";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,8 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { StageBadge } from "@/components/common/StageBadge";
 import { AssetClassBadge } from "@/components/common/AssetClassBadge";
 import { formatDistanceToNow } from "date-fns";
-import { Plus } from "lucide-react";
-import type { AssetClass, PipelineStage } from "@/lib/types";
+import { Play, Plus } from "lucide-react";
+import type { AssetClass, DevStrategy, PipelineStage } from "@/lib/types";
 
 export const Route = createFileRoute("/studio/strategies")({
   head: () => ({ meta: [{ title: "My Strategies — Bayn Studio" }] }),
@@ -18,10 +19,13 @@ export const Route = createFileRoute("/studio/strategies")({
 });
 
 function StrategiesList() {
+  const navigate = useNavigate();
   const { data } = useQuery({ queryKey: ["devStrategies"], queryFn: getDevStrategies });
   const [ac, setAc] = useState<"all" | AssetClass>("all");
   const [st, setSt] = useState<"all" | PipelineStage>("all");
   const [q, setQ] = useState("");
+  // Strategy queued for a direct (LLM-free) backtest run via the modal.
+  const [runFor, setRunFor] = useState<DevStrategy | null>(null);
 
   const list = useMemo(() => {
     let arr = data ?? [];
@@ -90,7 +94,10 @@ function StrategiesList() {
               </div>
               <div className="col-span-1 text-right font-mono">{s.stats?.sharpe?.toFixed(2) ?? "—"}</div>
               <div className="col-span-1 text-right font-mono">{s.stats ? `${(s.stats.winRate * 100).toFixed(0)}%` : "—"}</div>
-              <div className="col-span-1 text-right">
+              <div className="col-span-1 flex justify-end gap-1">
+                <Button size="sm" variant="ghost" title="Backtest now (no AI)" onClick={() => setRunFor(s)}>
+                  <Play className="size-3.5" />
+                </Button>
                 <Button size="sm" variant="ghost" asChild>
                   <Link to="/studio/builder/$id" params={{ id: s.id }}>Edit</Link>
                 </Button>
@@ -102,6 +109,26 @@ function StrategiesList() {
           )}
         </div>
       </Card>
+
+      {/* Direct backtest — runs the strategy's existing source (built-ins and
+          already-built strategies) without the LLM translate step. */}
+      {runFor && (
+        <BacktestRunModal
+          open={!!runFor}
+          onOpenChange={(o) => { if (!o) setRunFor(null); }}
+          assetClass={runFor.assetClass}
+          allowAssetSwitch
+          onRun={async (p) => {
+            const run = await runBacktest(runFor.id, p);
+            setRunFor(null);
+            navigate({
+              to: "/studio/backtests/$strategyId",
+              params: { strategyId: run.strategyId },
+              search: { runId: run.id } as never,
+            });
+          }}
+        />
+      )}
     </div>
   );
 }

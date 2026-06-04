@@ -39,11 +39,14 @@ function defaultSymbol(assetClass: AssetClass, symbols: string[]): string | unde
 }
 
 export function BacktestRunModal({
-  open, onOpenChange, onRun, assetClass,
+  open, onOpenChange, onRun, assetClass, allowAssetSwitch = false,
 }: {
   open: boolean;
   onOpenChange: (b: boolean) => void;
   assetClass: AssetClass;
+  // When true, the user can switch the asset class inside the modal (used for
+  // asset-agnostic built-in strategies run outside the builder).
+  allowAssetSwitch?: boolean;
   onRun: (params: RunParams) => Promise<unknown>;
 }) {
   const [running, setRunning] = useState(false);
@@ -56,13 +59,18 @@ export function BacktestRunModal({
     commissionModel: "per_share",
   });
 
+  // The class the symbol list is drawn from. Defaults to the strategy's class;
+  // editable when allowAssetSwitch.
+  const [asset, setAsset] = useState<AssetClass>(assetClass);
+  useEffect(() => { setAsset(assetClass); }, [assetClass, open]);
+
   const [mode, setMode] = useState<"select" | "universe">("select");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
 
   const { data: instruments, isLoading, error } = useQuery({
-    queryKey: ["instruments", assetClass],
-    queryFn: () => getInstrumentsForAsset(assetClass),
+    queryKey: ["instruments", asset],
+    queryFn: () => getInstrumentsForAsset(asset),
     enabled: open,
   });
 
@@ -72,17 +80,17 @@ export function BacktestRunModal({
   useEffect(() => {
     setSelected((prev) => {
       if (prev.size) return prev;
-      const d = defaultSymbol(assetClass, symbols);
+      const d = defaultSymbol(asset, symbols);
       return d ? new Set([d]) : prev;
     });
-  }, [symbols, assetClass]);
+  }, [symbols, asset]);
 
   // Reset selection when the asset class changes.
   useEffect(() => {
     setSelected(new Set());
     setSearch("");
     setMode("select");
-  }, [assetClass]);
+  }, [asset]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -124,6 +132,19 @@ export function BacktestRunModal({
 
         {/* Asset selection */}
         <div className="space-y-3 rounded-md border border-border bg-elevated/50 p-3">
+          {allowAssetSwitch && (
+            <div className="flex items-center gap-2">
+              <Label className="text-xs text-muted-foreground">Asset class</Label>
+              <Select value={asset} onValueChange={(v) => setAsset(v as AssetClass)}>
+                <SelectTrigger className="h-8 w-36 bg-background"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="crypto">Crypto</SelectItem>
+                  <SelectItem value="stocks">Stocks</SelectItem>
+                  <SelectItem value="options">Options</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <RadioGroup value={mode} onValueChange={(v) => setMode(v as "select" | "universe")} className="flex gap-6">
             <div className="flex items-center gap-2">
               <RadioGroupItem value="select" id="m-select" />
@@ -132,7 +153,7 @@ export function BacktestRunModal({
             <div className="flex items-center gap-2">
               <RadioGroupItem value="universe" id="m-universe" />
               <Label htmlFor="m-universe" className="flex cursor-pointer items-center gap-1">
-                <Globe className="size-3.5" /> Full {assetClass} universe
+                <Globe className="size-3.5" /> Full {asset} universe
               </Label>
             </div>
           </RadioGroup>
@@ -140,15 +161,15 @@ export function BacktestRunModal({
           {error ? (
             <p className="text-sm text-destructive">Couldn't load instruments. {(error as Error).message}</p>
           ) : isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading {assetClass} instruments…</p>
+            <p className="text-sm text-muted-foreground">Loading {asset} instruments…</p>
           ) : symbols.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No active {assetClass} instruments. Connect a market-data source for this asset class first.
+              No active {asset} instruments. Connect a market-data source for this asset class first.
             </p>
           ) : mode === "universe" ? (
             <p className="text-sm text-muted-foreground">
               Testing across <span className="font-medium text-foreground">all {symbols.length}</span> active{" "}
-              {assetClass} instruments. This can take a while.
+              {asset} instruments. This can take a while.
             </p>
           ) : (
             <div className="space-y-2">
@@ -156,7 +177,7 @@ export function BacktestRunModal({
                 <Search className="absolute left-2 top-2.5 size-3.5 text-muted-foreground" />
                 <Input
                   className="h-9 bg-background pl-7"
-                  placeholder={`Search ${symbols.length} ${assetClass} symbols…`}
+                  placeholder={`Search ${symbols.length} ${asset} symbols…`}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
