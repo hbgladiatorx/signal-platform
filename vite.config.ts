@@ -12,4 +12,9 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  // Self-host on the Lightsail box: build a Node server instead of the default
+  // cloudflare-module worker. Output stays in dist/ (server -> dist/server,
+  // client assets -> dist/client); the node-server preset makes
+  // dist/server/server.js a runnable HTTP server that listens on $PORT.
+  nitro: { preset: "node-server" },
 });
