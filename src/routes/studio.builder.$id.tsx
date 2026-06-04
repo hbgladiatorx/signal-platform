@@ -223,7 +223,8 @@ function Builder() {
   };
 
   const handleRunBacktest = async (params: any) => {
-    setLogs((l) => [...l, { ts: new Date().toISOString(), level: "info", msg: `Backtest started: ${params.startDate} → ${params.endDate}, $${params.capital}` }]);
+    const symCount = Array.isArray(params.symbols) ? params.symbols.length : 0;
+    setLogs((l) => [...l, { ts: new Date().toISOString(), level: "info", msg: `Backtest started: ${params.startDate} → ${params.endDate}, $${params.capital}, ${symCount} symbol${symCount === 1 ? "" : "s"}` }]);
     // Ensure a real DevStrategy exists so the results page can resolve it.
     const graph: StrategyGraph = {
       nodes: nodes.map((n) => ({
@@ -476,7 +477,7 @@ function Builder() {
         </DialogContent>
       </Dialog>
 
-      <BacktestRunModal open={showBacktest} onOpenChange={setShowBacktest} onRun={async (p) => {
+      <BacktestRunModal open={showBacktest} onOpenChange={setShowBacktest} assetClass={assetClass} onRun={async (p) => {
         const run = await handleRunBacktest(p);
         navigate({ to: "/studio/backtests/$strategyId", params: { strategyId: run.strategyId }, search: { runId: run.id } as never });
       }} />

@@ -21,6 +21,7 @@ import { Route as StudioStrategiesRouteImport } from './routes/studio.strategies
 import { Route as StudioSignalsRouteImport } from './routes/studio.signals'
 import { Route as StudioSettingsRouteImport } from './routes/studio.settings'
 import { Route as StudioPricingRouteImport } from './routes/studio.pricing'
+import { Route as StudioLiveRouteImport } from './routes/studio.live'
 import { Route as StudioHomeRouteImport } from './routes/studio.home'
 import { Route as StudioEarningsRouteImport } from './routes/studio.earnings'
 import { Route as StudioDocsRouteImport } from './routes/studio.docs'
@@ -98,6 +99,11 @@ const StudioSettingsRoute = StudioSettingsRouteImport.update({
 const StudioPricingRoute = StudioPricingRouteImport.update({
   id: '/pricing',
   path: '/pricing',
+  getParentRoute: () => StudioRoute,
+} as any)
+const StudioLiveRoute = StudioLiveRouteImport.update({
+  id: '/live',
+  path: '/live',
   getParentRoute: () => StudioRoute,
 } as any)
 const StudioHomeRoute = StudioHomeRouteImport.update({
@@ -212,6 +218,7 @@ export interface FileRoutesByFullPath {
   '/studio/docs': typeof StudioDocsRoute
   '/studio/earnings': typeof StudioEarningsRoute
   '/studio/home': typeof StudioHomeRoute
+  '/studio/live': typeof StudioLiveRoute
   '/studio/pricing': typeof StudioPricingRoute
   '/studio/settings': typeof StudioSettingsRoute
   '/studio/signals': typeof StudioSignalsRoute
@@ -244,6 +251,7 @@ export interface FileRoutesByTo {
   '/studio/docs': typeof StudioDocsRoute
   '/studio/earnings': typeof StudioEarningsRoute
   '/studio/home': typeof StudioHomeRoute
+  '/studio/live': typeof StudioLiveRoute
   '/studio/pricing': typeof StudioPricingRoute
   '/studio/settings': typeof StudioSettingsRoute
   '/studio/signals': typeof StudioSignalsRoute
@@ -277,6 +285,7 @@ export interface FileRoutesById {
   '/studio/docs': typeof StudioDocsRoute
   '/studio/earnings': typeof StudioEarningsRoute
   '/studio/home': typeof StudioHomeRoute
+  '/studio/live': typeof StudioLiveRoute
   '/studio/pricing': typeof StudioPricingRoute
   '/studio/settings': typeof StudioSettingsRoute
   '/studio/signals': typeof StudioSignalsRoute
@@ -311,6 +320,7 @@ export interface FileRouteTypes {
     | '/studio/docs'
     | '/studio/earnings'
     | '/studio/home'
+    | '/studio/live'
     | '/studio/pricing'
     | '/studio/settings'
     | '/studio/signals'
@@ -343,6 +353,7 @@ export interface FileRouteTypes {
     | '/studio/docs'
     | '/studio/earnings'
     | '/studio/home'
+    | '/studio/live'
     | '/studio/pricing'
     | '/studio/settings'
     | '/studio/signals'
@@ -375,6 +386,7 @@ export interface FileRouteTypes {
     | '/studio/docs'
     | '/studio/earnings'
     | '/studio/home'
+    | '/studio/live'
     | '/studio/pricing'
     | '/studio/settings'
     | '/studio/signals'
@@ -482,6 +494,13 @@ declare module '@tanstack/react-router' {
       path: '/pricing'
       fullPath: '/studio/pricing'
       preLoaderRoute: typeof StudioPricingRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/studio/live': {
+      id: '/studio/live'
+      path: '/live'
+      fullPath: '/studio/live'
+      preLoaderRoute: typeof StudioLiveRouteImport
       parentRoute: typeof StudioRoute
     }
     '/studio/home': {
@@ -660,6 +679,7 @@ interface StudioRouteChildren {
   StudioDocsRoute: typeof StudioDocsRoute
   StudioEarningsRoute: typeof StudioEarningsRoute
   StudioHomeRoute: typeof StudioHomeRoute
+  StudioLiveRoute: typeof StudioLiveRoute
   StudioPricingRoute: typeof StudioPricingRoute
   StudioSettingsRoute: typeof StudioSettingsRoute
   StudioSignalsRoute: typeof StudioSignalsRoute
@@ -674,6 +694,7 @@ const StudioRouteChildren: StudioRouteChildren = {
   StudioDocsRoute: StudioDocsRoute,
   StudioEarningsRoute: StudioEarningsRoute,
   StudioHomeRoute: StudioHomeRoute,
+  StudioLiveRoute: StudioLiveRoute,
   StudioPricingRoute: StudioPricingRoute,
   StudioSettingsRoute: StudioSettingsRoute,
   StudioSignalsRoute: StudioSignalsRoute,

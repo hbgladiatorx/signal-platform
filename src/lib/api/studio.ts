@@ -443,9 +443,17 @@ export async function getBacktest(id: string): Promise<BacktestRun | undefined> 
   }
 }
 
+// Params the run modal collects. `symbols` carries the user's explicit asset
+// choice (one, several, or a whole universe); when absent we fall back to
+// resolving from the graph / asset class.
+export type RunBacktestParams = BacktestRun["params"] & {
+  symbols?: string[];
+  barResolution?: string;
+};
+
 export async function runBacktest(
   strategyId: string,
-  params: BacktestRun["params"],
+  params: RunBacktestParams,
 ): Promise<BacktestRun> {
   let name: string;
   let graph: StrategyGraph = { nodes: [], edges: [] };
@@ -459,23 +467,32 @@ export async function runBacktest(
     assetClass = toAssetClass(s.asset_class);
   }
 
-  const symbols = await resolveSymbols(graph, assetClass);
+  // Honor the explicit selection from the builder; otherwise infer.
+  const symbols =
+    params.symbols && params.symbols.length
+      ? params.symbols
+      : await resolveSymbols(graph, assetClass);
   if (symbols.length === 0) {
-    throw new ApiError(422, "No tradable instruments are available to backtest against.");
+    throw new ApiError(
+      422,
+      "No tradable instruments available. Connect market data for this asset class, or pick a symbol.",
+    );
   }
 
   const { id } = await api.post<{ id: string; status: string }>("/backtests", {
     strategy_name: name,
     params: {},
     symbols,
-    bar_resolution: "1h",
+    bar_resolution: params.barResolution || "1h",
     starting_cash: params.capital > 0 ? params.capital : 10000,
     fee_rate_bps: Math.round(params.commissionBps) || 10,
     slippage_bps: Math.round(params.slippageBps) || 5,
   });
 
-  // Poll the async job to completion (the UI shows a loading toast meanwhile).
-  for (let i = 0; i < 150; i++) {
+  // Poll the async job to completion. Universe-scale runs (many symbols) take
+  // longer, so scale the budget with the symbol count (~2s * N, min 5 min).
+  const maxPolls = Math.max(150, symbols.length * 3);
+  for (let i = 0; i < maxPolls; i++) {
     const d = await api.get<ApiBacktestDetail>(`/backtests/${id}`);
     if (d.status === "completed") {
       const full = await getBacktest(id);
@@ -487,6 +504,24 @@ export async function runBacktest(
     await sleep(2000);
   }
   throw new ApiError(504, "Backtest timed out while waiting for results.");
+}
+
+// Active instruments for an asset class, as symbol options for the builder.
+// `symbol` is the canonical id the backtest API expects (e.g. BTC-USDT@BINANCEUS).
+export interface InstrumentOption {
+  symbol: string;
+  assetClass: AssetClass;
+  venue: string;
+}
+
+export async function getInstrumentsForAsset(
+  assetClass: AssetClass,
+): Promise<InstrumentOption[]> {
+  const wantClass = ASSET_TO_VENUE_CLASS[assetClass];
+  const all = await api.get<ApiInstrument[]>("/instruments", { active: true });
+  return all
+    .filter((i) => i.asset_class === wantClass)
+    .map((i) => ({ symbol: i.canonical_symbol, assetClass, venue: i.venue }));
 }
 
 // ============================================================
