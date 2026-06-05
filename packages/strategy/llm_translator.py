@@ -109,6 +109,15 @@ Engine is LONG-ONLY in this phase. To "close a long" submit a sell-market for
 the current position quantity. NEVER submit a sell-market for more than the
 current position — the engine will reject.
 
+## Numeric safety
+
+ctx numeric values (close, indicators, position, cash) are Decimal-compatible
+and DO interoperate with int/float in arithmetic — e.g. `ema - 2.0 * atr` and
+`0.05 * ctx.cash` both work, with no float-precision drift. You may freely mix
+float params with these values. Prefer plain, readable arithmetic; do NOT wrap
+every value in Decimal(str(...)). The framework guarantees the math will not
+raise on float operands.
+
 ## Look-ahead safety
 
 `on_bar(ctx)` is called with ctx representing bar t. Indicator values, prices,

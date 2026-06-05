@@ -28,17 +28,21 @@ import pandas as pd
 
 from packages.strategy import indicators
 from packages.strategy.base import Order, OrderSide, OrderType, SignalEvent
+from packages.strategy.num import FlexDecimal, to_num
 
 
 # Numeric type accepted from strategy code for quantities/prices
 Numeric = Decimal | float | int | str
 
 
-def _to_decimal(v: Numeric) -> Decimal:
-    """Coerce strategy-supplied numerics to Decimal safely (no float drift)."""
-    if isinstance(v, Decimal):
-        return v
-    return Decimal(str(v))
+def _to_decimal(v: Numeric) -> FlexDecimal:
+    """Coerce strategy-supplied numerics to FlexDecimal (no float drift).
+
+    Returns a FlexDecimal so any value handed back to strategy code interoperates
+    with float/int in arithmetic (e.g. ``2.0 * ctx.atr(...)``) instead of raising
+    TypeError, while remaining an exact Decimal for the money layer.
+    """
+    return to_num(v)
 
 
 class BarContext:
@@ -207,14 +211,14 @@ class BarContext:
     # ============================================================
     # Position and cash
     # ============================================================
-    def position(self, symbol: str) -> Decimal:
+    def position(self, symbol: str) -> FlexDecimal:
         """Current net position in `symbol`. Positive = long, negative = short, 0 = flat."""
-        return self._positions.get(symbol, Decimal("0"))
+        return to_num(self._positions.get(symbol, Decimal("0")))
 
     @property
-    def cash(self) -> Decimal:
+    def cash(self) -> FlexDecimal:
         """Cash balance available for new positions."""
-        return self._cash
+        return to_num(self._cash)
 
     # ============================================================
     # Signals / filters (attribution — the "why")
