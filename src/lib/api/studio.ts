@@ -9,9 +9,12 @@
 // deploy/submit) remain stubbed until Phase 3/4.
 import { api, ApiError } from "@/lib/api/client";
 import { createSession } from "@/lib/api/sessions";
-import { listApiCredentials } from "@/lib/api/settings";
+import { listApiCredentials, listPlatformCredentials } from "@/lib/api/settings";
 import type {
   AssetClass,
+  BacktestAnalysis,
+  BacktestAttribution,
+  BacktestMlModel,
   BacktestRun,
   DevStrategy,
   Direction,
@@ -20,6 +23,7 @@ import type {
   PipelineStage,
   StrategyGraph,
   StudioEarning,
+  SuggestTweaksResult,
 } from "../types";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -80,6 +84,9 @@ interface ApiBacktestDetail extends ApiBacktestSummary {
   sortino_ratio?: number | null;
   calmar_ratio?: number | null;
   profit_factor?: number | null;
+  attribution?: BacktestAttribution | null;
+  ml_model?: BacktestMlModel | null;
+  analysis?: BacktestAnalysis | null;
 }
 interface ApiTradeRow {
   symbol: string;
@@ -177,6 +184,8 @@ function summaryToRun(s: ApiBacktestSummary, strategyId: string): BacktestRun {
     equity: [],
     trades: [],
     monthlyReturns: [],
+    symbols: s.symbols ?? [],
+    barResolution: s.bar_resolution,
   };
 }
 
@@ -200,18 +209,26 @@ function detailToRun(
   equityRows: ApiEquityRow[],
   strategyId: string,
 ): BacktestRun {
-  const equity: EquityPoint[] = equityRows.map((e) => ({ t: e.ts, equity: e.total_equity }));
+  // Backend serializes Postgres NUMERIC columns as strings (and may send null),
+  // so coerce every numeric field before it reaches `.toFixed`/arithmetic.
+  const num = (v: unknown): number => {
+    const n = typeof v === "number" ? v : Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const equity: EquityPoint[] = equityRows.map((e) => ({ t: e.ts, equity: num(e.total_equity) }));
   const mappedTrades = trades.map((t, i) => {
-    const cost = t.entry_avg_price * t.quantity;
-    const pnlPct = cost ? t.net_pnl / cost : 0;
+    const entry = num(t.entry_avg_price);
+    const exit = num(t.exit_avg_price);
+    const cost = entry * num(t.quantity);
+    const pnlPct = cost ? num(t.net_pnl) / cost : 0;
     return {
       id: `${d.id}-${i}`,
       entryDate: t.entry_ts,
       exitDate: t.exit_ts,
       symbol: t.symbol,
       direction: (t.side?.toLowerCase() === "sell" ? "SHORT" : "LONG") as Direction,
-      entry: t.entry_avg_price,
-      exit: t.exit_avg_price,
+      entry,
+      exit,
       pnlPct,
       pnlR: pnlPct, // backend tracks no risk unit; pnl fraction stands in for R
     };
@@ -220,7 +237,7 @@ function detailToRun(
   const losses = mappedTrades.filter((t) => t.pnlPct < 0);
   const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
   const avgHoldDays = trades.length
-    ? avg(trades.map((t) => t.duration_seconds)) / 86_400
+    ? avg(trades.map((t) => num(t.duration_seconds))) / 86_400
     : 0;
   return {
     id: d.id,
@@ -249,6 +266,11 @@ function detailToRun(
     equity,
     trades: mappedTrades,
     monthlyReturns: monthlyReturns(equity),
+    symbols: d.symbols ?? [],
+    barResolution: d.bar_resolution,
+    attribution: d.attribution ?? null,
+    mlModel: d.ml_model ?? null,
+    analysis: d.analysis ?? null,
   };
 }
 
@@ -258,22 +280,49 @@ async function strategyNameForId(strategyId: string): Promise<string> {
   return s.name;
 }
 
+// Bare ticker of a canonical symbol: "BTC-USDT@BINANCEUS" -> "BTC",
+// "SPY@ALPACA" -> "SPY", "BTC-PERP" -> "BTC". Used to match a strategy's
+// intended symbol to a real, data-bearing instrument.
+const baseTicker = (s: string) => s.split("@")[0].split(/[-/]/)[0].toUpperCase();
+
 async function resolveSymbols(graph: StrategyGraph, assetClass: AssetClass): Promise<string[]> {
-  const instruments = await api.get<ApiInstrument[]>("/instruments", { active: true });
-  const canonical = new Set(instruments.map((i) => i.canonical_symbol));
-  // Prefer symbols referenced in the graph that actually exist as instruments.
-  const fromGraph: string[] = [];
+  // Coverage-sorted options for this asset class (most history first). Prefer
+  // instruments that actually have data — backtesting a no-data symbol (the old
+  // alphabetical fallback landed on 1000MOG-USDT for BTC strategies) yields zero
+  // trades, which is exactly the "not actually backtesting" bug.
+  const opts = await getInstrumentsForAsset(assetClass);
+  const withData = opts.filter((o) => o.bars > 0);
+  const pool = withData.length ? withData : opts;
+  const bySymbol = new Map(opts.map((o) => [o.symbol, o]));
+
+  // Collect every string the graph references (the price node's symbol, etc.).
+  const wanted: string[] = [];
   for (const node of graph.nodes ?? []) {
     for (const v of Object.values(node.data ?? {})) {
-      if (typeof v === "string" && canonical.has(v)) fromGraph.push(v);
-      if (Array.isArray(v)) for (const x of v) if (typeof x === "string" && canonical.has(x)) fromGraph.push(x);
+      if (typeof v === "string") wanted.push(v);
+      else if (Array.isArray(v)) for (const x of v) if (typeof x === "string") wanted.push(x);
     }
   }
-  if (fromGraph.length) return [...new Set(fromGraph)];
-  const wantClass = ASSET_TO_VENUE_CLASS[assetClass];
-  const preferred = instruments.filter((i) => i.asset_class === wantClass);
-  const pick = preferred[0] ?? instruments[0];
-  return pick ? [pick.canonical_symbol] : [];
+
+  const resolveOne = (raw: string): string | undefined => {
+    if (bySymbol.has(raw)) return raw; // already a canonical symbol
+    // Otherwise match by base ticker to the highest-coverage instrument of that
+    // base (e.g. "BTC-PERP"/"BTC" -> BTC-USDT@BINANCEUS, the one with 9k bars).
+    const base = baseTicker(raw);
+    if (base.length < 2) return undefined; // skip noise like "1m", ">", "5"
+    const match = pool.find((o) => baseTicker(o.symbol) === base);
+    return match?.symbol;
+  };
+
+  const resolved: string[] = [];
+  for (const w of wanted) {
+    const r = resolveOne(w);
+    if (r) resolved.push(r);
+  }
+  if (resolved.length) return [...new Set(resolved)];
+  // Nothing in the graph matched a real instrument — fall back to the single
+  // highest-coverage instrument of this asset class (never a no-data altcoin).
+  return pool.length ? [pool[0].symbol] : [];
 }
 
 // Serialize a reactflow graph into a natural-language spec for the LLM
@@ -391,7 +440,14 @@ export async function ensureDevStrategyDraft(input: {
     source_code?: string;
     llm_error?: string;
     validation_errors?: Array<Record<string, unknown>>;
-  }>("/user-strategies/translate", { nl_description: nl });
+  }>("/user-strategies/translate", {
+    nl_description: nl,
+    // Send the structured graph so the backend can compile it deterministically
+    // (honouring every entry/exit/risk node) instead of relying on the LLM.
+    graph_json: input.graph,
+    strategy_name: input.name,
+    asset_class: input.assetClass,
+  });
 
   if (!translated.ok || !translated.source_code) {
     const why =
@@ -471,12 +527,42 @@ export async function getBacktest(id: string): Promise<BacktestRun | undefined> 
   }
 }
 
+// Generate (and cache) the on-demand LLM narrative over a backtest's
+// deterministic analysis. Returns ok=false (not throwing) when the LLM is
+// unavailable — e.g. Anthropic credits exhausted — so the UI can show the
+// reason while the structured findings stay visible.
+export interface NarrativeResult {
+  ok: boolean;
+  narrative?: string | null;
+  error?: string | null;
+}
+export function generateBacktestNarrative(id: string): Promise<NarrativeResult> {
+  return api.post<NarrativeResult>(`/backtests/${id}/narrative`);
+}
+
+// AI parameter-tweak advisor: given a backtest's analysis + the strategy's
+// graph, ask Claude which specific node parameters to change. Returns editable
+// {node, field, current, suggested} tweaks the user can adjust and re-backtest.
+// ok=false (not throwing) when the LLM is unavailable or there's no graph to tune.
+export function suggestBacktestTweaks(
+  id: string,
+  graph: StrategyGraph,
+): Promise<SuggestTweaksResult> {
+  return api.post<SuggestTweaksResult>(`/backtests/${id}/suggest-tweaks`, {
+    graph_json: graph,
+  });
+}
+
 // Params the run modal collects. `symbols` carries the user's explicit asset
 // choice (one, several, or a whole universe); when absent we fall back to
 // resolving from the graph / asset class.
 export type RunBacktestParams = BacktestRun["params"] & {
   symbols?: string[];
   barResolution?: string;
+  // Optional inclusive date window (YYYY-MM-DD or ISO). Both set => bounded run
+  // (e.g. a held-out out-of-sample segment); omitted => full history.
+  windowStart?: string;
+  windowEnd?: string;
 };
 
 export async function runBacktest(
@@ -507,14 +593,31 @@ export async function runBacktest(
     );
   }
 
+  // Resolve the bar resolution: an explicit override wins; otherwise use the
+  // timeframe the strategy's `price` node declares (so a "1m" strategy actually
+  // backtests on 1-minute bars and "hold 1 bar" means one minute, not one hour);
+  // fall back to 1h only when the graph doesn't say.
+  const priceTf = graph.nodes?.find((n) => n.type === "price")?.data?.timeframe;
+  const barResolution =
+    params.barResolution || (typeof priceTf === "string" && priceTf ? priceTf : "1h");
+
+  // A bounded window (e.g. held-out OOS) sends both ends; absent => full
+  // history. Dates are sent as ISO so the backend parses them as UTC instants.
+  const toIso = (d?: string): string | undefined => {
+    if (!d) return undefined;
+    const t = new Date(d);
+    return Number.isNaN(+t) ? undefined : t.toISOString();
+  };
   const { id } = await api.post<{ id: string; status: string }>("/backtests", {
     strategy_name: name,
     params: {},
     symbols,
-    bar_resolution: params.barResolution || "1h",
+    bar_resolution: barResolution,
     starting_cash: params.capital > 0 ? params.capital : 10000,
     fee_rate_bps: Math.round(params.commissionBps) || 10,
     slippage_bps: Math.round(params.slippageBps) || 5,
+    window_start: toIso(params.windowStart),
+    window_end: toIso(params.windowEnd),
   });
 
   // Poll the async job to completion. Universe-scale runs (many symbols) take
@@ -536,20 +639,51 @@ export async function runBacktest(
 
 // Active instruments for an asset class, as symbol options for the builder.
 // `symbol` is the canonical id the backtest API expects (e.g. BTC-USDT@BINANCEUS).
+// `bars` is the amount of historical data the instrument actually has — most
+// instruments have little/none, and backtesting one of those yields zero trades,
+// so the UI surfaces this and prefers symbols with history.
 export interface InstrumentOption {
   symbol: string;
   assetClass: AssetClass;
   venue: string;
+  bars: number;
+  first?: string | null;
+  last?: string | null;
+}
+
+interface ApiCoverage {
+  canonical_symbol: string;
+  bars: number;
+  first?: string | null;
+  last?: string | null;
 }
 
 export async function getInstrumentsForAsset(
   assetClass: AssetClass,
 ): Promise<InstrumentOption[]> {
   const wantClass = ASSET_TO_VENUE_CLASS[assetClass];
-  const all = await api.get<ApiInstrument[]>("/instruments", { active: true });
+  const [all, coverage] = await Promise.all([
+    api.get<ApiInstrument[]>("/instruments", { active: true }),
+    // Coverage is best-effort — if it fails, every symbol just shows 0 bars.
+    api.get<ApiCoverage[]>("/instruments/coverage").catch(() => [] as ApiCoverage[]),
+  ]);
+  const cov = new Map(coverage.map((c) => [c.canonical_symbol, c]));
   return all
     .filter((i) => i.asset_class === wantClass)
-    .map((i) => ({ symbol: i.canonical_symbol, assetClass, venue: i.venue }));
+    .map((i) => {
+      const c = cov.get(i.canonical_symbol);
+      return {
+        symbol: i.canonical_symbol,
+        assetClass,
+        venue: i.venue,
+        bars: c?.bars ?? 0,
+        first: c?.first ?? null,
+        last: c?.last ?? null,
+      };
+    })
+    // Symbols with real history first (most bars), then alphabetical — so the
+    // default pick and the top of the list are always tradeable.
+    .sort((a, b) => b.bars - a.bars || a.symbol.localeCompare(b.symbol));
 }
 
 // ============================================================
@@ -564,13 +698,34 @@ export async function getEarnings(): Promise<StudioEarning[]> {
   return [];
 }
 
-// Start a live trading session for a strategy via /paper-sessions. Routes
-// through a stored broker credential: an Alpaca key runs a paper session,
-// a Binance.US key runs real-money live. Picks Alpaca first (safe default),
-// else the first available credential. Surfaces a clear error if none exist.
+// Broker services that move REAL money.
+const REAL_MONEY_SERVICES = new Set(["binanceus", "alpaca_live"]);
+
+// Which broker venue trades each asset class.
+//   crypto          → Binance.US (real money — no paper sandbox exists)
+//   stocks/options  → Alpaca paper (simulated funds)
+function serviceForAsset(assetClass: AssetClass): string {
+  return assetClass === "crypto" ? "binanceus" : "alpaca";
+}
+
+// Conservative live-trading guardrails for a shared real-money account. The
+// backend requires both for any live (Binance.US) session.
+const LIVE_MAX_ORDER_NOTIONAL = 500;
+const LIVE_MAX_DAILY_LOSS = 250;
+
+// Start a trading session for a strategy via /paper-sessions. Routes by asset
+// class to the right venue, preferring the user's OWN broker key and falling
+// back to the shared PLATFORM key so anyone can deploy without connecting one.
+//
+// The venue determines the mode: Alpaca → paper (safe), Binance.US → live (real
+// money). `opts.mode: "live"` is the caller's acknowledgement that a real-money
+// venue is OK; without it, a real-money deploy is refused so a "paper" forward
+// test never silently trades real funds.
 export async function deployStrategyLive(
   strategyId: string,
-): Promise<{ ok: boolean; sessionId?: string }> {
+  opts: { mode?: "paper" | "live" } = {},
+): Promise<{ ok: boolean; sessionId?: string; mode: "paper" | "live" }> {
+  const wantLive = opts.mode === "live";
   let name: string;
   let graph: StrategyGraph = { nodes: [], edges: [] };
   let assetClass: AssetClass = "crypto";
@@ -583,15 +738,37 @@ export async function deployStrategyLive(
     assetClass = toAssetClass(s.asset_class);
   }
 
-  const credentials = await listApiCredentials();
-  if (credentials.length === 0) {
+  const wantService = serviceForAsset(assetClass);
+
+  // Personal keys first, then shared platform keys.
+  const [personal, platform] = await Promise.all([
+    listApiCredentials().catch(() => []),
+    listPlatformCredentials().catch(() => []),
+  ]);
+  const credential =
+    personal.find((c) => c.service === wantService) ??
+    platform.find((c) => c.service === wantService);
+
+  if (!credential) {
+    if (wantService === "alpaca") {
+      throw new ApiError(
+        400,
+        "Stocks/options need an Alpaca key. None is connected and no shared platform Alpaca key is configured yet — connect one in Settings.",
+      );
+    }
     throw new ApiError(
       400,
-      "Connect a broker API key in Settings before deploying a strategy live.",
+      "Crypto needs a Binance.US key. None is connected and no shared platform key is available — connect one in Settings.",
     );
   }
-  const credential =
-    credentials.find((c) => c.service === "alpaca") ?? credentials[0];
+
+  const isLive = REAL_MONEY_SERVICES.has(credential.service);
+  if (isLive && !wantLive) {
+    throw new ApiError(
+      400,
+      `This ${assetClass} strategy trades REAL money on ${credential.service === "binanceus" ? "Binance.US" : "the live broker"}. Use "Deploy Live" to confirm — it won't run as a paper forward test.`,
+    );
+  }
 
   const symbols = await resolveSymbols(graph, assetClass);
   if (symbols.length === 0) {
@@ -604,8 +781,12 @@ export async function deployStrategyLive(
     asset_class: ASSET_TO_VENUE_CLASS[assetClass],
     bar_resolution: "1m",
     api_credential_id: credential.id,
+    // Live (real-money) sessions require both guardrails server-side.
+    ...(isLive
+      ? { max_order_notional: LIVE_MAX_ORDER_NOTIONAL, max_daily_loss: LIVE_MAX_DAILY_LOSS }
+      : {}),
   });
-  return { ok: true, sessionId: id };
+  return { ok: true, sessionId: id, mode: isLive ? "live" : "paper" };
 }
 
 export async function submitStrategyToBayn(_id: string) {

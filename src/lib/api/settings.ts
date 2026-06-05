@@ -68,6 +68,18 @@ export const updatePreferences = (prefs: Record<string, unknown>) =>
 export const listApiCredentials = () =>
   api.get<ApiCredential[]>("/settings/api-keys");
 
+// Shared platform broker keys available to every user (crypto via Binance.US,
+// stocks/options via Alpaca). Lets a user deploy without connecting their own.
+export interface PlatformCredential {
+  id: string;
+  service: string;
+  label: string;
+  last_four: string | null;
+  mode: "paper" | "live";
+}
+export const listPlatformCredentials = () =>
+  api.get<PlatformCredential[]>("/settings/platform-credentials");
+
 export const createApiCredential = (input: {
   service: string;
   label: string;

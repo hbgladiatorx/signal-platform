@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, PlayCircle, Search, Globe } from "lucide-react";
 import { toast } from "sonner";
 import { getInstrumentsForAsset } from "@/lib/api/studio";
+import { cn } from "@/lib/utils";
 import type { AssetClass } from "@/lib/types";
 
 export interface RunParams {
@@ -25,6 +26,10 @@ export interface RunParams {
   commissionModel: string;
   symbols: string[];
 }
+
+// The plain, human ticker for a canonical symbol: drop the "@VENUE" suffix so
+// "SPY@ALPACA" → "SPY" and "BTC-USDT@BINANCEUS" → "BTC-USDT". Users pick by this.
+const tickerOf = (canonical: string) => canonical.split("@")[0];
 
 // Sensible default pick per asset class (used when the universe loads).
 function defaultSymbol(assetClass: AssetClass, symbols: string[]): string | undefined {
@@ -75,15 +80,23 @@ export function BacktestRunModal({
   });
 
   const symbols = useMemo(() => (instruments ?? []).map((i) => i.symbol), [instruments]);
+  // How many historical bars each symbol has — used to warn on no-data symbols
+  // (backtesting one yields zero trades) and to pick a sensible default.
+  const barsOf = useMemo(
+    () => new Map((instruments ?? []).map((i) => [i.symbol, i.bars])),
+    [instruments],
+  );
 
-  // When the universe loads (or asset class changes), seed a default pick.
+  // When the universe loads (or asset class changes), seed a default pick —
+  // restricted to symbols that actually have history, so the default run trades.
   useEffect(() => {
     setSelected((prev) => {
       if (prev.size) return prev;
-      const d = defaultSymbol(asset, symbols);
+      const tradeable = symbols.filter((s) => (barsOf.get(s) ?? 0) > 0);
+      const d = defaultSymbol(asset, tradeable.length ? tradeable : symbols);
       return d ? new Set([d]) : prev;
     });
-  }, [symbols, asset]);
+  }, [symbols, asset, barsOf]);
 
   // Reset selection when the asset class changes.
   useEffect(() => {
@@ -95,7 +108,11 @@ export function BacktestRunModal({
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return symbols;
-    return symbols.filter((s) => s.toLowerCase().includes(q));
+    // Match the plain ticker the user types ("amd", "spy", "btc") as well as the
+    // full canonical id, so they never need the venue/pair suffix to find it.
+    return symbols.filter(
+      (s) => s.toLowerCase().includes(q) || tickerOf(s).toLowerCase().includes(q),
+    );
   }, [symbols, search]);
 
   const toggle = (sym: string) =>
@@ -177,7 +194,7 @@ export function BacktestRunModal({
                 <Search className="absolute left-2 top-2.5 size-3.5 text-muted-foreground" />
                 <Input
                   className="h-9 bg-background pl-7"
-                  placeholder={`Search ${symbols.length} ${asset} symbols…`}
+                  placeholder={`Search by ticker — e.g. ${asset === "crypto" ? "BTC, ETH, SOL" : "SPY, AMD, AAPL"}…`}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -193,14 +210,27 @@ export function BacktestRunModal({
               )}
               <ScrollArea className="h-40 rounded-md border border-border">
                 <ul className="p-1">
-                  {filtered.slice(0, 300).map((s) => (
-                    <li key={s}>
-                      <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-elevated">
-                        <Checkbox checked={selected.has(s)} onCheckedChange={() => toggle(s)} />
-                        <span className="font-mono text-xs">{s}</span>
-                      </label>
-                    </li>
-                  ))}
+                  {filtered.slice(0, 300).map((s) => {
+                    const bars = barsOf.get(s) ?? 0;
+                    return (
+                      <li key={s}>
+                        <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-elevated">
+                          <Checkbox checked={selected.has(s)} onCheckedChange={() => toggle(s)} />
+                          <span className="font-mono text-xs font-medium">{tickerOf(s)}</span>
+                          <span className="font-mono text-[10px] text-muted-foreground">{s.split("@")[1] ?? ""}</span>
+                          <span
+                            className={cn(
+                              "ml-auto font-mono text-[10px]",
+                              bars > 0 ? "text-muted-foreground" : "text-amber-400",
+                            )}
+                            title={bars > 0 ? `${bars} daily bars of history` : "No historical data — backtests will have no trades"}
+                          >
+                            {bars > 0 ? `${bars.toLocaleString()} bars` : "no history"}
+                          </span>
+                        </label>
+                      </li>
+                    );
+                  })}
                   {filtered.length > 300 && (
                     <li className="px-2 py-1 text-xs text-muted-foreground">
                       +{filtered.length - 300} more — refine your search.

@@ -3,7 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
-import { getBacktestsForStrategy, getBacktest, getDevStrategy, submitStrategyToBayn, deployStrategyLive, runBacktest } from "@/lib/api/studio";
+import { getBacktestsForStrategy, getBacktest, getDevStrategy, submitStrategyToBayn, deployStrategyLive, runBacktest, saveStrategyGraph } from "@/lib/api/studio";
+import type { StrategyGraph } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -17,6 +18,10 @@ import { cn } from "@/lib/utils";
 import { advanceStage, getStage, nextStage, STAGE_ORDER } from "@/lib/strategy-stage";
 import { deployStageMeta, type DeployStage } from "@/lib/api/agent";
 import type { BacktestRun } from "@/lib/types";
+import { AnalysisCard } from "@/components/studio/AnalysisCard";
+import { AttributionCard } from "@/components/studio/AttributionCard";
+import { ModelCard } from "@/components/studio/ModelCard";
+import { CardErrorBoundary } from "@/components/common/CardErrorBoundary";
 
 const searchSchema = z.object({
   runId: fallback(z.string().optional(), undefined),
@@ -26,7 +31,35 @@ export const Route = createFileRoute("/studio/backtests/$strategyId")({
   head: () => ({ meta: [{ title: "Backtest results — Bayn Studio" }] }),
   validateSearch: zodValidator(searchSchema),
   component: BacktestDetail,
+  errorComponent: BacktestDetailError,
 });
+
+// Route-level fallback: instead of a blank "this page didn't load", show the
+// actual error so a render failure is diagnosable and recoverable.
+function BacktestDetailError({ error }: { error: Error }) {
+  return (
+    <div className="p-6">
+      <Card className="border-danger/30 bg-elevated p-5">
+        <div className="flex items-start gap-3">
+          <Activity className="mt-0.5 size-5 shrink-0 text-danger" />
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold">Couldn’t render this backtest</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Something went wrong displaying the results. The backtest data itself is safe.
+            </p>
+            <pre className="mt-3 max-h-48 overflow-auto rounded-md border border-border bg-background/60 p-3 text-xs text-danger">
+              {error?.message || String(error)}
+            </pre>
+            <div className="mt-3 flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => window.location.reload()}>Reload</Button>
+              <Button asChild size="sm" variant="ghost"><Link to="/studio/backtests">Back to backtests</Link></Button>
+            </div>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
 
 const fmtPct = (n: number) => `${n >= 0 ? "+" : ""}${(n * 100).toFixed(1)}%`;
 
@@ -73,27 +106,82 @@ function BacktestDetail() {
   const stats = run.stats;
   const stepFns: Record<Exclude<DeployStage, "draft">, () => Promise<void>> = {
     backtested: async () => {
-      toast.loading("Running out-of-sample test…", { id: "oos" });
-      const oosParams = {
-        ...run.params,
-        startDate: run.params.endDate,
-        endDate: new Date(+new Date(run.params.endDate) + 90 * 86_400_000).toISOString().slice(0, 10),
-      };
-      const r = await runBacktest(strategyId, oosParams);
-      advanceStage(strategyId, "oos");
-      toast.success("OOS passed", { id: "oos" });
-      await qc.invalidateQueries({ queryKey: ["bts", strategyId] });
-      navigate({ to: "/studio/backtests/$strategyId", params: { strategyId }, search: { runId: r.id } as never });
+      // Out-of-sample = re-run the strategy on a *held-out recent window* it
+      // wasn't evaluated on in-sample: the most recent ~30% of the time range
+      // the backtest actually covered. We derive that range from the run's real
+      // data timestamps (equity points + trade fills) rather than the params
+      // dates — params dates are day-only, so an intraday (1m/5m) strategy that
+      // ran inside a single day would collapse to a zero-length span and wrongly
+      // trip "not enough history". The strategy "passes" OOS only if it stays
+      // profitable on that unseen tail.
+      const tsOf = (s: string) => +new Date(s);
+      const stamps = [
+        ...run.equity.map((e) => tsOf(e.t)),
+        ...run.trades.flatMap((t) => [tsOf(t.entryDate), tsOf(t.exitDate)]),
+        tsOf(run.params.startDate),
+        tsOf(run.params.endDate),
+      ].filter((n) => Number.isFinite(n) && n > 0);
+      const lo = stamps.length ? Math.min(...stamps) : NaN;
+      const hi = stamps.length ? Math.max(...stamps) : NaN;
+      const span = hi - lo;
+      if (!Number.isFinite(span) || span <= 0 || (run.stats.totalTrades ?? 0) === 0) {
+        toast.error("Run a completed backtest with trades over a real time window first — there's nothing to hold out yet.");
+        return;
+      }
+      // Hold out the most recent 30% of the covered window, as full ISO instants
+      // (so intraday windows survive); the backend parses them as UTC.
+      const oosStartIso = new Date(hi - Math.floor(span * 0.3)).toISOString();
+      const oosEndIso = new Date(hi).toISOString();
+      const oosStart = oosStartIso.slice(0, 10);
+      const oosEnd = oosEndIso.slice(0, 10);
+      toast.loading(`Running out-of-sample test (${oosStart} → ${oosEnd})…`, { id: "oos" });
+      try {
+        const r = await runBacktest(strategyId, {
+          ...run.params,
+          symbols: run.symbols && run.symbols.length ? run.symbols : undefined,
+          barResolution: run.barResolution,
+          windowStart: oosStartIso,
+          windowEnd: oosEndIso,
+        });
+        const ret = r.stats.totalReturn;
+        const passed = Number.isFinite(ret) && ret > 0;
+        if (passed) {
+          advanceStage(strategyId, "oos");
+          toast.success(`OOS passed · ${fmtPct(ret)} on held-out data`, { id: "oos" });
+        } else {
+          toast.error(`OOS failed · ${fmtPct(ret)} on held-out data. Strategy did not hold up out-of-sample.`, { id: "oos" });
+        }
+        await qc.invalidateQueries({ queryKey: ["bts", strategyId] });
+        navigate({ to: "/studio/backtests/$strategyId", params: { strategyId }, search: { runId: r.id } as never });
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Out-of-sample test failed to run", { id: "oos" });
+      }
     },
     oos: async () => {
-      advanceStage(strategyId, "forward");
-      toast.success("Deployed to forward test (7-day window)");
+      // Forward test = a REAL cross-platform PAPER session (simulated funds,
+      // Alpaca paper). No real money. Real-money live is the separate, opt-in
+      // "forward" step below.
+      toast.loading("Starting paper forward test…", { id: "fwd" });
+      try {
+        await deployStrategyLive(strategyId, { mode: "paper" });
+        advanceStage(strategyId, "forward");
+        toast.success("Paper forward test running — live cross-platform signals, no real money", { id: "fwd" });
+        navigate({ to: "/studio/live" });
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Could not start forward test", { id: "fwd" });
+      }
     },
     forward: async () => {
+      // Going live places REAL-money orders on the connected broker
+      // (Binance.US crypto / Alpaca live equities). Gate behind explicit opt-in.
+      const ok = window.confirm(
+        "Go live with REAL money?\n\nThis routes orders to your connected broker (Binance.US / Alpaca live) and uses real funds. Only continue if you've reviewed the paper forward-test results.",
+      );
+      if (!ok) return;
       try {
-        await deployStrategyLive(strategyId);
+        await deployStrategyLive(strategyId, { mode: "live" });
         advanceStage(strategyId, "deployable");
-        toast.success("Strategy is live in your personal signals");
+        toast.success("Strategy is live with real money in your personal signals");
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Could not deploy strategy");
       }
@@ -165,6 +253,37 @@ function BacktestDetail() {
         ))}
       </div>
 
+      {/* AI analysis — the "what worked / why / what to fix" + param tuning */}
+      {run.analysis && (
+        <CardErrorBoundary label="AI analysis">
+          <AnalysisCard
+            analysis={run.analysis}
+            backtestId={run.id}
+            graph={strategy.graph?.nodes?.length ? strategy.graph : null}
+            onApplyTweaks={async (patched: StrategyGraph) => {
+              toast.loading("Applying tweaks & re-backtesting…", { id: "tweak" });
+              try {
+                // Persist the patched graph (re-translates the changed nodes to
+                // runnable code), then re-run on the same instruments + window.
+                await saveStrategyGraph(strategyId, patched);
+                const r = await runBacktest(strategyId, {
+                  ...run.params,
+                  symbols: run.symbols && run.symbols.length ? run.symbols : undefined,
+                  barResolution: run.barResolution,
+                });
+                toast.success(`Re-backtest done · ${fmtPct(r.stats.totalReturn)}`, { id: "tweak" });
+                await qc.invalidateQueries({ queryKey: ["bts", strategyId] });
+                await qc.invalidateQueries({ queryKey: ["devStrategy", strategyId] });
+                navigate({ to: "/studio/backtests/$strategyId", params: { strategyId }, search: { runId: r.id } as never });
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "Re-backtest failed", { id: "tweak" });
+                throw e;
+              }
+            }}
+          />
+        </CardErrorBoundary>
+      )}
+
       {/* Equity */}
       <Card className="border-border bg-elevated p-4">
         <div className="mb-2 text-sm font-medium">Equity curve</div>
@@ -181,6 +300,18 @@ function BacktestDetail() {
           </ResponsiveContainer>
         </div>
       </Card>
+
+      {/* Attribution + ML model — per-symbol / per-signal "why" */}
+      {run.attribution && (
+        <CardErrorBoundary label="attribution">
+          <AttributionCard attribution={run.attribution} />
+        </CardErrorBoundary>
+      )}
+      {run.mlModel && (
+        <CardErrorBoundary label="signal-edge model">
+          <ModelCard model={run.mlModel} />
+        </CardErrorBoundary>
+      )}
 
       {/* Drawdown curve */}
       <DrawdownCard run={run} />
@@ -253,10 +384,14 @@ function BacktestDetail() {
       {/* Footer actions */}
       <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border pt-4">
         <Button variant="outline" onClick={async () => {
+          const ok = window.confirm(
+            "Deploy LIVE with real money?\n\nThis routes orders to your connected broker (Binance.US / Alpaca live) using real funds. Run a paper forward test first if you haven't.",
+          );
+          if (!ok) return;
           try {
-            await deployStrategyLive(strategyId);
+            await deployStrategyLive(strategyId, { mode: "live" });
             advanceStage(strategyId, "deployable");
-            toast.success("Deployed to live forward test");
+            toast.success("Deployed live with real money");
           } catch (e) {
             toast.error(e instanceof Error ? e.message : "Could not deploy strategy");
           }
@@ -314,6 +449,18 @@ function Stepper({ current }: { current: DeployStage }) {
 
 function MonteCarloCard({ run }: { run: BacktestRun }) {
   const sims = useMemo(() => generateMonteCarlo(run), [run.id]);
+  if (sims.degenerate) {
+    return (
+      <Card className="border-border bg-elevated p-4">
+        <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+          <Sparkles className="size-4 text-violet" /> Monte Carlo
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Needs at least one closed trade to resample. This run had none, so there's nothing to simulate.
+        </p>
+      </Card>
+    );
+  }
   return (
     <Card className="border-border bg-elevated p-4">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -357,6 +504,13 @@ function MonteCarloCard({ run }: { run: BacktestRun }) {
 }
 
 function generateMonteCarlo(run: BacktestRun) {
+  // Needs a positive starting capital and at least one closed trade to
+  // resample. Without them the sim divides by zero → NaN percentiles and a
+  // bogus 100% "risk of ruin". Flag it so the card shows a clear message.
+  const cap = run.params.capital > 0 ? run.params.capital : (run.equity[0]?.equity ?? 0);
+  if (cap <= 0 || run.trades.length === 0) {
+    return { degenerate: true, chart: [] as Record<string, number>[], paths: [] as number[][], p5: 0, p50: 0, p95: 0, ruin: 0 };
+  }
   const rets = run.trades.map((t) => t.pnlR * 0.01); // approximate per-trade return
   const N = 250;
   const T = Math.min(Math.max(rets.length, 40), 120);
@@ -382,9 +536,9 @@ function generateMonteCarlo(run: BacktestRun) {
     return row;
   });
   const finals = paths.map((p) => p[p.length - 1]).sort((a, b) => a - b);
-  const cap = run.params.capital;
   const ruin = finals.filter((f) => f <= cap * 0.5).length / N;
   return {
+    degenerate: false,
     chart,
     paths,
     p5: (finals[Math.floor(0.05 * N)] - cap) / cap,
@@ -405,7 +559,8 @@ function DrawdownCard({ run }: { run: BacktestRun }) {
       return { t: p.t, dd };
     });
   }, [run.id]);
-  const maxDD = Math.min(...data.map((d) => d.dd));
+  // Empty equity → Math.min(...[]) is +Infinity; clamp to 0.
+  const maxDD = data.length ? Math.min(...data.map((d) => d.dd)) : 0;
   return (
     <Card className="border-border bg-elevated p-4">
       <div className="mb-2 flex items-center justify-between">
@@ -463,6 +618,7 @@ function RDistributionCard({ run }: { run: BacktestRun }) {
 }
 
 function TerminalValueCard({ run }: { run: BacktestRun }) {
+  const degenerate = run.trades.length === 0 || !(run.params.capital > 0);
   const { data, p5, p50, p95 } = useMemo(() => {
     const rets = run.trades.map((t) => t.pnlR * 0.01);
     const N = 500, T = Math.min(rets.length, 120);
@@ -480,6 +636,14 @@ function TerminalValueCard({ run }: { run: BacktestRun }) {
       p95: finals[Math.floor(0.95 * N)],
     };
   }, [run.id]);
+  if (degenerate) {
+    return (
+      <Card className="border-border bg-elevated p-4">
+        <div className="mb-2 text-sm font-medium">Terminal-value distribution</div>
+        <p className="text-sm text-muted-foreground">No closed trades to project from.</p>
+      </Card>
+    );
+  }
   return (
     <Card className="border-border bg-elevated p-4">
       <div className="mb-2 flex items-center justify-between gap-2">

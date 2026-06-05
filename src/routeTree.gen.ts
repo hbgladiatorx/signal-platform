@@ -16,11 +16,13 @@ import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as StudioWalkforwardRouteImport } from './routes/studio.walkforward'
 import { Route as StudioSubmissionsRouteImport } from './routes/studio.submissions'
 import { Route as StudioStrategiesRouteImport } from './routes/studio.strategies'
 import { Route as StudioSignalsRouteImport } from './routes/studio.signals'
 import { Route as StudioSettingsRouteImport } from './routes/studio.settings'
 import { Route as StudioPricingRouteImport } from './routes/studio.pricing'
+import { Route as StudioMlRouteImport } from './routes/studio.ml'
 import { Route as StudioLiveRouteImport } from './routes/studio.live'
 import { Route as StudioHomeRouteImport } from './routes/studio.home'
 import { Route as StudioEarningsRouteImport } from './routes/studio.earnings'
@@ -76,6 +78,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StudioWalkforwardRoute = StudioWalkforwardRouteImport.update({
+  id: '/walkforward',
+  path: '/walkforward',
+  getParentRoute: () => StudioRoute,
+} as any)
 const StudioSubmissionsRoute = StudioSubmissionsRouteImport.update({
   id: '/submissions',
   path: '/submissions',
@@ -99,6 +106,11 @@ const StudioSettingsRoute = StudioSettingsRouteImport.update({
 const StudioPricingRoute = StudioPricingRouteImport.update({
   id: '/pricing',
   path: '/pricing',
+  getParentRoute: () => StudioRoute,
+} as any)
+const StudioMlRoute = StudioMlRouteImport.update({
+  id: '/ml',
+  path: '/ml',
   getParentRoute: () => StudioRoute,
 } as any)
 const StudioLiveRoute = StudioLiveRouteImport.update({
@@ -219,11 +231,13 @@ export interface FileRoutesByFullPath {
   '/studio/earnings': typeof StudioEarningsRoute
   '/studio/home': typeof StudioHomeRoute
   '/studio/live': typeof StudioLiveRoute
+  '/studio/ml': typeof StudioMlRoute
   '/studio/pricing': typeof StudioPricingRoute
   '/studio/settings': typeof StudioSettingsRoute
   '/studio/signals': typeof StudioSignalsRoute
   '/studio/strategies': typeof StudioStrategiesRoute
   '/studio/submissions': typeof StudioSubmissionsRoute
+  '/studio/walkforward': typeof StudioWalkforwardRoute
   '/app/share/$cardId': typeof AppShareCardIdRoute
   '/app/signal/$id': typeof AppSignalIdRoute
   '/app/strategy/$id': typeof AppStrategyIdRoute
@@ -252,11 +266,13 @@ export interface FileRoutesByTo {
   '/studio/earnings': typeof StudioEarningsRoute
   '/studio/home': typeof StudioHomeRoute
   '/studio/live': typeof StudioLiveRoute
+  '/studio/ml': typeof StudioMlRoute
   '/studio/pricing': typeof StudioPricingRoute
   '/studio/settings': typeof StudioSettingsRoute
   '/studio/signals': typeof StudioSignalsRoute
   '/studio/strategies': typeof StudioStrategiesRoute
   '/studio/submissions': typeof StudioSubmissionsRoute
+  '/studio/walkforward': typeof StudioWalkforwardRoute
   '/app/share/$cardId': typeof AppShareCardIdRoute
   '/app/signal/$id': typeof AppSignalIdRoute
   '/app/strategy/$id': typeof AppStrategyIdRoute
@@ -286,11 +302,13 @@ export interface FileRoutesById {
   '/studio/earnings': typeof StudioEarningsRoute
   '/studio/home': typeof StudioHomeRoute
   '/studio/live': typeof StudioLiveRoute
+  '/studio/ml': typeof StudioMlRoute
   '/studio/pricing': typeof StudioPricingRoute
   '/studio/settings': typeof StudioSettingsRoute
   '/studio/signals': typeof StudioSignalsRoute
   '/studio/strategies': typeof StudioStrategiesRoute
   '/studio/submissions': typeof StudioSubmissionsRoute
+  '/studio/walkforward': typeof StudioWalkforwardRoute
   '/app/share/$cardId': typeof AppShareCardIdRoute
   '/app/signal/$id': typeof AppSignalIdRoute
   '/app/strategy/$id': typeof AppStrategyIdRoute
@@ -321,11 +339,13 @@ export interface FileRouteTypes {
     | '/studio/earnings'
     | '/studio/home'
     | '/studio/live'
+    | '/studio/ml'
     | '/studio/pricing'
     | '/studio/settings'
     | '/studio/signals'
     | '/studio/strategies'
     | '/studio/submissions'
+    | '/studio/walkforward'
     | '/app/share/$cardId'
     | '/app/signal/$id'
     | '/app/strategy/$id'
@@ -354,11 +374,13 @@ export interface FileRouteTypes {
     | '/studio/earnings'
     | '/studio/home'
     | '/studio/live'
+    | '/studio/ml'
     | '/studio/pricing'
     | '/studio/settings'
     | '/studio/signals'
     | '/studio/strategies'
     | '/studio/submissions'
+    | '/studio/walkforward'
     | '/app/share/$cardId'
     | '/app/signal/$id'
     | '/app/strategy/$id'
@@ -387,11 +409,13 @@ export interface FileRouteTypes {
     | '/studio/earnings'
     | '/studio/home'
     | '/studio/live'
+    | '/studio/ml'
     | '/studio/pricing'
     | '/studio/settings'
     | '/studio/signals'
     | '/studio/strategies'
     | '/studio/submissions'
+    | '/studio/walkforward'
     | '/app/share/$cardId'
     | '/app/signal/$id'
     | '/app/strategy/$id'
@@ -461,6 +485,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/studio/walkforward': {
+      id: '/studio/walkforward'
+      path: '/walkforward'
+      fullPath: '/studio/walkforward'
+      preLoaderRoute: typeof StudioWalkforwardRouteImport
+      parentRoute: typeof StudioRoute
+    }
     '/studio/submissions': {
       id: '/studio/submissions'
       path: '/submissions'
@@ -494,6 +525,13 @@ declare module '@tanstack/react-router' {
       path: '/pricing'
       fullPath: '/studio/pricing'
       preLoaderRoute: typeof StudioPricingRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/studio/ml': {
+      id: '/studio/ml'
+      path: '/ml'
+      fullPath: '/studio/ml'
+      preLoaderRoute: typeof StudioMlRouteImport
       parentRoute: typeof StudioRoute
     }
     '/studio/live': {
@@ -680,11 +718,13 @@ interface StudioRouteChildren {
   StudioEarningsRoute: typeof StudioEarningsRoute
   StudioHomeRoute: typeof StudioHomeRoute
   StudioLiveRoute: typeof StudioLiveRoute
+  StudioMlRoute: typeof StudioMlRoute
   StudioPricingRoute: typeof StudioPricingRoute
   StudioSettingsRoute: typeof StudioSettingsRoute
   StudioSignalsRoute: typeof StudioSignalsRoute
   StudioStrategiesRoute: typeof StudioStrategiesRoute
   StudioSubmissionsRoute: typeof StudioSubmissionsRoute
+  StudioWalkforwardRoute: typeof StudioWalkforwardRoute
   StudioBuilderIdRoute: typeof StudioBuilderIdRoute
   StudioStrategyIdRoute: typeof StudioStrategyIdRoute
 }
@@ -695,11 +735,13 @@ const StudioRouteChildren: StudioRouteChildren = {
   StudioEarningsRoute: StudioEarningsRoute,
   StudioHomeRoute: StudioHomeRoute,
   StudioLiveRoute: StudioLiveRoute,
+  StudioMlRoute: StudioMlRoute,
   StudioPricingRoute: StudioPricingRoute,
   StudioSettingsRoute: StudioSettingsRoute,
   StudioSignalsRoute: StudioSignalsRoute,
   StudioStrategiesRoute: StudioStrategiesRoute,
   StudioSubmissionsRoute: StudioSubmissionsRoute,
+  StudioWalkforwardRoute: StudioWalkforwardRoute,
   StudioBuilderIdRoute: StudioBuilderIdRoute,
   StudioStrategyIdRoute: StudioStrategyIdRoute,
 }

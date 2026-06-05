@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Link, Outlet, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   Home, BookOpen, BarChart3, Signal as SignalIcon, Settings, Bell, Search,
-  Wallet, FileText, User, Layers, GitBranch, Inbox as InboxIcon, ArrowRightLeft, Lock, Sparkles, Activity,
+  Wallet, FileText, User, Layers, GitBranch, Inbox as InboxIcon, ArrowRightLeft, Lock, Sparkles, Activity, Brain,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,8 @@ const studioNav: NavItem[] = [
   { to: "/studio/strategies", label: "Strategies", icon: Layers },
   { to: "/studio/strategies", label: "Builder", icon: GitBranch },
   { to: "/studio/backtests", label: "Backtests", icon: BarChart3 },
+  { to: "/studio/walkforward", label: "Walk-fwd", icon: ArrowRightLeft },
+  { to: "/studio/ml", label: "ML", icon: Brain },
   { to: "/studio/live", label: "Live", icon: Activity },
   { to: "/studio/signals", label: "Signals", icon: SignalIcon },
   { to: "/studio/earnings", label: "Earnings", icon: Wallet },

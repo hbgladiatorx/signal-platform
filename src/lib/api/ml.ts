@@ -2,6 +2,7 @@
 // Wired to the FastAPI /ml router. Models are trained per strategy over the
 // accumulated per-trip feature store (see packages/ml in the backend).
 import { api } from "@/lib/api/client";
+import type { BacktestMlModel } from "@/lib/types";
 
 export interface MlStrategyStats {
   strategy_name: string;
@@ -14,18 +15,10 @@ export interface MlStrategyStats {
   has_model: boolean;
 }
 
-// The model payload is the backend's model_to_dict — feature weights and
-// per-signal edge. Kept loose; the UI reads known keys defensively.
-export interface MlModelPayload {
-  fitted?: boolean;
-  n_samples?: number;
-  feature_weights?: Record<string, number>;
-  signal_edge?: Record<
-    string,
-    { empirical_edge?: number; predicted_edge?: number; n?: number }
-  >;
-  [k: string]: unknown;
-}
+// The model payload is the backend's model_to_dict (packages/ml/model.py):
+// feature weights + per-signal empirical/predicted edge. Reuses the canonical
+// shape shared with the backtest detail view.
+export type MlModelPayload = Partial<BacktestMlModel> & { [k: string]: unknown };
 
 export interface MlLatestModel {
   id: string;

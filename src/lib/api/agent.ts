@@ -1,5 +1,23 @@
-// Mock agent API. Structured so the chat handler swaps for a real MCP/LLM call later.
+// Studio build assistant. The studio "build" chat calls the FastAPI backend's
+// AI graph planner (POST /user-strategies/plan-graph), which uses Claude to turn
+// a plain-English idea into a real node graph. The keyword heuristic below
+// (buildGraphFromPrompt) is kept only as an OFFLINE FALLBACK for when the AI is
+// unreachable or out of credits — it is no longer the primary path.
 import type { StrategyGraph, StrategyNode, StrategyEdge, AssetClass } from "@/lib/types";
+import { api } from "@/lib/api/client";
+
+// Response shape of POST /user-strategies/plan-graph (see services/api/routers/
+// user_strategies.py::PlanGraphResponse). ok=false ⇒ fall back to the heuristic.
+interface PlanGraphResponse {
+  ok: boolean;
+  name?: string | null;
+  assetClass?: AssetClass | null;
+  plan?: string[];
+  assumptions?: string[];
+  questions?: BuilderQuestion[];
+  graph?: StrategyGraph | null;
+  error?: string | null;
+}
 
 export type AgentMode = "trader" | "studio";
 export type MCPTarget = "agent" | "bayn" | "broker";
@@ -53,7 +71,16 @@ type BuildResult = {
   name: string;
   plan: string[];          // streamed plain-english plan
   assumptions: string[];
+  // Follow-up questions the builder asks to refine the graph. Each option is a
+  // plain-english instruction that routes back through the tweak engine, so
+  // answering refines the relevant node instead of rebuilding.
+  questions?: BuilderQuestion[];
 };
+
+export interface BuilderQuestion {
+  q: string;
+  options: string[];
+}
 
 /** Hardcoded polished graphs for the example chips, plus keyword-based freeform. */
 export function buildGraphFromPrompt(prompt: string): BuildResult {
@@ -145,7 +172,13 @@ export function buildGraphFromPrompt(prompt: string): BuildResult {
   }
 
   // ── 4) Sell far-OTM SPY weekly calls when IV rank > 50 (chip 4) ──
-  if (/(call|put|iv rank|otm|premium)/.test(p)) {
+  // Premium-SELLING only. Requires explicit selling intent — otherwise a prompt
+  // like "buy apple calls at 30 RSI" (a directional long) wrongly matched here
+  // and got rewritten into this canned SPY credit strategy.
+  const isPremiumSell =
+    /\b(iv ?rank|premium|condor|credit spread|theta|covered call|cash[- ]secured)\b/.test(p) ||
+    (/\b(sell|write|short)\b/.test(p) && /\b(calls?|puts?|options?)\b/.test(p) && !/\bbuy\b/.test(p));
+  if (isPremiumSell) {
     const chain = n("optionsChain","data","SPY weekly calls", { symbol: "SPY", side: "call", expiry: "weekly" }, { x: 40,  y: 80  });
     const iv    = n("formula","indicator","IV Rank",          { expr: "iv_rank(SPY,252)" },                       { x: 280, y: 40  });
     const delta = n("formula","indicator","|Δ| < 0.15",       { expr: "abs(delta) < 0.15" },                      { x: 280, y: 140 });
@@ -171,47 +204,218 @@ export function buildGraphFromPrompt(prompt: string): BuildResult {
     };
   }
 
-  // ── Freeform fallback: keyword sweep ──
-  const symbol = /btc/.test(p) ? "BTC-PERP" : /eth/.test(p) ? "ETH-PERP" : /qqq/.test(p) ? "QQQ" : /es\b/.test(p) ? "ES" : "SPY";
-  const cls: AssetClass =
-    symbol === "BTC-PERP" || symbol === "ETH-PERP" ? "crypto" :
-    symbol === "ES" ? "futures" : "stocks";
-  const tf = /1m|minute/.test(p) ? "1m" : /5m/.test(p) ? "5m" : /15m/.test(p) ? "15m" : /1d|daily/.test(p) ? "1d" : "1h";
+  // ── Freeform: real parse of the prompt into a strategy spec ──
+  return parseFreeform(prompt);
+}
 
-  const price = n("price","data",`Price · ${symbol} ${tf}`, { symbol, timeframe: tf }, { x: 40,  y: 80  });
-  let last = price.id;
-  const nodes: StrategyNode[] = [price]; const edges: StrategyEdge[] = [];
-  const assumptions: string[] = [`Symbol = ${symbol}, timeframe = ${tf} (inferred).`];
+/* ──────────────────────────────────────────────────────────────
+   Freeform parser — turns plain English into a strategy spec, then
+   a node graph. Handles symbol (incl. company names), instrument
+   (shares / calls / puts and buy-vs-sell-to-open), entry & exit
+   conditions with their own thresholds, indicators, timeframe, and
+   a risk envelope. Anything it has to assume becomes a follow-up
+   question so the user can refine the nodes.
+   ────────────────────────────────────────────────────────────── */
 
-  if (/rsi/.test(p))   { const x = n("rsi","indicator","RSI(14)", { period: 14 }, { x: 280, y: 80 }); nodes.push(x); edges.push(e(price.id,x.id)); last = x.id; }
-  if (/ema/.test(p))   { const x = n("ema","indicator","EMA(20)", { period: 20 }, { x: 280, y: 160 }); nodes.push(x); edges.push(e(price.id,x.id)); last = x.id; }
-  if (/macd/.test(p))  { const x = n("macd","indicator","MACD", { fast:12, slow:26, signal:9 }, { x: 280, y: 240 }); nodes.push(x); edges.push(e(price.id,x.id)); last = x.id; }
-  if (/bollinger|bb/.test(p)) { const x = n("bb","indicator","BBands(20,2)", { period:20, stdDev:2 }, { x: 280, y: 320 }); nodes.push(x); edges.push(e(price.id,x.id)); last = x.id; }
+// Company / index names → tradable tickers. Lower-cased keys.
+const NAME_TO_TICKER: Record<string, string> = {
+  apple: "AAPL", tesla: "TSLA", microsoft: "MSFT", amazon: "AMZN",
+  google: "GOOGL", alphabet: "GOOGL", nvidia: "NVDA", meta: "META",
+  facebook: "META", netflix: "NFLX", amd: "AMD", intel: "INTC",
+  coinbase: "COIN", palantir: "PLTR", "s&p": "SPY", sp500: "SPY",
+  "s&p 500": "SPY", nasdaq: "QQQ", "dow": "DIA", "russell": "IWM",
+};
+const NAME_TO_CRYPTO: Record<string, string> = {
+  bitcoin: "BTC-PERP", btc: "BTC-PERP", ethereum: "ETH-PERP", eth: "ETH-PERP",
+  solana: "SOL-PERP", sol: "SOL-PERP", dogecoin: "DOGE-PERP", doge: "DOGE-PERP",
+};
+// Uppercase tokens that are never tickers (indicators, words, sides).
+const NOT_A_TICKER = new Set([
+  "RSI", "EMA", "SMA", "MACD", "ATR", "BB", "VWAP", "IV", "AND", "OR", "NOT",
+  "BUY", "SELL", "LONG", "SHORT", "CALL", "PUT", "CALLS", "PUTS", "THE", "AT",
+  "TO", "OTM", "ITM", "TP", "SL", "OK", "USD",
+]);
 
-  const cmp = n("comparator","logic","Condition", { op: /short|sell/.test(p) ? ">" : "<", value: 30 }, { x: 540, y: 120 });
-  nodes.push(cmp); edges.push(e(last, cmp.id));
+function resolveSymbol(prompt: string, p: string): { symbol: string | null; cls: AssetClass } {
+  for (const [name, tic] of Object.entries(NAME_TO_CRYPTO)) {
+    if (new RegExp(`\\b${name}\\b`).test(p)) return { symbol: tic, cls: "crypto" };
+  }
+  for (const [name, tic] of Object.entries(NAME_TO_TICKER)) {
+    if (new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`).test(p)) {
+      return { symbol: tic, cls: "stocks" };
+    }
+  }
+  // Explicit uppercase ticker in the original (case-sensitive) prompt.
+  const caps = prompt.match(/\b[A-Z]{1,5}(?:-[A-Z]+)?\b/g) ?? [];
+  for (const c of caps) {
+    if (!NOT_A_TICKER.has(c)) {
+      const cls: AssetClass = c === "ES" || c === "NQ" ? "futures" : "stocks";
+      return { symbol: c, cls };
+    }
+  }
+  // Known futures words.
+  if (/\bes\b|\bs&p futures\b/.test(p)) return { symbol: "ES", cls: "futures" };
+  return { symbol: null, cls: "stocks" };
+}
 
-  const stopPct = /tight/.test(p) ? 1 : 2;
-  const stop = n("stopLoss","risk", `Stop −${stopPct}%`, { type: "percent", value: stopPct }, { x: 800, y: 60 });
-  const tp   = n("takeProfit","risk", "Target 2R", { type: "r_multiple", value: 2 }, { x: 800, y: 160 });
-  nodes.push(stop, tp);
+type Cond = { indicator: string; op: "<" | ">"; value: number; label: string };
 
-  const direction = /short|sell/.test(p) ? "SHORT" : "LONG";
-  const entry = n("entry","signal", `Entry ${direction}`, { direction }, { x: 1060, y: 120 });
-  nodes.push(entry);
-  edges.push(e(cmp.id, entry.id), e(stop.id, entry.id), e(tp.id, entry.id));
+// Pull an RSI/indicator threshold out of one clause, using the verb (buy =
+// entry/oversold, sell = exit/overbought) to infer the operator when the
+// prompt doesn't state "above/below" explicitly.
+function parseCond(clause: string, side: "entry" | "exit"): Cond | null {
+  const c = clause.toLowerCase();
+  const rsi = c.match(/rsi[^0-9]{0,12}(\d{1,3})|(\d{1,3})[^0-9a-z]{0,6}rsi/);
+  if (rsi) {
+    const value = parseInt(rsi[1] ?? rsi[2], 10);
+    let op: "<" | ">";
+    if (/\b(below|under|less than|drops?|dips?|falls?|<)\b/.test(c)) op = "<";
+    else if (/\b(above|over|greater than|exceeds?|crosses? above|reaches|>)\b/.test(c)) op = ">";
+    else op = side === "entry" ? "<" : ">"; // buy oversold, sell overbought
+    return { indicator: "rsi", op, value, label: `RSI ${op} ${value}` };
+  }
+  return null;
+}
 
-  return {
-    graph: { nodes, edges },
-    assetClass: cls,
-    name: `${symbol} ${direction === "SHORT" ? "Short" : "Long"} Setup`,
-    plan: [
-      `Pulling ${symbol} ${tf} price.`,
-      "Wiring a condition and risk envelope.",
-      `Emitting an ${direction} entry signal.`,
-    ],
-    assumptions,
-  };
+function parseFreeform(prompt: string): BuildResult {
+  const p = prompt.toLowerCase();
+  const { symbol: parsedSym, cls } = resolveSymbol(prompt, p);
+  const symbolKnown = parsedSym != null;
+  const symbol = parsedSym ?? "SPY";
+
+  // Instrument: calls / puts / shares, and whether we open long or short.
+  const isCall = /\bcalls?\b/.test(p);
+  const isPut = /\bputs?\b/.test(p);
+  const isOption = isCall || isPut;
+  // "buy ... calls" → long calls (bullish). "sell/write calls" with no buy →
+  // premium selling handled earlier; here a "sell" after a "buy" is an exit.
+  const opensShort = isOption
+    ? /\b(sell|write|short)\b/.test(p) && !/\bbuy\b/.test(p)
+    : /\b(short|sell short|go short)\b/.test(p);
+  const direction: "LONG" | "SHORT" = opensShort ? "SHORT" : "LONG";
+  const assetClass: AssetClass = isOption ? "options" : cls;
+
+  // Timeframe.
+  const tfMatch = p.match(/\b(1m|5m|15m|30m|1h|2h|4h|1d)\b/) ||
+    (/\bminute\b/.test(p) ? ["", "1m"] : /\bhourly\b/.test(p) ? ["", "1h"] : /\bdaily\b/.test(p) ? ["", "1d"] : null);
+  const timeframeKnown = tfMatch != null;
+  const timeframe = tfMatch ? tfMatch[1] : "1h";
+
+  // Entry / exit conditions. Split on buy/sell verbs so each gets its own
+  // threshold, then fall back to a whole-prompt scan.
+  const entryClause = p.match(/\b(?:buy|long|enter|go long|open)\b[^.]*?(?=\band\b|\bthen\b|\bsell\b|\bexit\b|$)/)?.[0] ?? p;
+  const exitClause = p.match(/\b(?:sell|exit|close|take profit|tp|target)\b[^.]*?$/)?.[0] ?? "";
+  let entry = parseCond(entryClause, "entry") ?? parseCond(p, "entry");
+  let exitCond = exitClause ? parseCond(exitClause, "exit") : null;
+
+  // Other indicators mentioned (used as the data→signal chain when no RSI).
+  const wantsEma = /\bema\b/.test(p);
+  const wantsSma = /\bsma\b/.test(p);
+  const wantsMacd = /\bmacd\b/.test(p);
+  const wantsBB = /\b(bollinger|bbands?|bb)\b/.test(p);
+  const hasIndicator = entry != null || wantsEma || wantsSma || wantsMacd || wantsBB;
+  if (!entry && !hasIndicator) {
+    // Nothing to key on — default to an RSI oversold entry so the graph runs.
+    entry = { indicator: "rsi", op: "<", value: 30, label: "RSI < 30" };
+  }
+
+  // ── Build the graph ──
+  nid = 0;
+  const nodes: StrategyNode[] = [];
+  const edges: StrategyEdge[] = [];
+  const plan: string[] = [];
+  const assumptions: string[] = [];
+
+  // Underlying price feeds indicators (for options too — RSI is on the underlying).
+  const price = n("price", "data", `Price · ${symbol} ${timeframe}`, { symbol, timeframe }, { x: 40, y: 120 });
+  nodes.push(price);
+  plan.push(`Reading ${symbol} ${timeframe} price.`);
+
+  // Indicator node (RSI is the common case; otherwise the first one named).
+  let indicatorId = price.id;
+  if (entry?.indicator === "rsi" || /\brsi\b/.test(p)) {
+    const rsi = n("rsi", "indicator", "RSI(14)", { period: 14 }, { x: 300, y: 120 });
+    nodes.push(rsi); edges.push(e(price.id, rsi.id)); indicatorId = rsi.id;
+    plan.push("Computing RSI(14).");
+  } else if (wantsEma) {
+    const ema = n("ema", "indicator", "EMA(20)", { period: 20 }, { x: 300, y: 120 });
+    nodes.push(ema); edges.push(e(price.id, ema.id)); indicatorId = ema.id;
+    plan.push("Computing EMA(20).");
+  } else if (wantsSma) {
+    const sma = n("sma", "indicator", "SMA(50)", { period: 50 }, { x: 300, y: 120 });
+    nodes.push(sma); edges.push(e(price.id, sma.id)); indicatorId = sma.id;
+    plan.push("Computing SMA(50).");
+  } else if (wantsMacd) {
+    const macd = n("macd", "indicator", "MACD(12,26,9)", { fast: 12, slow: 26, signal: 9 }, { x: 300, y: 120 });
+    nodes.push(macd); edges.push(e(price.id, macd.id)); indicatorId = macd.id;
+    plan.push("Computing MACD(12,26,9).");
+  } else if (wantsBB) {
+    const bb = n("bb", "indicator", "BBands(20,2)", { period: 20, stdDev: 2 }, { x: 300, y: 120 });
+    nodes.push(bb); edges.push(e(price.id, bb.id)); indicatorId = bb.id;
+    plan.push("Computing Bollinger Bands(20,2).");
+  }
+
+  // Entry condition.
+  const entryC = entry ?? { indicator: "rsi", op: "<" as const, value: 30, label: "RSI < 30" };
+  const entryCmp = n("comparator", "logic", entryC.label, { op: entryC.op, value: entryC.value }, { x: 560, y: 60 });
+  nodes.push(entryCmp); edges.push(e(indicatorId, entryCmp.id));
+
+  // Options chain node when trading calls/puts — declares the instrument.
+  let chainId: string | null = null;
+  if (isOption) {
+    const side = isPut ? "put" : "call";
+    const chain = n("optionsChain", "data", `${symbol} ${side}s`, { symbol, side, expiry: "weekly", deltaTarget: 0.5 }, { x: 300, y: 280 });
+    nodes.push(chain); chainId = chain.id;
+    assumptions.push(`Trading ${symbol} weekly ${side}s near 0.50 delta (ATM) — adjust the chain node for a different strike/expiry.`);
+  }
+
+  // Risk envelope (defaults; surfaced as questions to confirm).
+  const stop = n("stopLoss", "risk", "Stop −2%", { type: "percent", value: 2 }, { x: 800, y: 40 });
+  const size = n("positionSize", "risk", "Risk 1%", { type: "percent_account", value: 1 }, { x: 800, y: 140 });
+  nodes.push(stop, size);
+
+  // Entry signal.
+  const buyWord = isOption ? (direction === "LONG" ? "Buy to Open" : "Sell to Open") : `Entry ${direction}`;
+  const entrySig = n("entry", "signal", buyWord, { direction, instrument: isOption ? (isPut ? "put" : "call") : "equity" }, { x: 1060, y: 80 });
+  nodes.push(entrySig);
+  edges.push(e(entryCmp.id, entrySig.id), e(stop.id, entrySig.id), e(size.id, entrySig.id));
+  if (chainId) edges.push(e(chainId, entrySig.id));
+  plan.push(
+    isOption
+      ? `${direction === "LONG" ? "Buying" : "Selling"} ${symbol} ${isPut ? "puts" : "calls"} to open when ${entryC.label}.`
+      : `Entering ${direction} when ${entryC.label}, risking 1% with a 2% stop.`,
+  );
+
+  // Exit condition (the "sell them at 70 RSI" half).
+  if (exitCond) {
+    const exitCmp = n("comparator", "logic", exitCond.label, { op: exitCond.op, value: exitCond.value }, { x: 560, y: 200 });
+    const exitSig = n("exit", "signal", isOption ? "Sell to Close" : "Exit", {}, { x: 1060, y: 220 });
+    nodes.push(exitCmp, exitSig);
+    edges.push(e(indicatorId, exitCmp.id), e(exitCmp.id, exitSig.id));
+    plan.push(`Exiting when ${exitCond.label}.`);
+  } else {
+    assumptions.push("No exit rule given — add one, or it'll exit on the stop/target.");
+  }
+
+  // Name.
+  const kind = entryC.indicator === "rsi" ? "RSI" : wantsEma ? "EMA" : wantsMacd ? "MACD" : "Signal";
+  const instr = isOption ? (isPut ? "Long Puts" : direction === "SHORT" ? "Short Calls" : "Long Calls") : direction === "SHORT" ? "Short" : "Long";
+  const name = `${symbol} ${kind} ${instr}`;
+
+  // Follow-up questions — each option routes back through the tweak engine.
+  const questions: BuilderQuestion[] = [];
+  if (!symbolKnown) {
+    assumptions.push(`Couldn't find a ticker — defaulted to ${symbol}.`);
+    questions.push({ q: "Which symbol should this trade?", options: ["Use AAPL", "Use SPY", "Use QQQ"] });
+  }
+  if (!timeframeKnown) {
+    assumptions.push(`Timeframe = ${timeframe} (inferred).`);
+    questions.push({ q: "What timeframe should it run on?", options: ["Use 15m timeframe", "Use 1h timeframe", "Use 1d timeframe"] });
+  }
+  questions.push({ q: "Confirm the protective stop (defaulted to 2%):", options: ["Set stop to 2%", "Set stop to 5%", "Set stop to 1.5x ATR"] });
+  questions.push({ q: "How much to risk per trade (defaulted to 1%)?", options: ["Risk 1% per trade", "Risk 2% per trade"] });
+
+  return { graph: { nodes, edges }, assetClass, name, plan, assumptions, questions: questions.slice(0, 3) };
 }
 
 /* ──────────────────────────────────────────────────────────────
@@ -351,9 +555,10 @@ export function applyGraphTweak(prompt: string, ctx: GraphContext): TweakResult 
     }
   }
 
-  // Symbol switch
-  const symMatch = p.match(/\b(symbol|ticker)\s+(?:to\s+)?([A-Z]{2,6}(?:-[A-Z]+)?)\b/i)
-    || p.match(/\b(?:use|switch to|change to|trade)\s+([A-Z]{2,6}(?:-[A-Z]+)?)\b/);
+  // Symbol switch. Match against the ORIGINAL-case prompt — tickers are
+  // uppercase, and `p` is lowercased so [A-Z] would never hit.
+  const symMatch = prompt.match(/\b(symbol|ticker)\s+(?:to\s+)?([A-Za-z]{2,6}(?:-[A-Za-z]+)?)\b/i)
+    || prompt.match(/\b(?:use|switch to|change to|trade)\s+([A-Z]{2,6}(?:-[A-Z]+)?)\b/);
   if (symMatch) {
     const sym = (symMatch[2] ?? symMatch[1]).toUpperCase();
     for (const node of findNodes(["price"], /price/i)) {
@@ -411,6 +616,7 @@ export interface ChatMsg {
     kind?: "handoff" | "switch-mode" | "graph" | "tweak";
     graph?: BuildResult;
     tweak?: TweakResult;
+    questions?: BuilderQuestion[];
   };
 }
 
@@ -518,8 +724,22 @@ Ask me about: risk exposure, win rate by asset class, underperforming strategies
   };
 }
 
+/** Format a finished BuildResult into the assistant ChatMsg the canvas consumes. */
+function graphMessage(built: BuildResult): ChatMsg {
+  const planText = built.plan.map((l) => `- ${l}`).join("\n");
+  const assumeText = built.assumptions.length ? `\n\n**Assumptions:** ${built.assumptions.join(" ")}` : "";
+  const hasQs = built.questions && built.questions.length > 0;
+  const tail = hasQs
+    ? "\n\nGraph placed on the canvas. Answer a few questions below to refine it — or edit any node directly and **Run Backtest** when you're ready."
+    : "\n\nGraph placed on the canvas — edit any node, then **Run Backtest** when you're ready.";
+  return {
+    id: uid("m"), role: "assistant",
+    content: `Building **${built.name}**.\n\n${planText}${assumeText}${tail}`,
+    meta: { kind: "graph", graph: built, questions: built.questions },
+  };
+}
+
 export async function chatStudioAI(prompt: string, ctx?: GraphContext): Promise<ChatMsg> {
-  await new Promise((r) => setTimeout(r, 500 + Math.random() * 400));
   const p = prompt.toLowerCase();
 
   if (/my (trades|portfolio|win rate|p&l|pnl)|analy[sz]e my/.test(p)) {
@@ -530,8 +750,10 @@ export async function chatStudioAI(prompt: string, ctx?: GraphContext): Promise<
     };
   }
 
-  // Try a tweak first if we have an existing graph on the canvas.
-  if (ctx && ctx.nodes.length) {
+  // Fast offline path: if the user is clearly editing an existing graph and the
+  // local tweak engine recognises the instruction, patch in-place instantly —
+  // no round-trip, no LLM. Anything it doesn't recognise falls through to AI.
+  if (ctx && ctx.nodes.length && TWEAK_INTENT.test(p)) {
     const tweak = applyGraphTweak(prompt, ctx);
     if (tweak) {
       const bullets = tweak.changes.map((c) => `- ${c}`).join("\n");
@@ -543,14 +765,35 @@ export async function chatStudioAI(prompt: string, ctx?: GraphContext): Promise<
     }
   }
 
-  const built = buildGraphFromPrompt(prompt);
-  const planText = built.plan.map((l) => `- ${l}`).join("\n");
-  const assumeText = built.assumptions.length ? `\n\n**Assumptions:** ${built.assumptions.join(" ")}` : "";
-  return {
-    id: uid("m"), role: "assistant",
-    content: `Building **${built.name}**.\n\n${planText}${assumeText}\n\nGraph placed on the canvas — edit any node, then **Run Backtest** when you're ready.`,
-    meta: { kind: "graph", graph: built },
-  };
+  // Primary path: AI builds the graph from the prompt. The backend reasons about
+  // the actual intent (time-based, price-action, indicator, …) and places real
+  // palette nodes — unlike the keyword heuristic, which mapped everything to RSI.
+  try {
+    const res = await api.post<PlanGraphResponse>("/user-strategies/plan-graph", {
+      prompt,
+      asset_class: ctx?.assetClass,
+      graph_json: ctx && ctx.nodes.length ? { nodes: ctx.nodes, edges: ctx.edges } : undefined,
+    });
+    if (res.ok && res.graph && res.graph.nodes?.length) {
+      const built: BuildResult = {
+        graph: res.graph,
+        assetClass: (res.assetClass as AssetClass) ?? "crypto",
+        name: res.name ?? "Strategy",
+        plan: res.plan ?? [],
+        assumptions: res.assumptions ?? [],
+        questions: res.questions ?? [],
+      };
+      return graphMessage(built);
+    }
+    // ok=false (out of credits, no key, no structured output) → offline fallback.
+    if (res.error) console.warn("AI builder unavailable, using offline builder:", res.error);
+  } catch (err) {
+    console.warn("AI builder request failed, using offline builder:", err);
+  }
+
+  // Offline fallback: keyword heuristic so the builder still works if the AI is
+  // unreachable. Lower fidelity — it can't reason about novel intents.
+  return graphMessage(buildGraphFromPrompt(prompt));
 }
 
 /* ──────────────────────────────────────────────────────────────

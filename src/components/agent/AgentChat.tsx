@@ -119,6 +119,23 @@ export function AgentChat({ mode, onGraph, onTweak, compact, initialPrompt, getC
                   Bayn never places trades. Your connected agent can route this with your confirmation.
                 </div>
               )}
+              {m.meta?.questions && m.meta.questions.length > 0 && (
+                <div className="mt-3 space-y-2.5">
+                  {m.meta.questions.map((qa, qi) => (
+                    <div key={qi}>
+                      <div className="mb-1 text-[11px] font-medium text-muted-foreground">{qa.q}</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {qa.options.map((opt) => (
+                          <button key={opt} onClick={() => send(opt)} disabled={busy}
+                            className="rounded-full border border-violet/30 px-2.5 py-1 text-[11px] text-violet/90 transition-colors hover:bg-violet/10 disabled:opacity-50">
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         ))}
