@@ -27,6 +27,9 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from packages.core.encryption import encrypt_json
+from packages.data.platform_credentials import (
+    list_platform_credentials as _list_platform_credentials,
+)
 from services.api.auth import get_current_user
 from services.api.deps import get_db_session
 
@@ -332,6 +335,32 @@ async def list_api_keys(
         {"user_id": user_id},
     )
     return [APICredentialSummary.model_validate(dict(r)) for r in result.mappings()]
+
+
+@router.get("/platform-credentials")
+async def list_platform_credentials_endpoint(
+    session: AsyncSession = Depends(get_db_session),
+    claims: dict = Depends(get_current_user),
+) -> list[dict]:
+    """Shared platform broker credentials available to every user.
+
+    Lets the deploy path fall back to a platform key (crypto via Binance.US,
+    stocks/options via Alpaca) when the user hasn't connected their own. Secrets
+    are never returned — only id, service, and a masked last-four.
+    """
+    await _ensure_user(claims, session)
+    creds = await _list_platform_credentials(session)
+    return [
+        {
+            "id": str(c["id"]),
+            "service": c["service"],
+            "label": c["label"],
+            "last_four": c["last_four"],
+            # binanceus = real-money crypto, alpaca = paper stocks/options.
+            "mode": "live" if c["service"] in ("binanceus", "alpaca_live") else "paper",
+        }
+        for c in creds
+    ]
 
 
 @router.post("/api-keys", response_model=APICredentialSummary, status_code=201)

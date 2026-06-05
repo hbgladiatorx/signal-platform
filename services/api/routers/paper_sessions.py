@@ -30,6 +30,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from packages.data.messagebus import QUEUE_PAPER_CONTROL
+from packages.data.platform_credentials import PLATFORM_USER_ID
 from packages.livetrade import persistence as P
 from packages.strategy.loader import StrategyLoadError
 from packages.strategy.resolver import StrategyNotFoundError, resolve_strategy
@@ -157,16 +158,20 @@ _TRADING_SERVICE_MODE: dict[str, str] = {
 async def _validate_trading_credential(
     session: AsyncSession, user_id: UUID, credential_id: UUID
 ) -> str:
-    """Ensure the credential is the caller's and a supported trading venue.
+    """Ensure the credential is the caller's (or a shared platform credential)
+    and a supported trading venue.
 
     Returns the session `mode` ('paper' for Alpaca, 'live' for Binance.US).
     """
+    # A user may use their own credential OR a shared platform credential
+    # (owned by the system user) — the latter lets anyone deploy without
+    # connecting a personal key.
     result = await session.execute(
         text(
             "SELECT service FROM api_credentials "
-            "WHERE id = :id AND user_id = :uid"
+            "WHERE id = :id AND user_id IN (:uid, :platform)"
         ),
-        {"id": credential_id, "uid": user_id},
+        {"id": credential_id, "uid": user_id, "platform": PLATFORM_USER_ID},
     )
     row = result.first()
     if row is None:

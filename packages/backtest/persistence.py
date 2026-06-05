@@ -55,19 +55,26 @@ async def create_backtest(
     starting_cash: Decimal,
     fee_rate_bps: int = 10,
     slippage_bps: int = 5,
+    window_start: datetime | None = None,
+    window_end: datetime | None = None,
 ) -> UUID:
-    """Insert a new backtest row in 'pending' state. Returns the new id."""
+    """Insert a new backtest row in 'pending' state. Returns the new id.
+
+    window_start/window_end bound the requested date range (inclusive). NULL on
+    both means "run over the symbol's full available history" — the worker only
+    filters bars when a bound is set.
+    """
     result = await conn.execute(
         text("""
             INSERT INTO backtests (
                 user_id, org_id, strategy_name, params_json,
                 symbols, bar_resolution, starting_cash,
-                fee_rate_bps, slippage_bps, status
+                fee_rate_bps, slippage_bps, window_start, window_end, status
             ) VALUES (
                 :user_id, :org_id, :strategy_name,
                 CAST(:params_json AS JSONB),
                 :symbols, :bar_resolution, :starting_cash,
-                :fee_rate_bps, :slippage_bps, 'pending'
+                :fee_rate_bps, :slippage_bps, :window_start, :window_end, 'pending'
             ) RETURNING id
         """),
         {
@@ -80,6 +87,8 @@ async def create_backtest(
             "starting_cash": starting_cash,
             "fee_rate_bps": fee_rate_bps,
             "slippage_bps": slippage_bps,
+            "window_start": window_start,
+            "window_end": window_end,
         },
     )
     return result.scalar_one()
@@ -139,6 +148,7 @@ async def save_backtest_results(
     *,
     attribution: BacktestAttribution | None = None,
     ml_model_json: dict | None = None,
+    analysis_json: dict | None = None,
     bars_start: datetime | None = None,
     bars_end: datetime | None = None,
     num_bars: int | None = None,
@@ -178,7 +188,8 @@ async def save_backtest_results(
                 win_rate_pct = :win_rate_pct,
                 profit_factor = :profit_factor,
                 attribution_json = CAST(:attribution_json AS JSONB),
-                ml_model_json = CAST(:ml_model_json AS JSONB)
+                ml_model_json = CAST(:ml_model_json AS JSONB),
+                analysis_json = CAST(:analysis_json AS JSONB)
             WHERE id = :id
         """),
         {
@@ -190,6 +201,9 @@ async def save_backtest_results(
             ),
             "ml_model_json": (
                 json.dumps(ml_model_json) if ml_model_json is not None else None
+            ),
+            "analysis_json": (
+                json.dumps(analysis_json) if analysis_json is not None else None
             ),
             "bars_start": bars_start,
             "bars_end": bars_end,

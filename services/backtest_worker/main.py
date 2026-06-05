@@ -48,10 +48,12 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from packages.backtest import (
     BacktestConfig,
+    attribution_to_dict,
     compute_analytics,
     compute_attribution,
     run_backtest,
 )
+from packages.analysis import analyze_backtest, generate_narrative
 from packages.ml import (
     build_dataset,
     extract_samples,
@@ -186,14 +188,29 @@ async def _process_job(
         # 3c) Instantiate strategy
         strategy = strategy_cls(symbols=symbols, params=params)
 
-        # 4) Load bars
+        # 4) Load bars. A requested window (window_start/window_end) bounds the
+        # run to a date range — e.g. a held-out out-of-sample segment. NULL on
+        # both means full history. Bars are tz-aware UTC and indexed by bucket,
+        # so we filter the loaded frame by its index.
+        window_start = header.get("window_start")
+        window_end = header.get("window_end")
         bars: dict[str, pd.DataFrame] = {}
         bars_start = None
         bars_end = None
         max_bar_count = 0
         for symbol in symbols:
             df = await _load_bars(engine, symbol, resolution)
+            if window_start is not None:
+                df = df[df.index >= pd.Timestamp(window_start)]
+            if window_end is not None:
+                df = df[df.index <= pd.Timestamp(window_end)]
             if df.empty:
+                if window_start is not None or window_end is not None:
+                    raise RuntimeError(
+                        f"No bars for {symbol!r} at resolution {resolution!r} "
+                        f"within the requested window "
+                        f"[{window_start}, {window_end}]"
+                    )
                 raise RuntimeError(
                     f"No bars available for {symbol!r} at resolution {resolution!r}"
                 )
@@ -232,6 +249,40 @@ async def _process_job(
         dataset = build_dataset(result, analytics)
         model = train_signal_edge_model(dataset)
         ml_model_json = model_to_dict(model) if dataset.n_samples > 0 else None
+        # Deterministic analysis (the "what worked / why / what to fix"): derived
+        # from the metrics + attribution + ml model. The optional LLM narrative
+        # is generated on-demand by the API, not here (keeps the worker fast).
+        analysis_json = analyze_backtest(
+            {
+                "total_return_pct": analytics.total_return_pct,
+                "annualized_return_pct": analytics.annualized_return_pct,
+                "sharpe_ratio": analytics.sharpe_ratio,
+                "sortino_ratio": analytics.sortino_ratio,
+                "max_drawdown_pct": analytics.max_drawdown_pct,
+                "calmar_ratio": analytics.calmar_ratio,
+                "num_closed_trades": analytics.num_closed_trades,
+                "win_rate_pct": analytics.win_rate_pct,
+                "avg_winner_pct": analytics.avg_winner_pct,
+                "avg_loser_pct": analytics.avg_loser_pct,
+                "profit_factor": analytics.profit_factor,
+            },
+            attribution_to_dict(attribution) if attribution is not None else None,
+            ml_model_json,
+        )
+        # AI narrative: now that a funded Anthropic key is configured, generate the
+        # plain-English "what worked / why / what to fix" prose inline so the detail
+        # page shows the full AI analysis automatically — no "Explain with AI" click.
+        # Best-effort: degrades to the deterministic findings if the LLM is down or
+        # out of credit, and only runs when there's a substantive analysis to narrate.
+        if analysis_json and analytics.num_closed_trades > 0:
+            try:
+                narration = generate_narrative(analysis_json, strategy_name=strategy_name)
+                if narration.ok and narration.narrative:
+                    analysis_json["narrative"] = narration.narrative
+                else:
+                    log.info("backtest_worker.narrative.skipped", reason=narration.error)
+            except Exception:  # noqa: BLE001 — never fail a backtest over narration
+                log.warning("backtest_worker.narrative.error", exc_info=True)
         # Portable per-trip samples for the cross-backtest store (Phase 4).
         training_samples = extract_samples(result, analytics)
 
@@ -256,6 +307,7 @@ async def _process_job(
                 analytics,
                 attribution=attribution,
                 ml_model_json=ml_model_json,
+                analysis_json=analysis_json,
                 bars_start=bars_start.to_pydatetime() if bars_start else None,
                 bars_end=bars_end.to_pydatetime() if bars_end else None,
                 num_bars=max_bar_count,

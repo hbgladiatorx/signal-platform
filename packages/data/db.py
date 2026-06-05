@@ -48,11 +48,20 @@ def get_engine() -> AsyncEngine:
     """Return the shared async engine, creating it on first call."""
     global _engine, _sessionmaker
     if _engine is None:
+        # Pool sizing is env-configurable and intentionally small by default:
+        # ~9 services share a single Postgres with a low max_connections on the
+        # resource-tight box, so a large per-process pool (the old 10+10=20) let
+        # any two busy services exhaust the server ("too many clients"). 5+5=10
+        # per process keeps the fleet comfortably under the cap; bump
+        # DB_POOL_SIZE / DB_MAX_OVERFLOW per service when a workload needs it.
+        pool_size = int(os.environ.get("DB_POOL_SIZE", "5"))
+        max_overflow = int(os.environ.get("DB_MAX_OVERFLOW", "5"))
         _engine = create_async_engine(
             _get_database_url(),
-            pool_size=10,
-            max_overflow=10,
+            pool_size=pool_size,
+            max_overflow=max_overflow,
             pool_pre_ping=True,
+            pool_recycle=1800,
             echo=False,
         )
         _sessionmaker = async_sessionmaker(_engine, expire_on_commit=False)

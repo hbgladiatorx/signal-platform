@@ -63,6 +63,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     log.info("api.starting", env=os.environ.get("ENV", "unknown"))
     get_engine()
     await broadcaster.start(REDIS_URL)
+    # Seed shared platform broker credentials from env so any user can deploy
+    # without first connecting their own key. Idempotent; non-fatal on error.
+    try:
+        from packages.data.platform_credentials import seed_platform_credentials
+
+        services = await seed_platform_credentials(get_engine())
+        log.info("api.platform_credentials_seeded", services=services)
+    except Exception as e:  # noqa: BLE001
+        log.error("api.platform_credentials_seed_failed", err=str(e))
     log.info("api.ready")
     yield
     log.info("api.shutting_down")

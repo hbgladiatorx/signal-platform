@@ -15,6 +15,7 @@ Endpoints:
 """
 from __future__ import annotations
 
+import logging
 from typing import Any, Optional
 from uuid import UUID
 
@@ -30,6 +31,8 @@ from packages.data.user_strategies import (
     soft_delete_user_strategy,
     update_user_strategy,
 )
+from packages.strategy.graph_compiler import compile_graph_to_source
+from packages.strategy.graph_planner import plan_graph_from_nl
 from packages.strategy.llm_translator import (
     TranslationResult,
     translate_nl_to_strategy,
@@ -38,6 +41,8 @@ from packages.strategy.validator import (
     StrategyValidationResult,
     validate_strategy_source,
 )
+
+log = logging.getLogger(__name__)
 
 # Re-use the same session + current-user dependency the rest of the API uses.
 from services.api.deps import (
@@ -322,6 +327,13 @@ class TranslateRequest(BaseModel):
         None, max_length=2000,
         description="What to change about the previous attempt (required if previous_source provided).",
     )
+    # When the request comes from the visual builder, the structured graph is
+    # sent too. We compile it deterministically (honouring every entry/exit/
+    # risk node) and only fall back to the LLM if the graph has constructs the
+    # compiler doesn't support.
+    graph_json: Optional[dict[str, Any]] = Field(default=None)
+    strategy_name: Optional[str] = Field(default=None, max_length=200)
+    asset_class: Optional[str] = Field(default=None, max_length=40)
 
 
 class TranslateResponse(BaseModel):
@@ -370,6 +382,42 @@ async def translate_endpoint(
             detail={"msg": "feedback is required when previous_source is provided"},
         )
 
+    # ---- Deterministic graph compile (preferred for builder graphs) ----
+    # Only on a fresh build (not a refinement turn). Guarantees the generated
+    # code matches the drawn graph — entry AND exit AND risk nodes — instead of
+    # trusting the LLM, which has silently dropped exit rules.
+    if req.graph_json and not req.previous_source:
+        compiled = compile_graph_to_source(
+            name=req.strategy_name or "Strategy",
+            asset_class=req.asset_class or "stocks",
+            graph=req.graph_json,
+        )
+        if compiled.ok and compiled.source_code:
+            validation = validate_strategy_source(compiled.source_code)
+            if validation.ok:
+                return TranslateResponse(
+                    ok=True,
+                    source_code=compiled.source_code,
+                    class_name=validation.class_name or compiled.class_name,
+                    params_class_name=validation.params_class_name
+                    or compiled.params_class_name,
+                    suggested_strategy_name=req.strategy_name,
+                    params_schema=validation.params_schema,
+                    explanation=(
+                        "Compiled directly from the builder graph — every "
+                        "entry, exit, and risk node honoured."
+                        + ("\n" + "\n".join(compiled.notes) if compiled.notes else "")
+                    ),
+                )
+            log.warning(
+                "translate.compiled_invalid reason=%s errors=%s",
+                compiled.reason,
+                [e.as_dict() for e in validation.errors][:3],
+            )
+        else:
+            log.info("translate.compile_fallback reason=%s", compiled.reason)
+        # Either path: fall through to the LLM below.
+
     # Call the LLM
     llm_result: TranslationResult = translate_nl_to_strategy(
         nl_description=req.nl_description,
@@ -400,6 +448,69 @@ async def translate_endpoint(
         validation_errors=[e.as_dict() for e in validation.errors],
         input_tokens=llm_result.input_tokens,
         output_tokens=llm_result.output_tokens,
+    )
+
+
+class PlanGraphRequest(BaseModel):
+    prompt: str = Field(
+        ..., min_length=2, max_length=4000,
+        description="Plain-English strategy idea to turn into a builder node graph.",
+    )
+    asset_class: Optional[str] = Field(default=None, max_length=40)
+    # The current canvas graph, sent so a follow-up message refines instead of
+    # rebuilding from scratch. Shape: {"nodes":[...], "edges":[...]}.
+    graph_json: Optional[dict[str, Any]] = Field(default=None)
+
+
+class PlanGraphResponse(BaseModel):
+    """An AI-built node graph in the frontend BuildResult shape.
+
+    `ok=False` (with `error`) on any LLM failure — missing key, out of credits,
+    timeout, no structured output. The frontend falls back to its offline
+    heuristic builder in that case, so the chat never dead-ends.
+    """
+    ok: bool
+    name: Optional[str] = None
+    assetClass: Optional[str] = None
+    plan: list[str] = []
+    assumptions: list[str] = []
+    questions: list[dict[str, Any]] = []
+    graph: Optional[dict[str, Any]] = None
+    error: Optional[str] = None
+    input_tokens: int = 0
+    output_tokens: int = 0
+
+
+@router.post("/plan-graph", response_model=PlanGraphResponse)
+async def plan_graph_endpoint(
+    req: PlanGraphRequest,
+    user=Depends(get_current_user_record),
+) -> PlanGraphResponse:
+    """AI builder: natural language → visual strategy node graph.
+
+    This is what powers the studio "build assistant" chat. Unlike the old
+    client-side keyword heuristic (which mapped anything to an RSI template),
+    Claude reasons about the actual intent and places real palette nodes —
+    including time-based / non-indicator strategies. The returned graph drops
+    straight onto the React-Flow canvas and is compilable by /translate.
+    """
+    result = plan_graph_from_nl(
+        nl_description=req.prompt,
+        asset_class_hint=req.asset_class,
+        context_graph=req.graph_json,
+    )
+    d = result.to_dict()
+    return PlanGraphResponse(
+        ok=d["ok"],
+        name=d["name"] or None,
+        assetClass=d["assetClass"],
+        plan=d["plan"],
+        assumptions=d["assumptions"],
+        questions=d["questions"],
+        graph=d["graph"] if d["ok"] else None,
+        error=d["error"],
+        input_tokens=d["inputTokens"],
+        output_tokens=d["outputTokens"],
     )
 
 

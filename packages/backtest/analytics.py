@@ -330,6 +330,16 @@ def compute_analytics(result: BacktestResult) -> BacktestAnalytics:
     if annualized_return_pct is not None and max_dd < 0:
         calmar = (annualized_return_pct / 100.0) / abs(max_dd)
 
+    # A run with no COMPLETED round-trip has no realised track record. Any
+    # Sharpe/Sortino/Calmar here is computed off the mark-to-market drift of a
+    # position that never closed — reporting it as a risk-adjusted return is
+    # misleading (e.g. "Sharpe 3.60" on a run with 0 trades). Suppress them so
+    # the verdict reads as inconclusive rather than spuriously strong.
+    if not closed:
+        sharpe = None
+        sortino = None
+        calmar = None
+
     # ----- Trade metrics -----
     winners = [rt for rt in closed if rt.net_pnl > 0]
     losers = [rt for rt in closed if rt.net_pnl < 0]
