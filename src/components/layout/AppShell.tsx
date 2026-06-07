@@ -3,6 +3,7 @@ import { Link, Outlet, useRouterState, useNavigate } from "@tanstack/react-route
 import {
   Home, BookOpen, BarChart3, Signal as SignalIcon, Settings, Bell, Search,
   Wallet, FileText, User, Layers, GitBranch, Inbox as InboxIcon, ArrowRightLeft, Lock, Sparkles, Activity, Brain,
+  Database, Gauge,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,8 @@ const studioNav: NavItem[] = [
   { to: "/studio/backtests", label: "Backtests", icon: BarChart3 },
   { to: "/studio/walkforward", label: "Walk-fwd", icon: ArrowRightLeft },
   { to: "/studio/ml", label: "ML", icon: Brain },
+  { to: "/studio/instruments", label: "Instruments", icon: Database },
+  { to: "/studio/health", label: "Health", icon: Gauge },
   { to: "/studio/live", label: "Live", icon: Activity },
   { to: "/studio/signals", label: "Signals", icon: SignalIcon },
   { to: "/studio/earnings", label: "Earnings", icon: Wallet },

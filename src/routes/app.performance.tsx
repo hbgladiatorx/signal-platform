@@ -14,6 +14,7 @@ import {
 import { Download, Share2 } from "lucide-react";
 import { format } from "date-fns";
 import { useAssetFilter } from "@/lib/asset-filter";
+import { MetricLabel } from "@/components/common/Term";
 
 export const Route = createFileRoute("/app/performance")({
   head: () => ({ meta: [{ title: "Performance — Bayn" }] }),
@@ -50,10 +51,10 @@ function PerformancePage() {
 
       {/* KPI strip */}
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-        <Kpi label="Signals taken" value={data?.kpis.totalTaken ?? "—"} />
-        <Kpi label="Win rate" value={data ? `${(data.kpis.winRate * 100).toFixed(0)}%` : "—"} tone="cyan" />
-        <Kpi label="Avg R" value={data ? `${data.kpis.avgR.toFixed(2)}R` : "—"} />
-        <Kpi label="Max drawdown" value={data ? `${(data.kpis.maxDrawdown * 100).toFixed(2)}%` : "—"} tone="danger" />
+        <Kpi label={<MetricLabel term="signal">Signals taken</MetricLabel>} value={data?.kpis.totalTaken ?? "—"} />
+        <Kpi label={<MetricLabel term="winRate" />} value={data ? `${(data.kpis.winRate * 100).toFixed(0)}%` : "—"} tone="cyan" />
+        <Kpi label={<MetricLabel term="avgR" />} value={data ? `${data.kpis.avgR.toFixed(2)}R` : "—"} />
+        <Kpi label={<MetricLabel term="maxDrawdown" />} value={data ? `${(data.kpis.maxDrawdown * 100).toFixed(2)}%` : "—"} tone="danger" />
       </div>
 
 
@@ -97,9 +98,9 @@ function PerformancePage() {
                 <th className="px-4 py-2 text-left font-medium">Strategy</th>
                 <th className="px-4 py-2 text-left font-medium">Symbol</th>
                 <th className="px-4 py-2 text-left font-medium">Dir</th>
-                <th className="px-4 py-2 text-right font-medium">Entry</th>
-                <th className="px-4 py-2 text-right font-medium">Fill</th>
-                <th className="px-4 py-2 text-right font-medium">R</th>
+                <th className="px-4 py-2 text-right font-medium"><MetricLabel term="entry">Entry</MetricLabel></th>
+                <th className="px-4 py-2 text-right font-medium"><MetricLabel term="fill">Fill</MetricLabel></th>
+                <th className="px-4 py-2 text-right font-medium"><MetricLabel term="rMultiple">R</MetricLabel></th>
                 <th className="px-4 py-2 text-left font-medium">Result</th>
                 <th className="px-4 py-2 text-right font-medium">Share</th>
               </tr>
@@ -137,7 +138,7 @@ function PerformancePage() {
   );
 }
 
-function Kpi({ label, value, tone }: { label: string; value: React.ReactNode; tone?: "cyan" | "danger" }) {
+function Kpi({ label, value, tone }: { label: React.ReactNode; value: React.ReactNode; tone?: "cyan" | "danger" }) {
   return (
     <div className="rounded-lg border border-border bg-elevated p-3">
       <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{label}</div>

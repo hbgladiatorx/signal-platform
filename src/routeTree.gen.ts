@@ -24,7 +24,9 @@ import { Route as StudioSettingsRouteImport } from './routes/studio.settings'
 import { Route as StudioPricingRouteImport } from './routes/studio.pricing'
 import { Route as StudioMlRouteImport } from './routes/studio.ml'
 import { Route as StudioLiveRouteImport } from './routes/studio.live'
+import { Route as StudioInstrumentsRouteImport } from './routes/studio.instruments'
 import { Route as StudioHomeRouteImport } from './routes/studio.home'
+import { Route as StudioHealthRouteImport } from './routes/studio.health'
 import { Route as StudioEarningsRouteImport } from './routes/studio.earnings'
 import { Route as StudioDocsRouteImport } from './routes/studio.docs'
 import { Route as StudioBacktestsRouteImport } from './routes/studio.backtests'
@@ -118,9 +120,19 @@ const StudioLiveRoute = StudioLiveRouteImport.update({
   path: '/live',
   getParentRoute: () => StudioRoute,
 } as any)
+const StudioInstrumentsRoute = StudioInstrumentsRouteImport.update({
+  id: '/instruments',
+  path: '/instruments',
+  getParentRoute: () => StudioRoute,
+} as any)
 const StudioHomeRoute = StudioHomeRouteImport.update({
   id: '/home',
   path: '/home',
+  getParentRoute: () => StudioRoute,
+} as any)
+const StudioHealthRoute = StudioHealthRouteImport.update({
+  id: '/health',
+  path: '/health',
   getParentRoute: () => StudioRoute,
 } as any)
 const StudioEarningsRoute = StudioEarningsRouteImport.update({
@@ -229,7 +241,9 @@ export interface FileRoutesByFullPath {
   '/studio/backtests': typeof StudioBacktestsRouteWithChildren
   '/studio/docs': typeof StudioDocsRoute
   '/studio/earnings': typeof StudioEarningsRoute
+  '/studio/health': typeof StudioHealthRoute
   '/studio/home': typeof StudioHomeRoute
+  '/studio/instruments': typeof StudioInstrumentsRoute
   '/studio/live': typeof StudioLiveRoute
   '/studio/ml': typeof StudioMlRoute
   '/studio/pricing': typeof StudioPricingRoute
@@ -264,7 +278,9 @@ export interface FileRoutesByTo {
   '/studio/backtests': typeof StudioBacktestsRouteWithChildren
   '/studio/docs': typeof StudioDocsRoute
   '/studio/earnings': typeof StudioEarningsRoute
+  '/studio/health': typeof StudioHealthRoute
   '/studio/home': typeof StudioHomeRoute
+  '/studio/instruments': typeof StudioInstrumentsRoute
   '/studio/live': typeof StudioLiveRoute
   '/studio/ml': typeof StudioMlRoute
   '/studio/pricing': typeof StudioPricingRoute
@@ -300,7 +316,9 @@ export interface FileRoutesById {
   '/studio/backtests': typeof StudioBacktestsRouteWithChildren
   '/studio/docs': typeof StudioDocsRoute
   '/studio/earnings': typeof StudioEarningsRoute
+  '/studio/health': typeof StudioHealthRoute
   '/studio/home': typeof StudioHomeRoute
+  '/studio/instruments': typeof StudioInstrumentsRoute
   '/studio/live': typeof StudioLiveRoute
   '/studio/ml': typeof StudioMlRoute
   '/studio/pricing': typeof StudioPricingRoute
@@ -337,7 +355,9 @@ export interface FileRouteTypes {
     | '/studio/backtests'
     | '/studio/docs'
     | '/studio/earnings'
+    | '/studio/health'
     | '/studio/home'
+    | '/studio/instruments'
     | '/studio/live'
     | '/studio/ml'
     | '/studio/pricing'
@@ -372,7 +392,9 @@ export interface FileRouteTypes {
     | '/studio/backtests'
     | '/studio/docs'
     | '/studio/earnings'
+    | '/studio/health'
     | '/studio/home'
+    | '/studio/instruments'
     | '/studio/live'
     | '/studio/ml'
     | '/studio/pricing'
@@ -407,7 +429,9 @@ export interface FileRouteTypes {
     | '/studio/backtests'
     | '/studio/docs'
     | '/studio/earnings'
+    | '/studio/health'
     | '/studio/home'
+    | '/studio/instruments'
     | '/studio/live'
     | '/studio/ml'
     | '/studio/pricing'
@@ -541,11 +565,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudioLiveRouteImport
       parentRoute: typeof StudioRoute
     }
+    '/studio/instruments': {
+      id: '/studio/instruments'
+      path: '/instruments'
+      fullPath: '/studio/instruments'
+      preLoaderRoute: typeof StudioInstrumentsRouteImport
+      parentRoute: typeof StudioRoute
+    }
     '/studio/home': {
       id: '/studio/home'
       path: '/home'
       fullPath: '/studio/home'
       preLoaderRoute: typeof StudioHomeRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/studio/health': {
+      id: '/studio/health'
+      path: '/health'
+      fullPath: '/studio/health'
+      preLoaderRoute: typeof StudioHealthRouteImport
       parentRoute: typeof StudioRoute
     }
     '/studio/earnings': {
@@ -716,7 +754,9 @@ interface StudioRouteChildren {
   StudioBacktestsRoute: typeof StudioBacktestsRouteWithChildren
   StudioDocsRoute: typeof StudioDocsRoute
   StudioEarningsRoute: typeof StudioEarningsRoute
+  StudioHealthRoute: typeof StudioHealthRoute
   StudioHomeRoute: typeof StudioHomeRoute
+  StudioInstrumentsRoute: typeof StudioInstrumentsRoute
   StudioLiveRoute: typeof StudioLiveRoute
   StudioMlRoute: typeof StudioMlRoute
   StudioPricingRoute: typeof StudioPricingRoute
@@ -733,7 +773,9 @@ const StudioRouteChildren: StudioRouteChildren = {
   StudioBacktestsRoute: StudioBacktestsRouteWithChildren,
   StudioDocsRoute: StudioDocsRoute,
   StudioEarningsRoute: StudioEarningsRoute,
+  StudioHealthRoute: StudioHealthRoute,
   StudioHomeRoute: StudioHomeRoute,
+  StudioInstrumentsRoute: StudioInstrumentsRoute,
   StudioLiveRoute: StudioLiveRoute,
   StudioMlRoute: StudioMlRoute,
   StudioPricingRoute: StudioPricingRoute,

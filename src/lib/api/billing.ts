@@ -261,7 +261,17 @@ export const FREE_STRATEGY_IDS = new Set<string>([
   "s-meanrev-spy", "s-btc-hourly-mr", "s-spy-otm-put", "s-mes-orb",
 ]);
 
-export function isFreeStrategy(id: string) { return FREE_STRATEGY_IDS.has(id); }
+/**
+ * Billing is stubbed (no live Stripe / no checkout webhook that writes the
+ * product_subscriptions follow row). Until that exists, every catalog strategy
+ * is free to follow so users can actually receive live signals — otherwise the
+ * paywall blocks the only code path that creates a follow row, and signals
+ * (which are RLS-gated on product_subscriptions) never appear.
+ *
+ * The legacy FREE_STRATEGY_IDS set is kept for reference; when real billing
+ * lands, restore `return FREE_STRATEGY_IDS.has(id)` here.
+ */
+export function isFreeStrategy(_id: string) { return true; }
 
 /** Count how many add-on slots the user has purchased. */
 export function getAddOnSlotCount(): number {

@@ -201,6 +201,11 @@ export function subscribeToSignalUpdates(onUpdate: (signal: any) => void) {
 import { useQuery } from "@tanstack/react-query";
 import type { Strategy, Signal, EquityPoint, TakenSignal, AssetClass, SignalStatus, Direction } from "../types";
 
+const num = (v: unknown): number => {
+  const x = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(x) ? x : 0;
+};
+
 function mapProductRow(row: any): Strategy {
   const ac = (row.asset_class ?? "stocks") as AssetClass;
   return {
@@ -214,15 +219,27 @@ function mapProductRow(row: any): Strategy {
     devHandle: "@bayn",
     status: "Watching",
     stage: "Published",
-    edgeVerified: row.gate_status === "passed" || row.gate_status === "live" || row.gate_status === 3,
+    // gate_status: integer stage where 5 = edge-verified/live; lower stages are
+    // draft/paper. (String values kept as a defensive fallback.) Previously this
+    // checked `=== 3`, which flagged paper strategies as verified and left the
+    // real gate-5 products unverified.
+    edgeVerified:
+      row.gate_status === "passed" ||
+      row.gate_status === "live" ||
+      (typeof row.gate_status === "number" && row.gate_status >= 5),
     symbols: [],
     lastSignalAt: row.updated_at ?? row.created_at ?? new Date().toISOString(),
     createdAt: row.created_at ?? new Date().toISOString(),
+    // Supabase serializes numeric columns as strings — coerce every stat before
+    // it reaches `.toFixed`/arithmetic in the cards (the old code compared
+    // forward_win_rate with `typeof === "number"`, so real win rates showed 0).
+    // Stored convention: win rate + max drawdown are fractions (cards ×100),
+    // sharpe is raw. These come from a real backtest over `backtest_window`.
     stats: {
-      sharpe: 0,
-      winRate: typeof row.forward_win_rate === "number" ? row.forward_win_rate : 0,
-      maxDrawdown: 0,
-      sampleSize: 0,
+      sharpe: num(row.sharpe),
+      winRate: num(row.forward_win_rate),
+      maxDrawdown: num(row.max_drawdown_pct),
+      sampleSize: Math.round(num(row.sample_size)),
       avgR: 0,
       liveDays: 0,
       subscribers: 0,

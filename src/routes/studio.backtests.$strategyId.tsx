@@ -22,6 +22,17 @@ import { AnalysisCard } from "@/components/studio/AnalysisCard";
 import { AttributionCard } from "@/components/studio/AttributionCard";
 import { ModelCard } from "@/components/studio/ModelCard";
 import { CardErrorBoundary } from "@/components/common/CardErrorBoundary";
+import {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
+  AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
+
+// Minimum closed trades for an out-of-sample result to be statistically
+// meaningful — mirrors the backend's MIN_TRADES_CONFIDENT (backtest_analysis.py).
+// Below this the verdict is "inconclusive": metrics like Sharpe/win-rate can't be
+// trusted (a single lucky trade reads as a 100% win rate), so we don't silently
+// pass — we route the user through an explicit "continue anyway?" gate.
+const MIN_OOS_TRADES = 30;
 
 const searchSchema = z.object({
   runId: fallback(z.string().optional(), undefined),
@@ -74,6 +85,12 @@ function BacktestDetail() {
 
   const [selectedId, setSelectedId] = useState<string | undefined>(runId);
   useEffect(() => { if (runId) setSelectedId(runId); }, [runId]);
+
+  // When OOS doesn't cleanly pass (negative return, or too few trades to judge)
+  // we don't dead-end — we open this gate so the user can continue regardless.
+  const [oosGate, setOosGate] = useState<
+    null | { ret: number; nTrades: number; verdict?: string; inconclusive: boolean }
+  >(null);
 
   const selectedRunId = selectedId ?? runId ?? runs?.[0]?.id;
   // The list gives light runs (stats only); fetch the selected run's full
@@ -144,15 +161,23 @@ function BacktestDetail() {
           windowEnd: oosEndIso,
         });
         const ret = r.stats.totalReturn;
-        const passed = Number.isFinite(ret) && ret > 0;
-        if (passed) {
-          advanceStage(strategyId, "oos");
-          toast.success(`OOS passed · ${fmtPct(ret)} on held-out data`, { id: "oos" });
-        } else {
-          toast.error(`OOS failed · ${fmtPct(ret)} on held-out data. Strategy did not hold up out-of-sample.`, { id: "oos" });
-        }
+        const nTrades = r.stats.totalTrades ?? 0;
+        const verdict = r.analysis?.verdict;
+        // Too few trades to judge → inconclusive, even if the return is positive
+        // (a single lucky trade would otherwise sail through as a "pass").
+        const inconclusive = nTrades < MIN_OOS_TRADES || verdict === "inconclusive";
+        const profitable = Number.isFinite(ret) && ret > 0;
         await qc.invalidateQueries({ queryKey: ["bts", strategyId] });
         navigate({ to: "/studio/backtests/$strategyId", params: { strategyId }, search: { runId: r.id } as never });
+
+        if (profitable && !inconclusive) {
+          advanceStage(strategyId, "oos");
+          toast.success(`OOS passed · ${fmtPct(ret)} on held-out data · ${nTrades} trades`, { id: "oos" });
+        } else {
+          // Don't dead-end. Surface why, and let the user continue regardless.
+          toast.dismiss("oos");
+          setOosGate({ ret, nTrades, verdict, inconclusive });
+        }
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Out-of-sample test failed to run", { id: "oos" });
       }
@@ -403,6 +428,63 @@ function BacktestDetail() {
           <Send className="mr-1 size-4" /> Submit to Bayn
         </Button>
       </div>
+
+      {/* OOS gate — opens when the out-of-sample test didn't cleanly pass,
+          so the user can review/tune or continue to the forward test anyway. */}
+      <AlertDialog open={!!oosGate} onOpenChange={(open) => !open && setOosGate(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {oosGate?.inconclusive
+                ? "Out-of-sample test was inconclusive"
+                : "Strategy didn’t hold up out-of-sample"}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                {oosGate?.inconclusive ? (
+                  <p>
+                    Only <span className="font-mono text-foreground">{oosGate?.nTrades}</span>{" "}
+                    trade{oosGate?.nTrades === 1 ? "" : "s"} cleared in the held-out window — too few
+                    to tell whether the edge is real. With this little data, Sharpe and win rate
+                    aren’t meaningful (a single lucky trade reads as a 100% win rate).
+                  </p>
+                ) : (
+                  <p>
+                    Held-out return was{" "}
+                    <span className="font-mono text-danger">{oosGate ? fmtPct(oosGate.ret) : ""}</span>{" "}
+                    across <span className="font-mono text-foreground">{oosGate?.nTrades}</span>{" "}
+                    trade{oosGate?.nTrades === 1 ? "" : "s"}. The strategy lost money on data it
+                    wasn’t tuned on.
+                  </p>
+                )}
+                <p className="rounded-md border border-border bg-muted/20 p-3 text-xs">
+                  To get a trustworthy result, loosen entry conditions, widen the date range, or test
+                  more symbols so the run generates at least{" "}
+                  <span className="font-mono text-foreground">{MIN_OOS_TRADES}</span> trades — then
+                  re-run the out-of-sample test.
+                </p>
+                <p className="text-xs">
+                  You can still continue to the forward test, but treat its results with caution
+                  until the sample size is large enough to trust.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Review &amp; tune</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-violet text-violet-foreground hover:bg-violet/90"
+              onClick={() => {
+                advanceStage(strategyId, "oos");
+                setOosGate(null);
+                toast.success("Continuing past out-of-sample — you can now deploy to the forward test.");
+              }}
+            >
+              Continue anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Inbox } from "lucide-react";
 import type { SignalStatus } from "@/lib/types";
+import { MetricLabel, Term } from "@/components/common/Term";
 
 export const Route = createFileRoute("/app/signals")({
   head: () => ({ meta: [{ title: "Signals — Bayn" }] }),
@@ -65,17 +66,17 @@ function SignalsPage() {
             Signals {assetClass !== "all" && <span className="text-muted-foreground">· {assetClass}</span>}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Live signals from your followed strategies, grouped by state.
+            Live <Term name="signal">signals</Term> from your followed strategies, grouped by state.
           </p>
         </div>
       </div>
 
       {/* KPI strip */}
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-        <Kpi label="Open" value={openCount} tone="cyan" />
-        <Kpi label="Won" value={wonCount} tone="cyan" />
-        <Kpi label="Lost" value={lostCount} tone="danger" />
-        <Kpi label="Win rate" value={closed ? `${(winRate * 100).toFixed(0)}%` : "—"} />
+        <Kpi label={<MetricLabel term="statusOpen">Open</MetricLabel>} value={openCount} tone="cyan" />
+        <Kpi label={<MetricLabel term="statusTarget">Won</MetricLabel>} value={wonCount} tone="cyan" />
+        <Kpi label={<MetricLabel term="statusStop">Lost</MetricLabel>} value={lostCount} tone="danger" />
+        <Kpi label={<MetricLabel term="winRate" />} value={closed ? `${(winRate * 100).toFixed(0)}%` : "—"} />
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -122,10 +123,18 @@ function SignalsPage() {
         {list.length === 0 && (
           <Card className="grid place-items-center gap-3 border-dashed border-border bg-elevated/40 p-10 text-center text-sm text-muted-foreground">
             <Inbox className="size-8 opacity-50" />
-            <div>
-              {followedIds.size === 0
-                ? "You're not following any strategies yet — signals appear here once you subscribe."
-                : "No signals from your followed strategies match these filters."}
+            <div className="max-w-md space-y-1">
+              {followedIds.size === 0 ? (
+                <>
+                  <p className="text-foreground">You're not following any strategies yet.</p>
+                  <p className="text-xs">
+                    Each <Term name="signal">signal</Term> is an alert with an <Term name="entry">entry</Term>, a{" "}
+                    <Term name="stop">stop</Term>, and a <Term name="target">target</Term> — fired by a strategy you follow when its conditions hit. Follow one to start receiving them.
+                  </p>
+                </>
+              ) : (
+                <p>No signals from your followed strategies match these filters.</p>
+              )}
             </div>
             <Button asChild size="sm"><Link to="/app/catalog">Browse catalog</Link></Button>
           </Card>
@@ -136,7 +145,7 @@ function SignalsPage() {
   );
 }
 
-function Kpi({ label, value, tone }: { label: string; value: React.ReactNode; tone?: "cyan" | "danger" }) {
+function Kpi({ label, value, tone }: { label: React.ReactNode; value: React.ReactNode; tone?: "cyan" | "danger" }) {
   return (
     <div className="rounded-lg border border-border bg-elevated p-3">
       <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{label}</div>

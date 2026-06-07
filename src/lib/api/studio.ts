@@ -627,7 +627,12 @@ export async function runBacktest(
     const d = await api.get<ApiBacktestDetail>(`/backtests/${id}`);
     if (d.status === "completed") {
       const full = await getBacktest(id);
-      if (full) return full;
+      // getBacktest() can't know the owning strategy (a backtest detail only
+      // carries strategy_name) so it stamps the backtest id as strategyId.
+      // We DO know it here — overwrite with the real one so callers can
+      // navigate to /studio/backtests/$strategyId and the detail page resolves
+      // the strategy instead of sitting on "Loading…" forever.
+      if (full) return { ...full, strategyId };
     }
     if (d.status === "failed") {
       throw new ApiError(500, d.error_message || "Backtest failed");

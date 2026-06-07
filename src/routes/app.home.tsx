@@ -20,9 +20,12 @@ import {
 import { TrendingUp, Inbox } from "lucide-react";
 import { useAssetFilter } from "@/lib/asset-filter";
 import { LiveTrackerChart } from "@/components/common/LiveTrackerChart";
+import { MyStrategyCharts } from "@/components/common/MyStrategyCharts";
 import { NewsTicker } from "@/components/common/NewsTicker";
 import { TVMarketOverview } from "@/components/common/TVMarketOverview";
 import { CustomizeButton } from "@/components/common/CustomizeButton";
+import { GetStartedChecklist } from "@/components/common/GetStartedChecklist";
+import { MetricLabel } from "@/components/common/Term";
 
 
 export const Route = createFileRoute("/app/home")({
@@ -68,6 +71,9 @@ function HomePage() {
         <CustomizeButton mode="trader" />
       </div>
 
+      {/* Onboarding soft-prompt — auto-hides once steps are done or dismissed */}
+      <GetStartedChecklist />
+
       {/* Hero: live tracking of subscribed strategy with drawings */}
       <section>
         <div className="mb-3 flex items-center justify-between">
@@ -110,32 +116,7 @@ function HomePage() {
             cta={<Button asChild><Link to="/app/catalog">Explore catalog</Link></Button>}
           />
         ) : (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {followedFiltered.map((s) => (
-              <Link key={s.id} to="/app/strategy/$id" params={{ id: s.id }}>
-                <Card className="group h-full border-border bg-elevated p-4 transition-colors hover:border-cyan/30">
-                  <div className="mb-2 flex items-start justify-between gap-2">
-                    <h3 className="font-semibold leading-tight group-hover:text-cyan">{s.name}</h3>
-                    <AssetClassBadge assetClass={s.assetClass} hideIcon />
-                  </div>
-                  <p className="mb-3 text-xs text-muted-foreground line-clamp-2">{s.description}</p>
-                  <div className="mb-3 flex items-center gap-2">
-                    <StatusChip status={s.status} />
-                    <span className="text-xs text-muted-foreground">
-                      Signal {formatDistanceToNow(new Date(s.lastSignalAt), { addSuffix: true })}
-                    </span>
-                  </div>
-                  <div className="flex items-end justify-between text-xs">
-                    <div>
-                      <div className="font-mono text-lg text-foreground">{(s.stats.winRate * 100).toFixed(0)}%</div>
-                      <div className="text-muted-foreground">Win rate · {s.stats.sampleSize} trades</div>
-                    </div>
-                    <PipelineBadge compact />
-                  </div>
-                </Card>
-              </Link>
-            ))}
-          </div>
+          <MyStrategyCharts />
         )}
       </section>
 
@@ -169,7 +150,15 @@ function HomePage() {
             ))}
             {recent.data && recentFiltered.length === 0 && (
               <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                No recent {assetClass} signals.
+                <p>No recent {assetClass === "all" ? "" : assetClass + " "}signals yet.</p>
+                <p className="mx-auto mt-1 max-w-md text-xs">
+                  A signal fires when a strategy you follow meets its conditions on live market data — it arrives with an entry, a stop, and a target.{" "}
+                  {(followed.data?.length ?? 0) === 0 ? (
+                    <Link to="/app/catalog" className="text-cyan hover:underline">Follow a strategy</Link>
+                  ) : (
+                    "Yours will show up here as soon as they trigger."
+                  )}
+                </p>
               </div>
             )}
           </div>
@@ -207,10 +196,10 @@ function HomePage() {
             </ResponsiveContainer>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-            <Kpi label="Total signals taken" value={perf.data?.kpis.totalTaken ?? "—"} />
-            <Kpi label="Win rate" value={perf.data ? `${(perf.data.kpis.winRate * 100).toFixed(0)}%` : "—"} accent="cyan" />
-            <Kpi label="Avg R-multiple" value={perf.data ? perf.data.kpis.avgR.toFixed(2) + "R" : "—"} />
-            <Kpi label="Max drawdown" value={perf.data ? fmtPct(perf.data.kpis.maxDrawdown) : "—"} accent="danger" />
+            <Kpi label={<MetricLabel term="signal">Total signals taken</MetricLabel>} value={perf.data?.kpis.totalTaken ?? "—"} />
+            <Kpi label={<MetricLabel term="winRate" />} value={perf.data ? `${(perf.data.kpis.winRate * 100).toFixed(0)}%` : "—"} accent="cyan" />
+            <Kpi label={<MetricLabel term="avgR">Avg R-multiple</MetricLabel>} value={perf.data ? perf.data.kpis.avgR.toFixed(2) + "R" : "—"} />
+            <Kpi label={<MetricLabel term="maxDrawdown" />} value={perf.data ? fmtPct(perf.data.kpis.maxDrawdown) : "—"} accent="danger" />
           </div>
         </Card>
       </section>
@@ -218,7 +207,7 @@ function HomePage() {
   );
 }
 
-function Kpi({ label, value, accent }: { label: string; value: React.ReactNode; accent?: "cyan" | "danger" }) {
+function Kpi({ label, value, accent }: { label: React.ReactNode; value: React.ReactNode; accent?: "cyan" | "danger" }) {
   return (
     <div className="rounded-lg border border-border bg-background/40 p-3">
       <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>

@@ -123,11 +123,14 @@ export function useOnlyNewsForWatched() {
 
 /* ---------------- Enabled asset classes (master cascade) ---------------- */
 export const ALL_ASSET_CLASSES: AssetClass[] = ["stocks", "crypto", "options", "futures"];
+// Default to ALL classes when the user hasn't chosen — an empty default made
+// the master cascade filter every strategy out, leaving the catalog blank for
+// anyone without a saved preference (e.g. who skipped onboarding).
 export function useEnabledAssetClasses() {
-  return usePref<AssetClass[]>("assetClasses", []);
+  return usePref<AssetClass[]>("assetClasses", ALL_ASSET_CLASSES);
 }
 export function getEnabledAssetClasses() {
-  return read<AssetClass[]>("assetClasses", []);
+  return read<AssetClass[]>("assetClasses", ALL_ASSET_CLASSES);
 }
 export function setEnabledAssetClasses(v: AssetClass[]) { write("assetClasses", v); }
 

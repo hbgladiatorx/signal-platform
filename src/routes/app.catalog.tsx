@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { AssetClassBadge } from "@/components/common/AssetClassBadge";
 import { PipelineBadge } from "@/components/common/PipelineBadge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MetricLabel } from "@/components/common/Term";
+import type { GlossaryKey } from "@/lib/glossary";
 import { Users, Check, Plus, Lock } from "lucide-react";
 import { useAssetFilter } from "@/lib/asset-filter";
 import { useEnabledAssetClasses } from "@/lib/user-prefs";
@@ -118,10 +120,10 @@ function CatalogPage() {
                 <p className="text-sm text-muted-foreground line-clamp-2">{s.description}</p>
                 <div><PipelineBadge compact /></div>
                 <div className="mt-auto grid grid-cols-4 gap-2 border-t border-border pt-3 text-center">
-                  <Stat label="Sharpe" value={s.stats.sharpe.toFixed(2)} />
-                  <Stat label="Win" value={`${(s.stats.winRate * 100).toFixed(0)}%`} />
-                  <Stat label="Max DD" value={`${(s.stats.maxDrawdown * 100).toFixed(0)}%`} />
-                  <Stat label="Live" value={`${s.stats.liveDays}d`} />
+                  <Stat term="sharpe" label="Sharpe" value={s.stats.sharpe.toFixed(2)} />
+                  <Stat term="winRate" label="Win" value={`${(s.stats.winRate * 100).toFixed(0)}%`} />
+                  <Stat term="maxDrawdown" label="Max DD" value={`${(s.stats.maxDrawdown * 100).toFixed(0)}%`} />
+                  <Stat term="liveDays" label="Live" value={`${s.stats.liveDays}d`} />
                 </div>
               </Link>
               <div className="flex items-center justify-between pt-1">
@@ -171,11 +173,13 @@ function CatalogPage() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ term, label, value }: { term: GlossaryKey; label: string; value: string }) {
   return (
     <div>
       <div className="font-mono text-sm">{value}</div>
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <MetricLabel term={term} className="text-[10px] uppercase tracking-wide text-muted-foreground decoration-muted-foreground/30">
+        {label}
+      </MetricLabel>
     </div>
   );
 }
