@@ -1,0 +1,13 @@
+# Core (offline-runnable): the PIT layer, anti-bias logic, and backtester run
+# on these alone, using stdlib sqlite3 for the panel store.
+requests>=2.31
+numpy>=1.26
+python-dateutil>=2.9
+
+# Production runtime (Supabase Postgres + dataframe report export).
+# Install with:  pip install -e ".[prod]"
+# psycopg[binary]>=3.1
+# pandas>=2.1
+
+# Dev / test
+pytest>=8.0

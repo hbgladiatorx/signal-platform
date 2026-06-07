@@ -1,0 +1,27 @@
+# Railway deployment + cron configuration.
+#
+# Two scheduled jobs (Section 2 runtime):
+#   1. Daily live signal engine   -- runs after US market close.
+#   2. Daily IV-rank snapshot job -- builds the IV-rank store the chain needs.
+
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "python -m catalyst.cron.live_engine"
+restartPolicyType = "never"
+
+# --- Cron jobs ---
+# Railway cron uses standard cron expressions in UTC.
+
+[[crons]]
+name = "ivrank-snapshot"
+# 21:10 UTC ~= 17:10 ET, just after the close. Snapshot ATM IV per watchlist name.
+schedule = "10 21 * * 1-5"
+command = "python -m catalyst.cron.ivrank_snapshot"
+
+[[crons]]
+name = "live-signal-engine"
+# 21:30 UTC, after the IV snapshot has landed. Generate the day's signals.
+schedule = "30 21 * * 1-5"
+command = "python -m catalyst.cron.live_engine"
