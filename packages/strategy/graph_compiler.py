@@ -70,6 +70,24 @@ def _num(v: Any) -> float | None:
         return None
 
 
+def _direction(node: dict) -> str:
+    """Classify a signal node (entry/exit) as 'LONG' or 'SHORT'.
+
+    Entry nodes carry an explicit ``data.direction`` ("LONG"|"SHORT"). Exit
+    nodes carry no direction in the palette (``data: {}``), so fall back to the
+    label ("Exit SHORT" → short). Anything unspecified defaults to LONG — the
+    engine is long-only, so an undirected signal is treated as the long leg.
+    """
+    d = node.get("data") or {}
+    raw = str(d.get("direction") or "").strip().upper()
+    if raw in ("LONG", "SHORT"):
+        return raw
+    label = str(node.get("label") or "").upper()
+    if "SHORT" in label:
+        return "SHORT"
+    return "LONG"
+
+
 def _edges(graph: dict) -> list[dict]:
     return [e for e in (graph.get("edges") or []) if isinstance(e, dict)]
 
@@ -132,8 +150,26 @@ def compile_graph_to_source(
             }
 
     # ---- comparators wired to entry / exit signals ----
-    entry_ids = {n.get("id") for n in nodes if node_type(n) == "entry"}
-    exit_ids = {n.get("id") for n in nodes if node_type(n) == "exit"}
+    # The engine is LONG-ONLY. A long/short graph (e.g. RSI mean reversion with
+    # both a LONG entry on "oversold" and a SHORT entry on "overbought") must
+    # compile ONLY its long leg. Mixing the two — collecting comparators across
+    # both directions and AND-joining them — yields impossible conditions like
+    # "RSI < 30 and RSI > 70", which never fire (every backtest returns 0
+    # trades). Split by direction and keep the long side only.
+    all_entry_nodes = [n for n in nodes if node_type(n) == "entry"]
+    all_exit_nodes = [n for n in nodes if node_type(n) == "exit"]
+    entry_ids = {n.get("id") for n in all_entry_nodes if _direction(n) == "LONG"}
+    exit_ids = {n.get("id") for n in all_exit_nodes if _direction(n) == "LONG"}
+    if any(_direction(n) == "SHORT" for n in all_entry_nodes):
+        if not entry_ids:
+            # Purely short strategy — the long-only engine can't represent it.
+            return CompileResult(
+                ok=False, reason="short-only strategy; long-only engine"
+            )
+        notes.append(
+            "Short legs were dropped — the engine is long-only in this phase; "
+            "only the long entry/exit signals are compiled."
+        )
     if not entry_ids:
         return CompileResult(ok=False, reason="no entry signal node")
 
@@ -189,7 +225,56 @@ def compile_graph_to_source(
                 stop_pct = _num(d.get("value"))
             # atr/r-multiple stops need trade context we don't track here →
             # skip (entry/exit signals still drive the strategy).
-    position_size = 0.01  # base units; conservative default per the contract
+
+    # ---- take-profit node ----
+    # Previously the compiler ignored takeProfit nodes entirely, so any target a
+    # user drew was silently dropped — the position could only ever close on the
+    # exit signal or the stop. Honour it now. We resolve the target to a percent
+    # distance above entry at compile time:
+    #   percent     → that percent directly
+    #   r_multiple  → reward = R × risk, where risk is the percent stop distance
+    #                 (so 2R against a 3% stop = a 6% target). Needs a percent
+    #                 stop to measure R against; without one we can't, so we note
+    #                 it and leave the target off rather than guess.
+    tp_pct: float | None = None
+    for n in nodes:
+        if node_type(n) == "takeProfit":
+            d = n.get("data") or {}
+            val = _num(d.get("value"))
+            if val is None or val <= 0:
+                continue
+            t = d.get("type")
+            if t == "r_multiple":
+                if stop_pct is not None and stop_pct > 0:
+                    tp_pct = val * stop_pct
+                else:
+                    notes.append(
+                        "Take-profit is R-multiple but there's no percent stop to "
+                        "measure R against — target skipped; exit/stop still apply."
+                    )
+            else:  # "percent" (or unspecified) → treat as a percent distance
+                tp_pct = val
+
+    # ---- position sizing ----
+    # Honour the positionSize node the user drew. The old compiler hardcoded
+    # 0.01 BASE UNITS, which for an equity at ~$400-600 is ~$5 of exposure on a
+    # $25k account — so every backtest returned ~0% no matter how the strategy
+    # actually performed. Size as a fraction of account equity (or a fixed cash
+    # amount) and convert to a quantity at the entry price instead.
+    #   percent_account → qty = (pct/100) * equity / price
+    #   fixed_cash      → qty = cash_amount / price
+    # The entry only fires when flat, so ctx.cash == account equity at entry.
+    sizing: dict[str, Any] = {"mode": "percent_account", "value": 95.0}
+    for n in nodes:
+        if node_type(n) == "positionSize":
+            d = n.get("data") or {}
+            val = _num(d.get("value"))
+            if val is None or val <= 0:
+                continue
+            if d.get("type") == "fixed_cash":
+                sizing = {"mode": "fixed_cash", "value": val}
+            else:  # "percent_account" (or unspecified) → treat as percent
+                sizing = {"mode": "percent_account", "value": val}
 
     # ---- emit ----
     cls = _class_name_from(name)
@@ -203,7 +288,8 @@ def compile_graph_to_source(
         entry_conds=entry_conds,
         exit_conds=exit_conds,
         stop_pct=stop_pct,
-        position_size=position_size,
+        tp_pct=tp_pct,
+        sizing=sizing,
         notes=notes,
     )
     return CompileResult(
@@ -222,7 +308,8 @@ def _emit_source(
     entry_conds: list[dict],
     exit_conds: list[dict],
     stop_pct: float | None,
-    position_size: float,
+    tp_pct: float | None,
+    sizing: dict[str, Any],
     notes: list[str],
 ) -> str:
     # Unique indicator vars (period-deduped) → one param + one ctx call each.
@@ -285,10 +372,21 @@ def _emit_source(
         A(f"        default={stop_pct}, gt=0, le=90,")
         A('        description="Stop-loss distance below entry, in percent.",')
         A("    )")
-    A("    position_size: float = Field(")
-    A(f"        default={position_size}, gt=0,")
-    A('        description="Quantity in base units bought per entry.",')
-    A("    )")
+    if tp_pct is not None:
+        A("    take_profit_percent: float = Field(")
+        A(f"        default={tp_pct}, gt=0, le=1000,")
+        A('        description="Take-profit distance above entry, in percent.",')
+        A("    )")
+    if sizing["mode"] == "fixed_cash":
+        A("    position_cash: float = Field(")
+        A(f"        default={sizing['value']}, gt=0,")
+        A('        description="Cash deployed per entry, in account currency.",')
+        A("    )")
+    else:
+        A("    position_pct: float = Field(")
+        A(f"        default={sizing['value']}, gt=0, le=100,")
+        A('        description="Percent of account equity deployed per entry.",')
+        A("    )")
     A("")
     A("")
     A(f"class {class_name}(Strategy[{params_class_name}]):")
@@ -304,6 +402,8 @@ def _emit_source(
     A("            )")
     A("        self.symbol: str = self.symbols[0]")
     A('        self.state["stop_price"] = None')
+    if tp_pct is not None:
+        A('        self.state["target_price"] = None')
     A("")
     A("    def on_bar(self, ctx: BarContext) -> None:")
     # indicator fetches
@@ -322,6 +422,18 @@ def _emit_source(
         A('            if price <= self.state["stop_price"]:')
         A("                ctx.submit_sell_market(self.symbol, position)")
         A('                self.state["stop_price"] = None')
+        if tp_pct is not None:
+            A('                self.state["target_price"] = None')
+        A("                return")
+        A("")
+    # take profit
+    if tp_pct is not None:
+        A('        if position > 0 and self.state["target_price"] is not None:')
+        A('            if price >= self.state["target_price"]:')
+        A('                ctx.signal("take_profit", passed=True, value=price, symbol=self.symbol)')
+        A("                ctx.submit_sell_market(self.symbol, position)")
+        A('                self.state["target_price"] = None')
+        A('                self.state["stop_price"] = None')
         A("                return")
         A("")
     # exit conditions
@@ -338,6 +450,8 @@ def _emit_source(
             A(f'            ctx.signal("{sig}", passed=True, value={c["ind"]["var"]}, symbol=self.symbol)')
         A("            ctx.submit_sell_market(self.symbol, position)")
         A('            self.state["stop_price"] = None')
+        if tp_pct is not None:
+            A('            self.state["target_price"] = None')
         A("            return")
         A("")
     # entry conditions
@@ -350,12 +464,24 @@ def _emit_source(
     for i, c in enumerate(entry_conds):
         sig = f"{c['ind']['type']}_entry" + (f"_{i+1}" if len(entry_conds) > 1 else "")
         A(f'            ctx.signal("{sig}", passed=True, value={c["ind"]["var"]}, symbol=self.symbol)')
-    A("            ctx.submit_buy_market(")
-    A("                self.symbol, Decimal(str(self.params.position_size))")
-    A("            )")
+    # Size the order from account equity (ctx.cash == equity while flat), so the
+    # position is economically meaningful for any asset/price — not a fixed
+    # 0.01-unit sliver. Submit only when the computed quantity is positive.
+    if sizing["mode"] == "fixed_cash":
+        A("            qty = Decimal(str(self.params.position_cash)) / price")
+    else:
+        A("            qty = (")
+        A("                Decimal(str(self.params.position_pct)) / Decimal(\"100\")")
+        A("            ) * ctx.cash / price")
+    A("            if qty > 0:")
+    A("                ctx.submit_buy_market(self.symbol, qty)")
     if stop_pct is not None:
-        A("            self.state[\"stop_price\"] = price * Decimal(")
-        A("                str(1 - self.params.stop_loss_percent / 100)")
-        A("            )")
+        A("                self.state[\"stop_price\"] = price * Decimal(")
+        A("                    str(1 - self.params.stop_loss_percent / 100)")
+        A("                )")
+    if tp_pct is not None:
+        A("                self.state[\"target_price\"] = price * Decimal(")
+        A("                    str(1 + self.params.take_profit_percent / 100)")
+        A("                )")
     A("")
     return "\n".join(lines) + "\n"

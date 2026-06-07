@@ -67,12 +67,14 @@ from packages.backtest.walkforward_persistence import (
     load_walkforward,
     mark_walkforward_failed,
     mark_walkforward_running,
+    reclaim_stale_walkforwards,
     save_walkforward_results,
 )
 from packages.backtest.persistence import (
     load_backtest,
     mark_backtest_failed,
     mark_backtest_running,
+    reclaim_stale_backtests,
     save_backtest_results,
 )
 from packages.data.db import get_engine
@@ -111,6 +113,18 @@ log = structlog.get_logger(__name__)
 REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 WORKER_NAME = os.environ.get("HOSTNAME", "backtest-worker-1")
 POP_TIMEOUT_S = 5  # BRPOP blocking time
+
+# A job killed mid-run (OOM, restart, SIGKILL) never reaches its failure
+# handler, so it stays 'running' forever and the UI renders an all-zero result.
+# On startup we fail any 'running' row older than this, leaving a sibling
+# worker's genuinely in-flight job alone (real runs finish in seconds-minutes).
+STALE_RUNNING_SECONDS = int(os.environ.get("BACKTEST_STALE_RUNNING_SECONDS", "1800"))
+
+# Upper bound on bars a single backtest may span. The engine builds a per-bar
+# equity curve and materializes bars as pandas Series, so memory scales with
+# bar count; past this the run risks OOM-killing the worker. We fail honestly
+# with an actionable message instead. Env-tunable as the worker's cap changes.
+MAX_BACKTEST_BARS = int(os.environ.get("BACKTEST_MAX_BARS", "750000"))
 
 STRATEGIES_DIR = Path("/app/strategies")
 
@@ -190,8 +204,10 @@ async def _process_job(
 
         # 4) Load bars. A requested window (window_start/window_end) bounds the
         # run to a date range — e.g. a held-out out-of-sample segment. NULL on
-        # both means full history. Bars are tz-aware UTC and indexed by bucket,
-        # so we filter the loaded frame by its index.
+        # both means full history. The window is pushed into the SQL query so we
+        # only materialize bars inside the range, never the symbol's full
+        # history (loading 5 years to test 1 month was the memory amplifier
+        # behind the OOM). Bars come back tz-aware UTC, indexed by bucket.
         window_start = header.get("window_start")
         window_end = header.get("window_end")
         bars: dict[str, pd.DataFrame] = {}
@@ -199,11 +215,10 @@ async def _process_job(
         bars_end = None
         max_bar_count = 0
         for symbol in symbols:
-            df = await _load_bars(engine, symbol, resolution)
-            if window_start is not None:
-                df = df[df.index >= pd.Timestamp(window_start)]
-            if window_end is not None:
-                df = df[df.index <= pd.Timestamp(window_end)]
+            df = await _load_bars(
+                engine, symbol, resolution,
+                start=window_start, end=window_end,
+            )
             if df.empty:
                 if window_start is not None or window_end is not None:
                     raise RuntimeError(
@@ -221,11 +236,24 @@ async def _process_job(
                 bars_end = df.index[-1]
             max_bar_count = max(max_bar_count, len(df))
 
+        # Pre-flight memory guard: engine memory scales with total bars across
+        # all symbols (per-bar equity curve + bars materialized as Series), so
+        # reject oversized runs with an actionable error rather than letting the
+        # worker OOM and strand the job in 'running'.
+        total_bar_count = sum(len(df) for df in bars.values())
+        if total_bar_count > MAX_BACKTEST_BARS:
+            raise RuntimeError(
+                f"Backtest spans {total_bar_count:,} bars across {len(symbols)} "
+                f"symbol(s) at {resolution!r} (limit {MAX_BACKTEST_BARS:,}). "
+                f"Narrow the date range or use a coarser bar resolution."
+            )
+
         log.info(
             "backtest_worker.job.bars_loaded",
             backtest_id=str(backtest_id),
             symbols=symbols,
             bars=max_bar_count,
+            total_bars=total_bar_count,
             bars_start=str(bars_start),
             bars_end=str(bars_end),
         )
@@ -265,6 +293,7 @@ async def _process_job(
                 "avg_winner_pct": analytics.avg_winner_pct,
                 "avg_loser_pct": analytics.avg_loser_pct,
                 "profit_factor": analytics.profit_factor,
+                "orders_submitted": result.orders_submitted,
             },
             attribution_to_dict(attribution) if attribution is not None else None,
             ml_model_json,
@@ -456,6 +485,23 @@ async def main_loop() -> None:
         pop_timeout_s=POP_TIMEOUT_S,
         strategies=list(strategies_cache.keys()),
     )
+
+    # Recover orphans: jobs a previous worker left stranded in 'running' when it
+    # was killed mid-run. Without this they stay 'running' forever and surface
+    # as fake all-zero results. Best-effort — never block startup on it.
+    try:
+        async with engine.begin() as conn:
+            stale_bt = await reclaim_stale_backtests(conn, STALE_RUNNING_SECONDS)
+            stale_wf = await reclaim_stale_walkforwards(conn, STALE_RUNNING_SECONDS)
+        if stale_bt or stale_wf:
+            log.warning(
+                "backtest_worker.reclaimed_orphans",
+                backtests=[str(i) for i in stale_bt],
+                walkforwards=[str(i) for i in stale_wf],
+                stale_after_s=STALE_RUNNING_SECONDS,
+            )
+    except Exception as e:  # noqa: BLE001 — recovery must not crash the worker
+        log.error("backtest_worker.reclaim_failed", err=str(e))
 
     shutdown_event = asyncio.Event()
 

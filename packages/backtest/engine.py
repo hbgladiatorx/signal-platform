@@ -60,7 +60,11 @@ from typing import Any
 
 import pandas as pd
 
-from packages.backtest.fills import simulate_market_fill, try_fill_limit_order
+from packages.backtest.fills import (
+    simulate_market_fill,
+    try_fill_limit_order,
+    try_fill_stop_order,
+)
 from packages.backtest.portfolio import Portfolio
 from packages.backtest.types import (
     BacktestConfig,
@@ -227,6 +231,14 @@ def run_backtest(
     expired_orders: list[Order] = []
     pending_orders: list[Order] = []
     last_marks: dict[str, Decimal] = {}
+    # Per-order high/low water mark for trailing stops, keyed by client_order_id.
+    # The engine owns this; entries are dropped when the order leaves the book.
+    trail_state: dict[str, Decimal] = {}
+    # Total orders the strategy submitted across the whole run. 0 means the
+    # strategy never even tried to trade — an entry condition was never true
+    # (often an impossible/incomparable comparison). Distinguishes a dead
+    # strategy from one that traded but closed nothing.
+    orders_submitted = 0
     settled_options: set[str] = set()
 
     # Cancellation requests collected during the PREVIOUS on_bar(), to be
@@ -289,6 +301,10 @@ def run_backtest(
 
             if order.order_type == OrderType.MARKET:
                 fill_result = simulate_market_fill(order, this_bar, config)
+            elif order.order_type in (OrderType.STOP, OrderType.TRAILING_STOP):
+                fill_result = try_fill_stop_order(
+                    order, this_bar, config, trail_state
+                )
             else:
                 fill_result = try_fill_limit_order(order, this_bar, config)
 
@@ -305,34 +321,49 @@ def run_backtest(
             if order.tags:
                 fill = dataclasses.replace(fill, tags=order.tags)
 
-            # --- (2d) Apply fill against portfolio; REJECT if insufficient ---
-            if fill.side == OrderSide.BUY:
-                mult = config.multiplier_for(order.symbol)
-                cost = fill.price * fill.quantity * mult + fill.fee
-                if cost > portfolio.cash:
+            # --- (2d) Apply fill against portfolio; REJECT if it breaches
+            #          shorting policy or the margin/buying-power requirement ---
+            mult = config.multiplier_for(order.symbol)
+            signed = fill.quantity if fill.side == OrderSide.BUY else -fill.quantity
+            old_qty = portfolio.get_position(order.symbol).quantity
+            new_qty = old_qty + signed
+
+            # Shorting policy: when disabled, reject anything that would open or
+            # extend a short (preserves the original long-only semantics).
+            if new_qty < 0 and not config.allow_short:
+                reason = (
+                    f"shorting disabled: sell of {fill.quantity} would make "
+                    f"position {new_qty} (have {old_qty})"
+                )
+                rejected_orders.append((order, reason))
+                _safe_callback(strategy.on_order_rejected, order, reason)
+                continue
+
+            # Buying-power check — only when the fill INCREASES gross exposure
+            # (opening or extending). Reductions/closes never need margin.
+            mark = last_marks.get(order.symbol, fill.price)
+            old_exposure = abs(old_qty) * mark * mult
+            new_exposure = abs(new_qty) * mark * mult
+            if new_exposure > old_exposure:
+                marks_now = dict(last_marks)
+                marks_now[order.symbol] = mark
+                cash_after = portfolio.cash - signed * fill.price * mult - fill.fee
+                equity_after, gross_after = portfolio.projected_equity_and_gross(
+                    cash_after, marks_now, order.symbol, new_qty, mult
+                )
+                if equity_after < config.margin_rate * gross_after:
                     reason = (
-                        f"insufficient cash: need {cost:.2f}, "
-                        f"have {portfolio.cash:.2f}"
+                        f"insufficient buying power: post-fill equity "
+                        f"{equity_after:.2f} < {config.margin_rate} × gross "
+                        f"exposure {gross_after:.2f}"
                     )
                     rejected_orders.append((order, reason))
                     _safe_callback(strategy.on_order_rejected, order, reason)
                     continue
-                portfolio.apply_buy(
-                    order.symbol, fill.quantity, fill.price, fill.fee, mult
-                )
-            else:  # SELL
-                pos = portfolio.get_position(order.symbol)
-                if fill.quantity > pos.quantity:
-                    reason = (
-                        f"insufficient position: trying to sell "
-                        f"{fill.quantity}, have {pos.quantity}"
-                    )
-                    rejected_orders.append((order, reason))
-                    _safe_callback(strategy.on_order_rejected, order, reason)
-                    continue
-                portfolio.apply_sell(
-                    order.symbol, fill.quantity, fill.price, fill.fee
-                )
+
+            portfolio.apply_fill(
+                order.symbol, fill.side, fill.quantity, fill.price, fill.fee, mult
+            )
 
             fills.append(fill)
 
@@ -343,6 +374,9 @@ def run_backtest(
                     order, quantity=remainder_qty
                 )
                 next_pending.append(remainder_order)
+            else:
+                # Order fully filled and left the book — drop any trailing state.
+                trail_state.pop(order.client_order_id, None)
 
         pending_orders = next_pending
 
@@ -375,7 +409,9 @@ def run_backtest(
             )
 
         # Queue submitted orders for next bar
-        pending_orders.extend(ctx.collected_orders())
+        submitted = ctx.collected_orders()
+        orders_submitted += len(submitted)
+        pending_orders.extend(submitted)
         # Carry cancellation requests to next bar's Phase 2b
         pending_cancellations = ctx.collected_cancellations()
         # Harvest this bar's signal/filter events for attribution analytics
@@ -404,4 +440,5 @@ def run_backtest(
         expired_orders=expired_orders,
         strategy_state_final=dict(strategy.state),
         signal_events=signal_events,
+        orders_submitted=orders_submitted,
     )

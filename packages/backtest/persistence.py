@@ -109,6 +109,46 @@ async def mark_backtest_running(
     )
 
 
+async def reclaim_stale_backtests(
+    conn: AsyncConnection,
+    stale_after_seconds: int = 1800,
+) -> list[UUID]:
+    """Fail backtests stuck in 'running' past the staleness threshold.
+
+    A backtest only reaches 'running' inside `_process_job`. If the worker
+    process is killed mid-run (OOM, container restart, SIGKILL), the
+    try/except that would call `mark_backtest_failed` never executes, so the
+    row is stranded in 'running' forever and the UI renders a fake all-zero
+    result. Nothing else ever transitions it.
+
+    On worker startup we sweep these orphans. We gate on `started_at` age
+    rather than failing every 'running' row so a sibling worker's genuinely
+    in-flight job (scale-out runs multiple containers) is left alone — real
+    runs complete in seconds-to-minutes, far under the default 30-minute gate.
+
+    Returns the ids that were reclaimed (for logging).
+    """
+    result = await conn.execute(
+        text("""
+            UPDATE backtests
+            SET status = 'failed',
+                completed_at = now(),
+                error_message = 'Worker process exited while running (orphaned '
+                                'job, likely OOM or restart); failed by startup '
+                                'recovery.',
+                duration_seconds = EXTRACT(
+                    EPOCH FROM (now() - COALESCE(started_at, created_at))
+                )
+            WHERE status = 'running'
+              AND COALESCE(started_at, created_at)
+                  < now() - make_interval(secs => :stale_after)
+            RETURNING id
+        """),
+        {"stale_after": stale_after_seconds},
+    )
+    return [row[0] for row in result.all()]
+
+
 async def mark_backtest_failed(
     conn: AsyncConnection,
     backtest_id: UUID,

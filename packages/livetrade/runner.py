@@ -363,6 +363,16 @@ class PaperTrader:
             try:
                 await asyncio.sleep(EQUITY_SNAPSHOT_INTERVAL_S)
                 for session in self.registry.all():
+                    # Don't poll the broker while its venue is closed (equities
+                    # overnight/weekends) — that just hammers the REST API and
+                    # trips rate limits. 24/7 crypto reports always-open and
+                    # keeps snapshotting. Fail-open so a clock error never
+                    # silently freezes the equity curve.
+                    try:
+                        if not await session.broker.is_market_open():
+                            continue
+                    except Exception:  # noqa: BLE001
+                        pass
                     async with session.lock:
                         await session.refresh_account_snapshot()
                         equity = getattr(session, "_last_equity", session._cash)

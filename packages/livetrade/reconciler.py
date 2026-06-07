@@ -239,6 +239,15 @@ class ReconcilerTask:
         while not self._stop.is_set():
             try:
                 await asyncio.sleep(SWEEP_INTERVAL_S)
+                # Skip the REST sweep while the venue is closed — no fills can
+                # happen, so polling open orders only burns rate limit (the
+                # source of the equities 429 storm). Crypto is always-open and
+                # keeps sweeping. Fail-open so a clock error doesn't stall it.
+                try:
+                    if not await self.broker.is_market_open():
+                        continue
+                except Exception:  # noqa: BLE001
+                    pass
                 await self._sweep_once()
             except asyncio.CancelledError:
                 raise

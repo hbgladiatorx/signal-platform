@@ -97,12 +97,32 @@ def analyze_backtest(
     # ============================================================
     if n_trades == 0:
         verdict = "inconclusive"
-        findings.append(_finding(
-            "no-trades", "sample", "warn", "No closed trades",
-            "The strategy never opened and closed a position in this window.",
-            "Loosen entry conditions, widen the date range, or confirm the "
-            "instrument has bars over the test period.",
-        ))
+        orders_submitted = _f(metrics.get("orders_submitted"))
+        if orders_submitted is not None and orders_submitted == 0:
+            # The strategy never even submitted an order — its entry condition
+            # was never true. The usual culprit is an impossible/incomparable
+            # comparison (e.g. a price-scale value tested against a near-zero
+            # indicator like a raw MACD line), which can never flip.
+            findings.append(_finding(
+                "no-orders", "logic", "warn",
+                "Strategy never submitted an order",
+                "The entry condition was never true on any bar, so no order was "
+                "ever placed. This is usually a dead condition — often comparing "
+                "quantities of different scale (e.g. a price-level value against "
+                "a near-zero indicator line) so the test can never flip.",
+                "Check the entry logic for an impossible comparison. For MACD/EMA "
+                "crossovers use the framework's crossover helpers; compare price "
+                "to price (bands/VWAP) and oscillators to 0-100 levels.",
+            ))
+        else:
+            findings.append(_finding(
+                "no-trades", "sample", "warn", "No closed trades",
+                "The strategy opened positions but never closed a round trip in "
+                "this window (or orders never filled).",
+                "Check the exit conditions, loosen entry/exit thresholds, widen "
+                "the date range, or confirm the instrument has bars over the "
+                "test period.",
+            ))
     elif pf is None:
         verdict = "profitable" if (total_ret or 0) > 0 else "inconclusive"
     elif pf >= 1.6:

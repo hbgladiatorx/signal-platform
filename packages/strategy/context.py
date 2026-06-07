@@ -3,7 +3,8 @@
 Built fresh by the engine for each on_bar call. Provides:
   - History accessors: bars(), close(), open(), high(), low(), volume()
   - Indicator computation with per-context caching:
-      sma(), ema(), rsi(), atr()
+      sma(), ema(), rsi(), atr(), macd(), bollinger(), stoch(), vwap()
+      crossed_above(), crossed_below()  (stateless MA-cross helpers)
   - Position and cash inspection: position(), cash
   - Order submission: submit_market(), submit_limit(), and convenience helpers
   - Order management: cancel_order(), pending_orders()
@@ -22,7 +23,7 @@ import uuid
 from collections.abc import Callable
 from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, NamedTuple
 
 import pandas as pd
 
@@ -33,6 +34,40 @@ from packages.strategy.num import FlexDecimal, to_num
 
 # Numeric type accepted from strategy code for quantities/prices
 Numeric = Decimal | float | int | str
+
+
+# ============================================================
+# Multi-line indicator results (returned by ctx.macd/bollinger/stoch)
+# ============================================================
+class MACD(NamedTuple):
+    """Current-bar MACD reading.
+
+    ``macd`` and ``signal`` are comparable-scale lines (signal is the EMA of the
+    macd line); ``hist`` = macd - signal. ``crossed_up``/``crossed_down`` are
+    stateless crossover flags computed from the last two bars of ``hist`` — use
+    them directly instead of tracking previous values yourself.
+    """
+
+    macd: FlexDecimal
+    signal: FlexDecimal
+    hist: FlexDecimal
+    crossed_up: bool
+    crossed_down: bool
+
+
+class Bands(NamedTuple):
+    """Current-bar Bollinger Bands. ``lower <= mid <= upper``."""
+
+    upper: FlexDecimal
+    mid: FlexDecimal
+    lower: FlexDecimal
+
+
+class Stochastic(NamedTuple):
+    """Current-bar stochastic oscillator. ``k`` and ``d`` are in 0..100."""
+
+    k: FlexDecimal
+    d: FlexDecimal
 
 
 def _to_decimal(v: Numeric) -> FlexDecimal:
@@ -98,6 +133,9 @@ class BarContext:
         self._active_signals: list[tuple[str, str | None]] = []
         # Cache key: (symbol, indicator_name, *params) -> pd.Series
         self._cache: dict[tuple, pd.Series] = {}
+        # Multi-line indicators (macd, bollinger, stoch) cache a whole frame.
+        # Cache key: (symbol, indicator_name, *params) -> pd.DataFrame
+        self._frame_cache: dict[tuple, pd.DataFrame] = {}
 
     # ============================================================
     # History accessors
@@ -207,6 +245,184 @@ class BarContext:
             return indicators.atr(df["high"], df["low"], df["close"], period)
 
         return self._cached_indicator(symbol, "atr", period, _compute)
+
+    # ============================================================
+    # Multi-line indicators (macd, bollinger, stochastic, vwap)
+    # ============================================================
+    def _cached_frame(
+        self, key: tuple, compute: Any
+    ) -> pd.DataFrame | None:
+        if key in self._frame_cache:
+            return self._frame_cache[key]
+        frame = compute()
+        if frame is None:
+            return None
+        self._frame_cache[key] = frame
+        return frame
+
+    def macd(
+        self,
+        symbol: str,
+        fast: int = 12,
+        slow: int = 26,
+        signal: int = 9,
+    ) -> MACD | None:
+        """MACD reading for the current bar, or None if not enough history.
+
+        The signal line is the EMA of the MACD line (comparable scale), NOT an
+        SMA of price — so ``crossed_up``/``crossed_down`` are meaningful. Prefer
+        those stateless flags over comparing ``macd``/``signal`` levels.
+        """
+
+        def _compute() -> pd.DataFrame | None:
+            df = self._history.get(symbol)
+            if df is None or len(df) < slow + signal:
+                return None
+            return indicators.macd(df["close"], fast, slow, signal)
+
+        frame = self._cached_frame((symbol, "macd", fast, slow, signal), _compute)
+        if frame is None or len(frame) < 2:
+            return None
+        last = frame.iloc[-1]
+        prev = frame.iloc[-2]
+        if pd.isna(last["macd"]) or pd.isna(last["signal"]):
+            return None
+        hist_now = last["hist"]
+        hist_prev = prev["hist"]
+        crossed_up = bool(not pd.isna(hist_prev) and hist_prev <= 0 < hist_now)
+        crossed_down = bool(not pd.isna(hist_prev) and hist_prev >= 0 > hist_now)
+        return MACD(
+            macd=_to_decimal(last["macd"]),
+            signal=_to_decimal(last["signal"]),
+            hist=_to_decimal(hist_now),
+            crossed_up=crossed_up,
+            crossed_down=crossed_down,
+        )
+
+    def bollinger(
+        self, symbol: str, period: int = 20, num_std: float = 2.0
+    ) -> Bands | None:
+        """Bollinger Bands for the current bar, or None if not enough history."""
+
+        def _compute() -> pd.DataFrame | None:
+            df = self._history.get(symbol)
+            if df is None or len(df) < period:
+                return None
+            return indicators.bollinger(df["close"], period, num_std)
+
+        frame = self._cached_frame(
+            (symbol, "bollinger", period, num_std), _compute
+        )
+        if frame is None or frame.empty:
+            return None
+        last = frame.iloc[-1]
+        if pd.isna(last["mid"]):
+            return None
+        return Bands(
+            upper=_to_decimal(last["upper"]),
+            mid=_to_decimal(last["mid"]),
+            lower=_to_decimal(last["lower"]),
+        )
+
+    def stoch(
+        self, symbol: str, k_period: int = 14, d_period: int = 3
+    ) -> Stochastic | None:
+        """Stochastic %K/%D for the current bar, or None if not enough history."""
+
+        def _compute() -> pd.DataFrame | None:
+            df = self._history.get(symbol)
+            if df is None or len(df) < k_period + d_period:
+                return None
+            return indicators.stochastic(
+                df["high"], df["low"], df["close"], k_period, d_period
+            )
+
+        frame = self._cached_frame(
+            (symbol, "stoch", k_period, d_period), _compute
+        )
+        if frame is None or frame.empty:
+            return None
+        last = frame.iloc[-1]
+        if pd.isna(last["k"]) or pd.isna(last["d"]):
+            return None
+        return Stochastic(k=_to_decimal(last["k"]), d=_to_decimal(last["d"]))
+
+    def vwap(self, symbol: str, period: int | None = None) -> Decimal | None:
+        """Volume-weighted average price for the current bar.
+
+        Rolling over ``period`` bars when given, else cumulative from the start
+        of available history. None if there isn't enough history/volume.
+        """
+
+        def _compute() -> pd.Series | None:
+            df = self._history.get(symbol)
+            if df is None or df.empty:
+                return None
+            if period is not None and len(df) < period:
+                return None
+            return indicators.vwap(
+                df["high"], df["low"], df["close"], df["volume"], period
+            )
+
+        key = (symbol, "vwap", period)
+        if key in self._cache:
+            series = self._cache[key]
+        else:
+            series = _compute()
+            if series is None:
+                return None
+            self._cache[key] = series
+        if series.empty:
+            return None
+        last = series.iloc[-1]
+        if pd.isna(last):
+            return None
+        return _to_decimal(last)
+
+    # ============================================================
+    # Crossover helpers (stateless — read the last two bars)
+    # ============================================================
+    def _cross(
+        self, symbol: str, fast_period: int, slow_period: int, kind: str, above: bool
+    ) -> bool | None:
+        fn = {"sma": indicators.sma, "ema": indicators.ema}.get(kind)
+        if fn is None:
+            raise ValueError(f"crossed_* kind must be 'sma' or 'ema', got {kind!r}")
+        df = self._history.get(symbol)
+        need = max(fast_period, slow_period) + 1
+        if df is None or len(df) < need:
+            return None
+        fast = fn(df["close"], fast_period)
+        slow = fn(df["close"], slow_period)
+        if len(fast) < 2 or len(slow) < 2:
+            return None
+        f_prev, f_now = fast.iloc[-2], fast.iloc[-1]
+        s_prev, s_now = slow.iloc[-2], slow.iloc[-1]
+        if any(pd.isna(x) for x in (f_prev, f_now, s_prev, s_now)):
+            return None
+        if above:
+            return bool(f_prev <= s_prev and f_now > s_now)
+        return bool(f_prev >= s_prev and f_now < s_now)
+
+    def crossed_above(
+        self, symbol: str, fast_period: int, slow_period: int, kind: str = "sma"
+    ) -> bool | None:
+        """True if the fast MA crossed ABOVE the slow MA on this bar.
+
+        Stateless: compares the last two bars of each MA. ``kind`` is "sma" or
+        "ema". None until there is enough history.
+        """
+        return self._cross(symbol, fast_period, slow_period, kind, above=True)
+
+    def crossed_below(
+        self, symbol: str, fast_period: int, slow_period: int, kind: str = "sma"
+    ) -> bool | None:
+        """True if the fast MA crossed BELOW the slow MA on this bar.
+
+        Stateless: compares the last two bars of each MA. ``kind`` is "sma" or
+        "ema". None until there is enough history.
+        """
+        return self._cross(symbol, fast_period, slow_period, kind, above=False)
 
     # ============================================================
     # Position and cash
@@ -443,6 +659,101 @@ class BarContext:
         return self.submit_limit(
             symbol, OrderSide.SELL, quantity, price, expires_after_bars
         )
+
+    # ----- Stop / trailing-stop orders (engine-triggered, no polling) -----
+
+    def submit_stop(
+        self,
+        symbol: str,
+        side: OrderSide,
+        quantity: Numeric,
+        stop_price: Numeric,
+        expires_after_bars: int | None = None,
+    ) -> str:
+        """Queue a stop (stop-market) order. The engine triggers it intrabar
+        when price crosses `stop_price` and fills like a market order."""
+        order = Order(
+            symbol=symbol,
+            side=side,
+            quantity=_to_decimal(quantity),
+            order_type=OrderType.STOP,
+            limit_price=None,
+            submitted_ts=self.ts,
+            client_order_id=self._new_order_id(),
+            expires_at_bar_count=self._compute_expiry(expires_after_bars),
+            stop_price=_to_decimal(stop_price),
+            tags=self._tags_for(symbol),
+        )
+        self._orders.append(order)
+        return order.client_order_id
+
+    def submit_trailing_stop(
+        self,
+        symbol: str,
+        side: OrderSide,
+        quantity: Numeric,
+        trail_percent: Numeric,
+        expires_after_bars: int | None = None,
+    ) -> str:
+        """Queue a trailing-stop order whose trigger ratchets with the position's
+        favourable move by `trail_percent` (e.g. 5 = 5%)."""
+        order = Order(
+            symbol=symbol,
+            side=side,
+            quantity=_to_decimal(quantity),
+            order_type=OrderType.TRAILING_STOP,
+            limit_price=None,
+            submitted_ts=self.ts,
+            client_order_id=self._new_order_id(),
+            expires_at_bar_count=self._compute_expiry(expires_after_bars),
+            trail_percent=_to_decimal(trail_percent),
+            tags=self._tags_for(symbol),
+        )
+        self._orders.append(order)
+        return order.client_order_id
+
+    def submit_stop_loss(
+        self,
+        symbol: str,
+        stop_price: Numeric,
+        quantity: Numeric | None = None,
+    ) -> str:
+        """Protective stop for the CURRENT open position in `symbol`.
+
+        Picks the correct side automatically: a long is protected by a SELL
+        stop, a short by a BUY stop. Defaults the quantity to the full position.
+        Raises if the position is flat.
+        """
+        pos = self.position(symbol)
+        if pos > 0:
+            side = OrderSide.SELL
+        elif pos < 0:
+            side = OrderSide.BUY
+        else:
+            raise ValueError(f"submit_stop_loss: no open position in {symbol}")
+        qty = abs(pos) if quantity is None else _to_decimal(quantity)
+        return self.submit_stop(symbol, side, qty, stop_price)
+
+    def submit_take_profit(
+        self,
+        symbol: str,
+        limit_price: Numeric,
+        quantity: Numeric | None = None,
+    ) -> str:
+        """Protective take-profit (resting limit) for the CURRENT position.
+
+        A long takes profit with a SELL limit above; a short with a BUY limit
+        below. Defaults the quantity to the full position. Raises if flat.
+        """
+        pos = self.position(symbol)
+        if pos > 0:
+            side = OrderSide.SELL
+        elif pos < 0:
+            side = OrderSide.BUY
+        else:
+            raise ValueError(f"submit_take_profit: no open position in {symbol}")
+        qty = abs(pos) if quantity is None else _to_decimal(quantity)
+        return self.submit_limit(symbol, side, qty, limit_price)
 
     # ============================================================
     # Order management

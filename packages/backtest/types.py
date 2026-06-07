@@ -80,6 +80,13 @@ class BacktestConfig:
     # backtests are unaffected.
     contract_multipliers: dict[str, Decimal] | None = None
     instrument_meta: dict[str, "InstrumentMeta"] | None = None
+    # --- Shorting / margin ---
+    # allow_short=False reverts to the original long-only behavior (a fill that
+    # would make a position negative is rejected). margin_rate is the fraction
+    # of gross exposure that post-fill equity must cover when a fill INCREASES
+    # exposure: 1.0 = fully collateralized (no leverage), 0.5 = 2:1, etc.
+    allow_short: bool = True
+    margin_rate: Decimal = Decimal(1)
 
     @property
     def fee_rate(self) -> Decimal:
@@ -211,6 +218,10 @@ class BacktestResult:
     # Drives attribution analytics (the "why"). Empty for strategies that
     # never call ctx.signal().
     signal_events: list["SignalEvent"] = field(default_factory=list)
+    # Total orders the strategy submitted across the run. 0 ⇒ the strategy never
+    # tried to trade (a dead/impossible entry condition), as opposed to trading
+    # but never closing a round trip. Drives the 0-trade diagnostic.
+    orders_submitted: int = 0
 
     @property
     def final_equity(self) -> Decimal:

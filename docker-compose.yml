@@ -224,9 +224,14 @@ services:
     deploy:
       resources:
         limits:
-          memory: 400M
+          # Backtests over long 1m histories (100k+ bars) build a per-bar
+          # equity curve + materialize bars as pandas Series; 400M OOM-killed
+          # such runs and stranded the job. Raised to 1G (host has 3.7G total,
+          # so this is the safe ceiling alongside postgres/api). The bar-count
+          # guard + window-aware loading keep multi-symbol/huge runs bounded.
+          memory: 1G
         reservations:
-          memory: 150M
+          memory: 256M
     logging:
       driver: json-file
       options:

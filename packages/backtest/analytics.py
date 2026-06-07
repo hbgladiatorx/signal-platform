@@ -158,34 +158,49 @@ def _round_trip_from_fills(fills: list[Fill]) -> RoundTrip:
 
     buy_qty = sum((f.quantity for f in buys), Decimal(0))
     sell_qty = sum((f.quantity for f in sells), Decimal(0))
-    # quantity is the round-trip size; buy_qty == sell_qty for closed trips
-    quantity = buy_qty
 
     buy_value = sum((f.price * f.quantity for f in buys), Decimal(0))
     sell_value = sum((f.price * f.quantity for f in sells), Decimal(0))
     fees = sum((f.fee for f in fills), Decimal(0))
 
-    entry_avg = (buy_value / buy_qty) if buy_qty > 0 else Decimal(0)
-    exit_avg = (sell_value / sell_qty) if sell_qty > 0 else Decimal(0)
+    buy_avg = (buy_value / buy_qty) if buy_qty > 0 else Decimal(0)
+    sell_avg = (sell_value / sell_qty) if sell_qty > 0 else Decimal(0)
+
+    # Direction is set by the FIRST fill: buy-first = long, sell-first = short.
+    # P&L is sells − buys either way (it nets correctly for both directions);
+    # only the entry/exit labelling and tag source depend on direction.
+    is_short = fills[0].side == OrderSide.SELL
+    if is_short:
+        side = "short"
+        entry_avg, exit_avg = sell_avg, buy_avg
+        quantity = sell_qty
+        entry_side_fills = sells
+    else:
+        side = "long"
+        entry_avg, exit_avg = buy_avg, sell_avg
+        quantity = buy_qty
+        entry_side_fills = buys
 
     gross_pnl = sell_value - buy_value
     net_pnl = gross_pnl - fees
 
-    entry_ts = buys[0].filled_ts if buys else fills[0].filled_ts
-    exit_ts = sells[-1].filled_ts if sells else fills[-1].filled_ts
+    # Entry is the first fill, exit the last — correct duration for both
+    # directions (a short enters on the sell and exits on the cover/buy).
+    entry_ts = fills[0].filled_ts
+    exit_ts = fills[-1].filled_ts
     duration_seconds = (exit_ts - entry_ts).total_seconds()
 
-    # Union of attribution tags across the entry (buy) fills, preserving
+    # Union of attribution tags across the ENTRY-side fills, preserving
     # first-seen order and de-duplicating.
     entry_tags: list[str] = []
-    for f in buys:
+    for f in entry_side_fills:
         for tag in f.tags:
             if tag not in entry_tags:
                 entry_tags.append(tag)
 
     return RoundTrip(
         symbol=symbol,
-        side="long",
+        side=side,
         entry_ts=entry_ts,
         exit_ts=exit_ts,
         entry_avg_price=entry_avg,
