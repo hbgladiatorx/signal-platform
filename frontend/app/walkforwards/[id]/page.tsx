@@ -3,9 +3,10 @@
 // frontend/app/walkforwards/[id]/page.tsx
 // Detail view: summary cards, per-window cards, dense table.
 
-import { useQuery } from "@tanstack/react-query";
-import { useParams } from "next/navigation";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useState } from "react";
 
 import { AppShell } from "@/components/nav/AppShell";
 import { useApi } from "@/lib/useApi";
@@ -26,6 +27,17 @@ export default function WalkforwardDetailPage() {
   const api = useApi();
   const params = useParams();
   const id = String(params?.id ?? "");
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete<void>(`/walkforwards/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["walkforwards"] });
+      router.push("/walkforwards");
+    },
+  });
 
   const {
     data: wf,
@@ -68,12 +80,48 @@ export default function WalkforwardDetailPage() {
       <div className="space-y-4">
         {/* Header */}
         <div>
-          <Link
-            href="/walkforwards"
-            className="text-sm text-indigo-600 hover:underline"
-          >
-            ← Walk-Forwards
-          </Link>
+          <div className="flex items-center justify-between gap-3">
+            <Link
+              href="/walkforwards"
+              className="text-sm text-indigo-600 hover:underline"
+            >
+              ← Walk-Forwards
+            </Link>
+            {confirmingDelete ? (
+              <span className="inline-flex items-center gap-2">
+                <span className="text-xs text-gray-500">Delete this run?</span>
+                <button
+                  type="button"
+                  onClick={() => deleteMutation.mutate()}
+                  disabled={deleteMutation.isPending}
+                  className="text-xs font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+                >
+                  {deleteMutation.isPending ? "Deleting…" : "Delete"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(false)}
+                  disabled={deleteMutation.isPending}
+                  className="text-xs text-gray-500 hover:text-gray-700"
+                >
+                  Cancel
+                </button>
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(true)}
+                className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:border-red-300 hover:text-red-600"
+              >
+                Delete
+              </button>
+            )}
+          </div>
+          {deleteMutation.isError && (
+            <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              Failed to delete: {(deleteMutation.error as Error).message}
+            </div>
+          )}
           <div className="flex items-center gap-3 flex-wrap mt-2">
             <h2 className="text-base font-semibold text-navy-700">
               {wf.strategy_name}

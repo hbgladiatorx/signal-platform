@@ -1,8 +1,9 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import { AppShell } from "@/components/nav/AppShell";
 import type { BacktestStatus, BacktestSummary } from "@/lib/backtest-types";
@@ -11,6 +12,16 @@ import { useApi } from "@/lib/useApi";
 export default function BacktestsListPage() {
   const api = useApi();
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.delete<void>(`/backtests/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["backtests"] });
+      setConfirmId(null);
+    },
+  });
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["backtests"],
@@ -105,6 +116,7 @@ export default function BacktestsListPage() {
                     <th className="px-3 py-2 text-right font-medium">Trades</th>
                     <th className="px-3 py-2 text-right font-medium">Win %</th>
                     <th className="px-3 py-2 font-medium whitespace-nowrap">Created</th>
+                    <th className="px-3 py-2 text-right font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -172,6 +184,38 @@ export default function BacktestsListPage() {
                         </td>
                         <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">
                           {fmtTime(bt.created_at)}
+                        </td>
+                        <td
+                          className="px-3 py-3 text-right whitespace-nowrap"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {confirmId === bt.id ? (
+                            <span className="inline-flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => deleteMutation.mutate(bt.id)}
+                                disabled={deleteMutation.isPending}
+                                className="text-xs font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+                              >
+                                {deleteMutation.isPending ? "…" : "Confirm"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmId(null)}
+                                className="text-xs text-gray-500 hover:text-gray-700"
+                              >
+                                Cancel
+                              </button>
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setConfirmId(bt.id)}
+                              className="text-xs text-gray-500 hover:text-red-600"
+                            >
+                              Delete
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );

@@ -229,13 +229,21 @@ function StrategyCard({ strategy }: { strategy: StrategyWithSource }) {
                 </button>
               </span>
             ) : (
-              <button
-                type="button"
-                onClick={() => setConfirming(true)}
-                className="text-xs text-gray-500 hover:text-red-600"
-              >
-                Delete
-              </button>
+              <span className="inline-flex items-center gap-3">
+                <Link
+                  href={`/strategies/${strategy.user_strategy_id}/edit`}
+                  className="text-xs text-gray-500 hover:text-navy-600"
+                >
+                  Edit
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setConfirming(true)}
+                  className="text-xs text-gray-500 hover:text-red-600"
+                >
+                  Delete
+                </button>
+              </span>
             ))}
         </div>
         <Link

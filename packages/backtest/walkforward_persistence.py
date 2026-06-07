@@ -204,3 +204,21 @@ async def save_walkforward_results(
             "win_rate_windows_pct": result.win_rate_windows_pct,
         },
     )
+
+
+# ============================================================
+# Delete
+# ============================================================
+async def delete_walkforward(
+    conn: AsyncConnection, walkforward_id: UUID, user_id: UUID
+) -> bool:
+    """Delete a walk-forward job, scoped to its owner.
+
+    Window results are stored inline on the row (JSONB), so a single DELETE
+    removes everything. Returns True if a row was actually deleted.
+    """
+    result = await conn.execute(
+        text("DELETE FROM walkforwards WHERE id = :id AND user_id = :user_id"),
+        {"id": str(walkforward_id), "user_id": str(user_id)},
+    )
+    return result.rowcount > 0

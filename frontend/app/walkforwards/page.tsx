@@ -4,9 +4,10 @@
 // List view of walk-forward analyses. Uses TanStack Query with auto-refresh
 // while any jobs are pending or running.
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import { AppShell } from "@/components/nav/AppShell";
 import { useApi } from "@/lib/useApi";
@@ -23,6 +24,16 @@ import {
 export default function WalkforwardsListPage() {
   const api = useApi();
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.delete<void>(`/walkforwards/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["walkforwards"] });
+      setConfirmId(null);
+    },
+  });
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["walkforwards"],
@@ -124,6 +135,9 @@ export default function WalkforwardsListPage() {
                   <th className="px-4 py-3 text-right font-medium text-gray-700">
                     Created
                   </th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-700">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -183,6 +197,38 @@ export default function WalkforwardsListPage() {
                       </td>
                       <td className="px-4 py-3 text-right text-gray-500 text-xs whitespace-nowrap">
                         {fmtDateTime(wf.created_at)}
+                      </td>
+                      <td
+                        className="px-4 py-3 text-right whitespace-nowrap"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {confirmId === wf.id ? (
+                          <span className="inline-flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => deleteMutation.mutate(wf.id)}
+                              disabled={deleteMutation.isPending}
+                              className="text-xs font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+                            >
+                              {deleteMutation.isPending ? "…" : "Confirm"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setConfirmId(null)}
+                              className="text-xs text-gray-500 hover:text-gray-700"
+                            >
+                              Cancel
+                            </button>
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmId(wf.id)}
+                            className="text-xs text-gray-500 hover:text-red-600"
+                          >
+                            Delete
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );

@@ -3,7 +3,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState, Suspense, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  Suspense,
+  type FormEvent,
+} from "react";
 
 import { AppShell } from "@/components/nav/AppShell";
 import { ApiError } from "@/lib/api";
@@ -44,6 +51,30 @@ function NewBacktestForm() {
   const searchParams = useSearchParams();
   const prefilledStrategy = searchParams.get("strategy") ?? "";
 
+  // "Edit & re-run" passes a finished run's settings as query params so the
+  // form opens pre-filled and the user can tweak before launching a new run.
+  const prefilledSymbols = searchParams.get("symbols");
+  const prefilledResolution = searchParams.get("resolution");
+  const prefilledCash = searchParams.get("cash");
+  const prefilledFee = searchParams.get("fee");
+  const prefilledSlip = searchParams.get("slip");
+  const prefilledParamsRaw = searchParams.get("params");
+
+  // Parse prefilled params once; applied to the form when the strategy loads.
+  const prefillParamsRef = useRef<Record<string, string> | null>(
+    (() => {
+      if (!prefilledParamsRaw) return null;
+      try {
+        const obj = JSON.parse(prefilledParamsRaw) as Record<string, unknown>;
+        return Object.fromEntries(
+          Object.entries(obj).map(([k, v]) => [k, String(v)]),
+        );
+      } catch {
+        return null;
+      }
+    })(),
+  );
+
   const { data: strategies, isLoading: loadingStrategies } = useQuery({
     queryKey: ["strategies"],
     queryFn: () => api.get<Strategy[]>("/strategies"),
@@ -57,11 +88,17 @@ function NewBacktestForm() {
   // ---------- Form state ----------
   const [strategyName, setStrategyName] = useState<string>(prefilledStrategy);
   const [paramValues, setParamValues] = useState<Record<string, string>>({});
-  const [selectedSymbols, setSelectedSymbols] = useState<string[]>([]);
-  const [resolution, setResolution] = useState<BarResolution>("1h");
-  const [startingCash, setStartingCash] = useState<string>("10000");
-  const [feeBps, setFeeBps] = useState<string>("10");
-  const [slipBps, setSlipBps] = useState<string>("5");
+  const [selectedSymbols, setSelectedSymbols] = useState<string[]>(
+    prefilledSymbols ? prefilledSymbols.split(",").filter(Boolean) : [],
+  );
+  const [resolution, setResolution] = useState<BarResolution>(
+    (prefilledResolution as BarResolution) || "1h",
+  );
+  const [startingCash, setStartingCash] = useState<string>(
+    prefilledCash || "10000",
+  );
+  const [feeBps, setFeeBps] = useState<string>(prefilledFee || "10");
+  const [slipBps, setSlipBps] = useState<string>(prefilledSlip || "5");
   const [serverError, setServerError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
@@ -70,16 +107,24 @@ function NewBacktestForm() {
     [strategies, strategyName],
   );
 
-  // Reset params when strategy changes — populate defaults from schema
+  // Reset params when strategy changes — populate defaults from schema.
+  // On first load, prefilled params (from "edit & re-run") take precedence
+  // over schema defaults; that prefill is consumed after it's applied once.
   useEffect(() => {
     if (selectedStrategy) {
+      const prefill = prefillParamsRef.current;
       const next: Record<string, string> = {};
       for (const [key, schema] of Object.entries(
         selectedStrategy.params_schema.properties ?? {},
       )) {
-        next[key] = schema.default != null ? String(schema.default) : "";
+        if (prefill && key in prefill) {
+          next[key] = prefill[key];
+        } else {
+          next[key] = schema.default != null ? String(schema.default) : "";
+        }
       }
       setParamValues(next);
+      prefillParamsRef.current = null;
     }
   }, [selectedStrategy]);
 

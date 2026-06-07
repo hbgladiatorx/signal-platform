@@ -42,6 +42,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from packages.backtest.persistence import (
     create_backtest,
+    delete_backtest,
     list_backtests_for_user,
     load_backtest,
     load_backtest_equity,
@@ -445,6 +446,19 @@ async def get_backtest_trades(
         )
         for r in rows
     ]
+
+
+@router.delete("/{backtest_id}", status_code=204)
+async def delete_one_backtest(
+    backtest_id: UUID = Path(...),
+    session: AsyncSession = Depends(get_db_session),
+    user: CurrentUserRecord = Depends(get_current_user_record),
+) -> None:
+    """Delete a backtest you own (cascades to its trades and equity points)."""
+    # Enforces ownership and returns 404 (not 403) for someone else's run.
+    await _load_my_backtest_or_404(session, backtest_id, user)
+    await delete_backtest(session, backtest_id, user.id)
+    await session.commit()
 
 
 @router.get("/{backtest_id}/equity", response_model=list[EquityPointRow])

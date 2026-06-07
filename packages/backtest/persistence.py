@@ -320,3 +320,19 @@ async def load_backtest_equity(
         {"id": backtest_id},
     )
     return [dict(row) for row in result.mappings().all()]
+
+
+async def delete_backtest(
+    conn: AsyncConnection, backtest_id: UUID, user_id: UUID
+) -> bool:
+    """Delete a backtest, scoped to its owner.
+
+    The backtest_trades and backtest_equity_points rows are removed
+    automatically via their ON DELETE CASCADE foreign keys. Returns True if a
+    row was actually deleted (False if it didn't exist or isn't the user's).
+    """
+    result = await conn.execute(
+        text("DELETE FROM backtests WHERE id = :id AND user_id = :user_id"),
+        {"id": backtest_id, "user_id": user_id},
+    )
+    return result.rowcount > 0

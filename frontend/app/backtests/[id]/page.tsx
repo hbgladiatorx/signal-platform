@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ColorType,
   LineStyle,
@@ -10,8 +10,8 @@ import {
   type UTCTimestamp,
 } from "lightweight-charts";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 import { AppShell } from "@/components/nav/AppShell";
 import type {
@@ -58,6 +58,18 @@ export default function BacktestDetailPage() {
     enabled: id.length > 0 && status === "completed",
   });
 
+  // -------- delete --------
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete<void>(`/backtests/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["backtests"] });
+      router.push("/backtests");
+    },
+  });
+
   // -------- render branches --------
   if (detailQuery.isLoading) {
     return (
@@ -87,15 +99,57 @@ export default function BacktestDetailPage() {
   return (
     <AppShell title={`Backtest ${detail.strategy_name}`}>
       <div className="space-y-4">
-        {/* Back link */}
-        <div>
+        {/* Back link + actions */}
+        <div className="flex items-center justify-between">
           <Link
             href="/backtests"
             className="text-xs text-navy-600 hover:underline"
           >
             ← All backtests
           </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              href={buildRerunHref(detail)}
+              className="rounded-md border border-navy-600 bg-white px-3 py-1.5 text-xs font-medium text-navy-700 hover:bg-navy-50"
+            >
+              Edit &amp; re-run
+            </Link>
+            {confirmingDelete ? (
+              <span className="inline-flex items-center gap-2">
+                <span className="text-xs text-gray-500">Delete this run?</span>
+                <button
+                  type="button"
+                  onClick={() => deleteMutation.mutate()}
+                  disabled={deleteMutation.isPending}
+                  className="text-xs font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+                >
+                  {deleteMutation.isPending ? "Deleting…" : "Delete"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(false)}
+                  disabled={deleteMutation.isPending}
+                  className="text-xs text-gray-500 hover:text-gray-700"
+                >
+                  Cancel
+                </button>
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(true)}
+                className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:border-red-300 hover:text-red-600"
+              >
+                Delete
+              </button>
+            )}
+          </div>
         </div>
+        {deleteMutation.isError && (
+          <div className="rounded-md border border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">
+            Failed to delete: {(deleteMutation.error as Error).message}
+          </div>
+        )}
 
         {/* ---------- HEADER CARD ---------- */}
         <HeaderCard detail={detail} daysTested={daysTested} />
@@ -146,6 +200,24 @@ export default function BacktestDetailPage() {
       </div>
     </AppShell>
   );
+}
+
+
+// ============================================================
+// "Edit & re-run" — pre-fill the new-backtest form from this run
+// ============================================================
+function buildRerunHref(detail: BacktestDetail): string {
+  const p = new URLSearchParams();
+  p.set("strategy", detail.strategy_name);
+  if (detail.symbols?.length) p.set("symbols", detail.symbols.join(","));
+  if (detail.bar_resolution) p.set("resolution", detail.bar_resolution);
+  if (detail.starting_cash != null) p.set("cash", String(detail.starting_cash));
+  if (detail.fee_rate_bps != null) p.set("fee", String(detail.fee_rate_bps));
+  if (detail.slippage_bps != null) p.set("slip", String(detail.slippage_bps));
+  if (detail.params_json && Object.keys(detail.params_json).length > 0) {
+    p.set("params", JSON.stringify(detail.params_json));
+  }
+  return `/backtests/new?${p.toString()}`;
 }
 
 

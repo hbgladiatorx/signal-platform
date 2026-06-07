@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from packages.backtest.walkforward_persistence import (
     create_walkforward,
+    delete_walkforward,
     list_walkforwards_for_user,
     load_walkforward,
 )
@@ -253,3 +254,18 @@ async def get_walkforward_endpoint(
         # Don't leak existence — return same 404
         raise HTTPException(status_code=404, detail="Walkforward not found")
     return _row_to_detail(row)
+
+
+@router.delete("/{walkforward_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_walkforward_endpoint(
+    walkforward_id: UUID,
+    user: Any = Depends(get_current_user_record),
+) -> None:
+    """Delete a walk-forward job you own."""
+    engine: AsyncEngine = get_engine()
+    async with engine.begin() as conn:
+        # Load first to enforce ownership and return a clean 404 otherwise.
+        row = await load_walkforward(conn, walkforward_id)
+        if row is None or str(row["user_id"]) != str(user.id):
+            raise HTTPException(status_code=404, detail="Walkforward not found")
+        await delete_walkforward(conn, walkforward_id, user.id)
