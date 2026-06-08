@@ -30,6 +30,8 @@ async def create_user_strategy(
     class_name: str,
     source_code: str,
     params_schema: dict[str, Any],
+    graph_json: Optional[dict[str, Any]] = None,
+    asset_class: Optional[str] = None,
 ) -> UUID:
     """Insert a new user_strategy row. Returns the new id."""
     result = await session.execute(
@@ -37,11 +39,12 @@ async def create_user_strategy(
             """
             INSERT INTO user_strategies (
                 user_id, org_id, name, description, nl_description,
-                class_name, source_code, params_schema
+                class_name, source_code, params_schema, graph_json, asset_class
             )
             VALUES (
                 :user_id, :org_id, :name, :description, :nl_description,
-                :class_name, :source_code, CAST(:params_schema AS JSONB)
+                :class_name, :source_code, CAST(:params_schema AS JSONB),
+                CAST(:graph_json AS JSONB), :asset_class
             )
             RETURNING id
             """
@@ -55,6 +58,8 @@ async def create_user_strategy(
             "class_name": class_name,
             "source_code": source_code,
             "params_schema": _to_json(params_schema),
+            "graph_json": _to_json(graph_json) if graph_json is not None else None,
+            "asset_class": asset_class,
         },
     )
     row = result.first()
@@ -78,8 +83,8 @@ async def get_user_strategy(
             """
             SELECT
                 id, user_id, org_id, name, description, nl_description,
-                class_name, source_code, params_schema, is_active,
-                created_at, updated_at
+                class_name, source_code, params_schema, graph_json, asset_class,
+                is_active, created_at, updated_at
             FROM user_strategies
             WHERE id = :id AND user_id = :user_id
             """
@@ -102,8 +107,8 @@ async def get_user_strategy_by_name(
             """
             SELECT
                 id, user_id, org_id, name, description, nl_description,
-                class_name, source_code, params_schema, is_active,
-                created_at, updated_at
+                class_name, source_code, params_schema, graph_json, asset_class,
+                is_active, created_at, updated_at
             FROM user_strategies
             WHERE user_id = :user_id AND name = :name AND is_active = TRUE
             """
@@ -133,7 +138,7 @@ async def list_user_strategies_for_user(
             f"""
             SELECT
                 id, user_id, org_id, name, description, nl_description,
-                class_name, params_schema, is_active,
+                class_name, params_schema, graph_json, asset_class, is_active,
                 created_at, updated_at
             FROM user_strategies
             {where_clause}
@@ -161,6 +166,8 @@ async def update_user_strategy(
     class_name: Optional[str] = None,
     source_code: Optional[str] = None,
     params_schema: Optional[dict[str, Any]] = None,
+    graph_json: Optional[dict[str, Any]] = None,
+    asset_class: Optional[str] = None,
 ) -> bool:
     """
     Update mutable fields on a user_strategy.
@@ -192,6 +199,12 @@ async def update_user_strategy(
     if params_schema is not None:
         sets.append("params_schema = CAST(:params_schema AS JSONB)")
         params["params_schema"] = _to_json(params_schema)
+    if graph_json is not None:
+        sets.append("graph_json = CAST(:graph_json AS JSONB)")
+        params["graph_json"] = _to_json(graph_json)
+    if asset_class is not None:
+        sets.append("asset_class = :asset_class")
+        params["asset_class"] = asset_class
 
     if not sets:
         # Nothing to update — treat as a no-op success

@@ -103,6 +103,80 @@ export interface BacktestDetail {
   num_open_trades?: number | null;
   win_rate_pct?: number | null;
   profit_factor?: number | null;
+  attribution?: BacktestAttribution | null;
+  ml_model?: SignalEdgeModel | null;
+}
+
+export interface SignalFeatureWeight {
+  feature: string;
+  weight: number;
+}
+
+export interface SignalEdge {
+  name: string;
+  num_trades: number;
+  empirical_profit_rate: number;
+  mean_predicted_prob: number;
+  lift_vs_base_pp: number;
+}
+
+export interface SignalEdgeModel {
+  n_samples: number;
+  n_features: number;
+  base_profit_rate: number;
+  fitted: boolean;
+  reason: string | null;
+  train_accuracy: number | null;
+  train_log_loss: number | null;
+  feature_weights: SignalFeatureWeight[];
+  signal_edges: SignalEdge[];
+  hyperparams: {
+    iterations: number;
+    learning_rate: number;
+    l2: number;
+  };
+  count_feature: string;
+}
+
+export interface SymbolAttribution {
+  symbol: string;
+  num_trades: number;
+  wins: number;
+  losses: number;
+  win_rate_pct: number | null;
+  gross_pnl: string;
+  fees: string;
+  net_pnl: string;
+  avg_net_pnl: string;
+  pct_of_total_net_pnl: number | null;
+}
+
+export interface SignalAttribution {
+  name: string;
+  num_fired: number;
+  num_blocked: number;
+  num_evaluated: number;
+  block_rate_pct: number | null;
+  num_trades: number;
+  wins: number;
+  losses: number;
+  win_rate_pct: number | null;
+  net_pnl: string;
+  avg_net_pnl: string;
+  pct_of_total_net_pnl: number | null;
+}
+
+export interface BacktestAttribution {
+  total_net_pnl: string;
+  num_closed_trades: number;
+  by_symbol: SymbolAttribution[];
+  by_signal: SignalAttribution[];
+  untagged_trades: number;
+  untagged_net_pnl: string;
+  best_symbol: string | null;
+  worst_symbol: string | null;
+  best_signal: string | null;
+  worst_signal: string | null;
 }
 
 export interface BacktestTrade {

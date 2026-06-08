@@ -16,6 +16,7 @@ Endpoints:
 """
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -26,6 +27,9 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from packages.core.encryption import encrypt_json
+from packages.data.platform_credentials import (
+    list_platform_credentials as _list_platform_credentials,
+)
 from services.api.auth import get_current_user
 from services.api.deps import get_db_session
 
@@ -239,6 +243,56 @@ async def sync_profile_from_idp(
 
 
 # ============================================================
+# Free-form preferences (client-owned JSON bag)
+# ============================================================
+
+@router.get("/preferences")
+async def get_preferences(
+    session: AsyncSession = Depends(get_db_session),
+    claims: dict = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Return the current user's free-form preferences object.
+
+    Mirrors the frontend's former Supabase `user_preferences.prefs` blob.
+    Empty object if none set yet.
+    """
+    user_id = await _ensure_user(claims, session)
+    result = await session.execute(
+        text("SELECT prefs FROM user_preferences WHERE user_id = :id"),
+        {"id": user_id},
+    )
+    row = result.first()
+    return dict(row[0]) if row and row[0] else {}
+
+
+@router.put("/preferences")
+async def update_preferences(
+    body: dict[str, Any],
+    session: AsyncSession = Depends(get_db_session),
+    claims: dict = Depends(get_current_user),
+) -> dict[str, Any]:
+    """Replace the current user's free-form preferences object.
+
+    The frontend reads the whole bag, mutates it, and writes it back, so this
+    is a full replace rather than a merge.
+    """
+    user_id = await _ensure_user(claims, session)
+    await session.execute(
+        text(
+            """
+            INSERT INTO user_preferences (user_id, prefs, updated_at)
+            VALUES (:id, CAST(:prefs AS JSONB), NOW())
+            ON CONFLICT (user_id) DO UPDATE
+                SET prefs = EXCLUDED.prefs, updated_at = NOW()
+            """
+        ),
+        {"id": user_id, "prefs": json.dumps(body)},
+    )
+    await session.commit()
+    return body
+
+
+# ============================================================
 # API credential models
 # ============================================================
 
@@ -281,6 +335,32 @@ async def list_api_keys(
         {"user_id": user_id},
     )
     return [APICredentialSummary.model_validate(dict(r)) for r in result.mappings()]
+
+
+@router.get("/platform-credentials")
+async def list_platform_credentials_endpoint(
+    session: AsyncSession = Depends(get_db_session),
+    claims: dict = Depends(get_current_user),
+) -> list[dict]:
+    """Shared platform broker credentials available to every user.
+
+    Lets the deploy path fall back to a platform key (crypto via Binance.US,
+    stocks/options via Alpaca) when the user hasn't connected their own. Secrets
+    are never returned — only id, service, and a masked last-four.
+    """
+    await _ensure_user(claims, session)
+    creds = await _list_platform_credentials(session)
+    return [
+        {
+            "id": str(c["id"]),
+            "service": c["service"],
+            "label": c["label"],
+            "last_four": c["last_four"],
+            # binanceus = real-money crypto, alpaca = paper stocks/options.
+            "mode": "live" if c["service"] in ("binanceus", "alpaca_live") else "paper",
+        }
+        for c in creds
+    ]
 
 
 @router.post("/api-keys", response_model=APICredentialSummary, status_code=201)

@@ -92,11 +92,44 @@ ctx.sma(symbol, period) -> Decimal | None
 ctx.ema(symbol, period) -> Decimal | None
 ctx.rsi(symbol, period=14) -> Decimal | None
 ctx.atr(symbol, period=14) -> Decimal | None
-# Returns None when there isn't enough history; ALWAYS check for None.
+
+# Multi-line indicators — USE THESE; do NOT approximate them from sma/ema.
+ctx.macd(symbol, fast=12, slow=26, signal=9) -> MACD | None
+    # MACD is a NamedTuple: .macd, .signal, .hist (all Decimal), plus
+    # .crossed_up and .crossed_down (bool) — stateless crossover flags for
+    # THIS bar. For a MACD signal-cross entry, just test `m.crossed_up`;
+    # for the exit, `m.crossed_down`. No need to track previous values.
+ctx.bollinger(symbol, period=20, num_std=2.0) -> Bands | None
+    # Bands is a NamedTuple: .upper, .mid, .lower (Decimal). Compare PRICE to a
+    # band, e.g. `price <= b.lower` (oversold) or `price >= b.upper`.
+ctx.stoch(symbol, k_period=14, d_period=3) -> Stochastic | None
+    # Stochastic is a NamedTuple: .k, .d (Decimal, 0..100). e.g. `s.k < 20`.
+ctx.vwap(symbol, period=None) -> Decimal | None
+    # Rolling VWAP over `period` bars, or cumulative if period is None.
+
+# Moving-average crossovers (stateless — no self.state needed):
+ctx.crossed_above(symbol, fast_period, slow_period, kind="sma") -> bool | None
+ctx.crossed_below(symbol, fast_period, slow_period, kind="sma") -> bool | None
+    # True iff the fast MA crossed the slow MA on THIS bar. kind is "sma"/"ema".
+
+# Returns None when there isn't enough history; ALWAYS check for None. The
+# multi-line results are None as a whole — guard `if m is None: return` before
+# reading fields.
 
 # Position
 ctx.position(symbol) -> Decimal         # 0 = flat, positive = long
 ctx.cash -> Decimal                     # property, available cash
+
+# Attribution — tag WHY you traded (REQUIRED on every entry and exit)
+ctx.signal(name, *, passed=True, value=None, symbol=None) -> bool
+    # Records that a condition fired this bar. Call it on EACH entry and exit
+    # branch, immediately BEFORE the matching order, naming the condition that
+    # triggered it, e.g.:
+    #     ctx.signal("rsi_oversold", value=rsi, symbol=symbol)
+    #     ctx.submit_buy_market(symbol, qty)   # this order is tagged "rsi_oversold"
+    # Without these calls the backtest can report only aggregate metrics — there
+    # is no per-signal edge attribution — and the analysis flags the strategy as
+    # "emits no signals". A strategy with zero ctx.signal() calls is incomplete.
 
 # Orders — fill at NEXT bar's open
 ctx.submit_buy_market(symbol, quantity) -> order_id
@@ -108,6 +141,34 @@ ctx.submit_sell_limit(symbol, quantity, price) -> order_id
 Engine is LONG-ONLY in this phase. To "close a long" submit a sell-market for
 the current position quantity. NEVER submit a sell-market for more than the
 current position — the engine will reject.
+
+## Numeric safety
+
+ctx numeric values (close, indicators, position, cash) are Decimal-compatible
+and DO interoperate with int/float in arithmetic — e.g. `ema - 2.0 * atr` and
+`0.05 * ctx.cash` both work, with no float-precision drift. You may freely mix
+float params with these values. Prefer plain, readable arithmetic; do NOT wrap
+every value in Decimal(str(...)). The framework guarantees the math will not
+raise on float operands.
+
+## Position sizing — size from account equity, never fixed base units
+
+Size every entry as a fraction of account equity, converted to a quantity at
+the current price. While the strategy is flat, `ctx.cash` equals account equity:
+
+```python
+price = ctx.close(symbol)
+if price is not None and price > 0:
+    qty = (self.params.position_pct / 100) * ctx.cash / price
+    if qty > 0:
+        ctx.submit_buy_market(symbol, qty)
+```
+
+Default `position_pct` to 95.0 unless the user gives a size. NEVER default a
+fixed quantity like 0.01 "base units" — on a $25k account that is a few dollars
+of exposure, so every backtest returns ~0% regardless of the strategy. Use a
+`fixed_cash` param (`qty = cash / price`) only if the user asks for a fixed
+dollar amount per trade.
 
 ## Look-ahead safety
 
@@ -148,9 +209,9 @@ class SMACrossoverParams(BaseModel):
         default=30, ge=3, le=500,
         description="Lookback length of the slow SMA. Must exceed fast_period.",
     )
-    position_size: float = Field(
-        default=0.01, gt=0,
-        description="Quantity in base units (e.g. BTC) bought per entry signal.",
+    position_pct: float = Field(
+        default=95.0, gt=0, le=100,
+        description="Percent of account equity deployed per entry.",
     )
 
     @model_validator(mode="after")
@@ -187,9 +248,20 @@ class SMACrossover(Strategy[SMACrossoverParams]):
         position = ctx.position(self.symbol)
 
         if fast > slow and position == 0:
-            ctx.submit_buy_market(self.symbol, self.params.position_size)
-            self.state["signal"] = "long"
+            # Size from account equity so the position is economically
+            # meaningful for any asset/price (NOT a fixed sliver of base units).
+            # While flat, ctx.cash == account equity.
+            price = ctx.close(self.symbol)
+            if price is not None and price > 0:
+                qty = (self.params.position_pct / 100) * ctx.cash / price
+                if qty > 0:
+                    # Tag the entry so per-signal attribution can report this
+                    # condition's win rate / P&L. Always do this before the order.
+                    ctx.signal("sma_cross_up", value=fast - slow, symbol=self.symbol)
+                    ctx.submit_buy_market(self.symbol, qty)
+                    self.state["signal"] = "long"
         elif fast < slow and position > 0:
+            ctx.signal("sma_cross_down", value=fast - slow, symbol=self.symbol)
             ctx.submit_sell_market(self.symbol, position)
             self.state["signal"] = "flat"
 ```
@@ -209,13 +281,39 @@ return the result.
 - Don't override __init__ unless absolutely necessary
 - Use on_init() for setup, not __init__
 - Always None-check indicator results before comparing
-- Default position_size to 0.01 (small/conservative) unless the user
-  specifies otherwise
+- Size positions from account equity (default position_pct=95.0); NEVER a
+  fixed 0.01 base-unit quantity
+- Call ctx.signal("<reason>", value=<indicator>, symbol=symbol) on EVERY entry
+  and exit branch, right before the order — this drives per-signal attribution.
+  Code with no ctx.signal() calls is incomplete.
 - Add a meaningful class docstring on both the params and the strategy class
 - Use `from __future__ import annotations` at the top
 
 # COMMON MISTAKES TO AVOID
 
+- NEVER compare two quantities of different SCALE, and never write a condition
+  that can't be true. The #1 cause of "0 trades" is an impossible comparison:
+  e.g. approximating a MACD signal line as `ctx.sma(price)` (~$3000) and testing
+  it against the MACD line (`ema12 - ema26`, ~0) — `signal > macd` is then
+  always true and `prev_signal <= prev_macd` always false, so entry NEVER fires.
+  Use the real `ctx.macd(...)` (with `.crossed_up`/`.crossed_down`) instead of
+  reconstructing it. Likewise compare price to price (Bollinger bands, VWAP),
+  oscillators to 0..100 levels (RSI, stochastic). If you find yourself
+  comparing an indicator to a hand-built proxy, you are about to ship a dead
+  strategy.
+- For "X crosses above/below Y", use the provided crossover helpers
+  (`m.crossed_up`, `ctx.crossed_above(...)`) — do not hand-roll state and risk
+  comparing the wrong things.
+- RISK:REWARD — if you use a fixed profit target plus a stop, NEVER make the
+  target tighter than the stop. A target of 0.1R against a 1R stop (reward:risk
+  1:0.1) is degenerate: it books tiny wins, takes full-size losses, and barely
+  trades, so the backtest is inconclusive. Default the target distance to AT
+  LEAST the stop distance (reward:risk >= 1:1, e.g. a 6% target with a 3% stop)
+  unless the user explicitly asks for a tighter one. When in doubt, prefer an
+  indicator-based exit over an arbitrary fixed target.
+- Make sure entries can actually FIRE often enough to evaluate. Over a normal
+  window a sound strategy should produce many trades, not one or two. If your
+  entry stacks many narrow filters, it may almost never trigger — loosen it.
 - DO NOT import os, sys, requests, json, subprocess, etc. — REJECTED.
 - DO NOT call exec, eval, getattr, setattr, __import__, open. — REJECTED.
 - DO NOT use dunder attributes other than __init__/__doc__. — REJECTED.

@@ -86,7 +86,7 @@ def simulate_market_fill(
     else:
         fill_price = open_price * (Decimal(1) - config.slippage)
 
-    fee = fill_price * fillable_qty * config.fee_rate
+    fee = config.fee_for(order.symbol, fill_price, fillable_qty)
     remainder = order.quantity - fillable_qty
     is_partial = remainder > 0
 
@@ -138,7 +138,7 @@ def try_fill_limit_order(
     if fillable_qty is None:
         return None  # zero-volume bar with cap; order persists
 
-    fee = fill_price * fillable_qty * config.fee_rate
+    fee = config.fee_for(order.symbol, fill_price, fillable_qty)
     remainder = order.quantity - fillable_qty
     is_partial = remainder > 0
 
@@ -153,5 +153,75 @@ def try_fill_limit_order(
         filled_ts=bar.name,
         order_submitted_ts=order.submitted_ts,
         is_partial=is_partial,
+    )
+    return fill, remainder
+
+
+def try_fill_stop_order(
+    order: Order,
+    bar: pd.Series,
+    config: BacktestConfig,
+    trail_state: dict[str, Decimal],
+) -> tuple[Fill, Decimal] | None:
+    """Attempt to fill a STOP or TRAILING_STOP order during a bar.
+
+    The engine triggers stops intrabar (no strategy polling), so a stop reacts
+    on the SAME bar that breaches it — including gaps. `trail_state` carries the
+    per-order high/low water mark for trailing stops across bars; the engine
+    owns the dict and clears it when the order leaves the book.
+
+    Returns (Fill, remainder_qty) on a trigger+fill, or None if not triggered
+    (or zero-volume blocks the fill).
+    """
+    high = _decimal(bar["high"])
+    low = _decimal(bar["low"])
+    open_price = _decimal(bar["open"])
+
+    if order.order_type == OrderType.TRAILING_STOP:
+        assert order.trail_percent is not None
+        frac = order.trail_percent / Decimal(100)
+        prev = trail_state.get(order.client_order_id)
+        if order.side == OrderSide.SELL:
+            water = high if prev is None else max(prev, high)
+            trail_state[order.client_order_id] = water
+            stop_trigger = water * (Decimal(1) - frac)
+        else:  # BUY trailing stop trails the low
+            water = low if prev is None else min(prev, low)
+            trail_state[order.client_order_id] = water
+            stop_trigger = water * (Decimal(1) + frac)
+    else:  # plain STOP
+        assert order.stop_price is not None
+        stop_trigger = order.stop_price
+
+    # Trigger + fill price. A sell stop fills at the worse of open / trigger on a
+    # gap (min), a buy stop at the worse (max), then slippage is applied.
+    if order.side == OrderSide.SELL:
+        if low > stop_trigger:
+            return None  # not breached this bar
+        raw = min(open_price, stop_trigger)
+        fill_price = raw * (Decimal(1) - config.slippage)
+    else:  # BUY
+        if high < stop_trigger:
+            return None
+        raw = max(open_price, stop_trigger)
+        fill_price = raw * (Decimal(1) + config.slippage)
+
+    fillable_qty = _apply_volume_cap(order.quantity, bar["volume"], config)
+    if fillable_qty is None:
+        return None  # zero-volume bar with cap; order persists
+
+    fee = config.fee_for(order.symbol, fill_price, fillable_qty)
+    remainder = order.quantity - fillable_qty
+    fill = Fill(
+        client_order_id=order.client_order_id,
+        symbol=order.symbol,
+        side=order.side,
+        order_type=order.order_type,
+        quantity=fillable_qty,
+        price=fill_price,
+        fee=fee,
+        filled_ts=bar.name,
+        order_submitted_ts=order.submitted_ts,
+        is_partial=remainder > 0,
     )
     return fill, remainder

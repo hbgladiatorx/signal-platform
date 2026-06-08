@@ -22,8 +22,11 @@ from services.api.routers import (
     backtests,
     health,
     instruments,
+    live,
     market,
     me,
+    ml,
+    paper_sessions,
     settings as settings_router,
     strategies,
     system,
@@ -60,6 +63,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     log.info("api.starting", env=os.environ.get("ENV", "unknown"))
     get_engine()
     await broadcaster.start(REDIS_URL)
+    # Seed shared platform broker credentials from env so any user can deploy
+    # without first connecting their own key. Idempotent; non-fatal on error.
+    try:
+        from packages.data.platform_credentials import seed_platform_credentials
+
+        services = await seed_platform_credentials(get_engine())
+        log.info("api.platform_credentials_seeded", services=services)
+    except Exception as e:  # noqa: BLE001
+        log.error("api.platform_credentials_seed_failed", err=str(e))
     log.info("api.ready")
     yield
     log.info("api.shutting_down")
@@ -123,6 +135,9 @@ app.include_router(strategies.router)
 app.include_router(backtests.router)
 app.include_router(user_strategies.router)
 app.include_router(walkforwards.router)
+app.include_router(ml.router)
+app.include_router(paper_sessions.router)
+app.include_router(live.router)
 app.include_router(ws.router)
 
 

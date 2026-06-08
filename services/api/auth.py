@@ -1,14 +1,26 @@
-"""Auth0 JWT verification.
+"""JWT verification for multiple identity providers (Auth0 + Supabase).
 
-The backend never speaks to Auth0 directly to validate tokens. Instead,
-it fetches Auth0's JSON Web Key Set (JWKS) — a set of public keys that
-Auth0 uses to sign JWTs — and verifies tokens locally using those keys.
+The backend never speaks to an IdP to validate tokens. Instead it fetches
+each provider's JSON Web Key Set (JWKS) — the public keys the provider uses
+to sign tokens — and verifies tokens locally. No network round-trip per
+request; the JWKS is cached for an hour.
 
-This means: no network round-trip per request, just RSA signature
-verification on the token. The JWKS itself is cached for an hour.
+Two providers are supported, selected per-token by the `iss` claim:
 
-A request without a valid JWT gets 401. A request with a valid JWT
-sees `request.state.user` populated with the JWT claims.
+  * **Auth0** — RS256, audience = AUTH0_AUDIENCE, issuer = https://{domain}/.
+    Legacy/admin + M2M tokens. Configured via AUTH0_DOMAIN/AUTH0_AUDIENCE.
+  * **Supabase** — ES256 (asymmetric signing keys), audience "authenticated",
+    issuer = {SUPABASE_URL}/auth/v1. This is what the thebayn frontend sends:
+    the user's Supabase session access token, forwarded as a Bearer header.
+
+A token whose issuer matches neither configured provider is rejected (401).
+At least one provider must be configured or import fails.
+
+The decoded claims always carry `sub` (the subject). Downstream
+(`deps.get_current_user_record`) maps that subject onto the platform `users`
+row, lazily provisioning it on first request. Supabase subjects (user UUIDs)
+and Auth0 subjects share the `users.auth0_sub` column — it's just an opaque
+subject string.
 
 Usage in routers:
     from fastapi import Depends
@@ -22,6 +34,7 @@ from __future__ import annotations
 
 import os
 import time
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
@@ -31,61 +44,101 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import jwt
 from jose.exceptions import JWTError
 
-from packages.core.exceptions import AuthError, ConfigError
+from packages.core.exceptions import ConfigError
 
 log = structlog.get_logger(__name__)
 
 
 # ============================================================
-# Configuration (loaded once at import time)
+# Provider configuration (loaded once at import time)
 # ============================================================
 
 
-def _get_required(name: str) -> str:
-    value = os.environ.get(name)
-    if not value:
-        raise ConfigError(f"Required env var {name} is not set")
-    return value
+@dataclass(frozen=True)
+class Provider:
+    """A trusted token issuer and how to verify its tokens."""
+
+    name: str
+    issuer: str
+    jwks_url: str
+    algorithms: tuple[str, ...]
+    audience: str | None  # None = skip audience verification
 
 
-AUTH0_DOMAIN = _get_required("AUTH0_DOMAIN")
-AUTH0_AUDIENCE = _get_required("AUTH0_AUDIENCE")
-ALGORITHMS = ["RS256"]
-ISSUER = f"https://{AUTH0_DOMAIN}/"
-JWKS_URL = f"https://{AUTH0_DOMAIN}/.well-known/jwks.json"
+def _build_providers() -> dict[str, Provider]:
+    """Assemble the enabled providers from environment configuration.
+
+    Both providers are optional individually, but at least one must be
+    configured. This lets a deployment run Supabase-only, Auth0-only, or
+    both during a migration.
+    """
+    providers: dict[str, Provider] = {}
+
+    auth0_domain = os.environ.get("AUTH0_DOMAIN")
+    auth0_audience = os.environ.get("AUTH0_AUDIENCE")
+    if auth0_domain and auth0_audience:
+        issuer = f"https://{auth0_domain}/"
+        providers[issuer] = Provider(
+            name="auth0",
+            issuer=issuer,
+            jwks_url=f"https://{auth0_domain}/.well-known/jwks.json",
+            algorithms=("RS256",),
+            audience=auth0_audience,
+        )
+
+    # Supabase: derive everything from the project URL. The frontend's
+    # Supabase project is the default so the integration works out of the box;
+    # override with SUPABASE_URL in the environment for other projects.
+    supabase_url = os.environ.get(
+        "SUPABASE_URL", "https://lkwmpjdojkhysveneubo.supabase.co"
+    ).rstrip("/")
+    if supabase_url:
+        issuer = f"{supabase_url}/auth/v1"
+        providers[issuer] = Provider(
+            name="supabase",
+            issuer=issuer,
+            # Supabase signs user tokens with asymmetric keys (ES256) exposed
+            # at this JWKS endpoint. No shared secret required.
+            jwks_url=f"{supabase_url}/auth/v1/.well-known/jwks.json",
+            algorithms=("ES256", "RS256"),
+            audience=os.environ.get("SUPABASE_JWT_AUD", "authenticated"),
+        )
+
+    if not providers:
+        raise ConfigError(
+            "No auth provider configured: set AUTH0_DOMAIN/AUTH0_AUDIENCE "
+            "and/or SUPABASE_URL"
+        )
+    return providers
+
+
+_PROVIDERS = _build_providers()
 
 
 # ============================================================
-# JWKS cache (one-hour TTL)
+# JWKS cache (one-hour TTL, keyed by URL)
 # ============================================================
 
 
-_jwks_cache: dict[str, Any] | None = None
-_jwks_cache_expires_at: float = 0.0
+_jwks_cache: dict[str, tuple[dict[str, Any], float]] = {}
 _JWKS_CACHE_TTL_S = 3600  # 1 hour
 
 
-async def _fetch_jwks() -> dict[str, Any]:
-    """Fetch Auth0's JWKS, with a one-hour cache.
-
-    JWKS rotates infrequently. Auth0 documents a ~24h rotation cadence,
-    so a one-hour cache is conservative.
-    """
-    global _jwks_cache, _jwks_cache_expires_at
-
+async def _fetch_jwks(url: str) -> dict[str, Any]:
+    """Fetch a provider's JWKS, with a one-hour per-URL cache."""
     now = time.monotonic()
-    if _jwks_cache is not None and now < _jwks_cache_expires_at:
-        return _jwks_cache
+    cached = _jwks_cache.get(url)
+    if cached is not None and now < cached[1]:
+        return cached[0]
 
-    log.info("auth.fetching_jwks", url=JWKS_URL)
+    log.info("auth.fetching_jwks", url=url)
     async with httpx.AsyncClient(timeout=10.0) as client:
-        response = await client.get(JWKS_URL)
+        response = await client.get(url)
         response.raise_for_status()
         jwks = response.json()
 
-    _jwks_cache = jwks
-    _jwks_cache_expires_at = now + _JWKS_CACHE_TTL_S
-    log.info("auth.jwks_cached", key_count=len(jwks.get("keys", [])))
+    _jwks_cache[url] = (jwks, now + _JWKS_CACHE_TTL_S)
+    log.info("auth.jwks_cached", url=url, key_count=len(jwks.get("keys", [])))
     return jwks
 
 
@@ -97,75 +150,88 @@ async def _fetch_jwks() -> dict[str, Any]:
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
+def _unauthorized(detail: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=detail,
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+def _select_provider(token: str) -> Provider:
+    """Pick the provider for a token by its (unverified) issuer claim.
+
+    The issuer is read before signature verification only to route to the
+    right keys; the signature, audience, issuer and expiry are all verified
+    afterward by ``jwt.decode``.
+    """
+    try:
+        claims = jwt.get_unverified_claims(token)
+    except JWTError as e:
+        raise _unauthorized(f"Malformed token: {e}")
+
+    issuer = claims.get("iss")
+    if not issuer:
+        raise _unauthorized("Token missing 'iss' claim")
+
+    provider = _PROVIDERS.get(issuer)
+    if provider is None:
+        raise _unauthorized(f"Untrusted token issuer: {issuer}")
+    return provider
+
+
+def _jwk_for_kid(jwks: dict[str, Any], kid: str) -> dict[str, Any] | None:
+    """Return the full JWK matching ``kid`` (works for RSA and EC keys)."""
+    for key in jwks.get("keys", []):
+        if key.get("kid") == kid:
+            return key
+    return None
+
+
 async def verify_token(token: str) -> dict[str, Any]:
-    """Validate a JWT and return its claims.
+    """Validate a JWT against its issuer's keys and return its claims.
 
     Raises HTTPException 401 on any failure.
     """
-    try:
-        unverified_header = jwt.get_unverified_header(token)
-    except JWTError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Malformed token: {e}",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    provider = _select_provider(token)
 
-    kid = unverified_header.get("kid")
+    try:
+        header = jwt.get_unverified_header(token)
+    except JWTError as e:
+        raise _unauthorized(f"Malformed token header: {e}")
+
+    kid = header.get("kid")
     if not kid:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token header missing 'kid'",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise _unauthorized("Token header missing 'kid'")
 
-    jwks = await _fetch_jwks()
-    rsa_key = None
-    for key in jwks.get("keys", []):
-        if key.get("kid") == kid:
-            rsa_key = {
-                "kty": key["kty"],
-                "kid": key["kid"],
-                "use": key["use"],
-                "n": key["n"],
-                "e": key["e"],
-            }
-            break
+    jwks = await _fetch_jwks(provider.jwks_url)
+    key = _jwk_for_kid(jwks, kid)
+    if key is None:
+        # Key may have rotated since we cached; drop cache and retry once.
+        _jwks_cache.pop(provider.jwks_url, None)
+        jwks = await _fetch_jwks(provider.jwks_url)
+        key = _jwk_for_kid(jwks, kid)
+    if key is None:
+        raise _unauthorized("Token signing key not found in JWKS")
 
-    if rsa_key is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token signing key not found in JWKS",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    decode_kwargs: dict[str, Any] = {
+        "algorithms": list(provider.algorithms),
+        "issuer": provider.issuer,
+    }
+    if provider.audience is not None:
+        decode_kwargs["audience"] = provider.audience
+    else:
+        decode_kwargs["options"] = {"verify_aud": False}
 
     try:
-        payload = jwt.decode(
-            token,
-            rsa_key,
-            algorithms=ALGORITHMS,
-            audience=AUTH0_AUDIENCE,
-            issuer=ISSUER,
-        )
-        return payload
+        # python-jose accepts the raw JWK dict for both RSA and EC keys.
+        return jwt.decode(token, key, **decode_kwargs)
     except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise _unauthorized("Token has expired")
     except jwt.JWTClaimsError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid claims: {e}",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise _unauthorized(f"Invalid claims: {e}")
     except JWTError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Token verification failed: {e}",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise _unauthorized(f"Token verification failed: {e}")
 
 
 # ============================================================
@@ -179,15 +245,11 @@ async def get_current_user(
 ) -> dict[str, Any]:
     """FastAPI dependency that requires a valid JWT.
 
-    Returns the decoded claims dict. Caches the result on `request.state.user`
-    so the same request doesn't re-verify if multiple dependencies use it.
+    Returns the decoded claims dict and caches it on ``request.state.user``
+    so multiple dependencies on one request don't re-verify.
     """
     if credentials is None or not credentials.credentials:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing Authorization header",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise _unauthorized("Missing Authorization header")
 
     claims = await verify_token(credentials.credentials)
     request.state.user = claims

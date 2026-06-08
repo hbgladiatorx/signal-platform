@@ -46,6 +46,17 @@ class OrderSide(str, Enum):
 class OrderType(str, Enum):
     MARKET = "market"
     LIMIT = "limit"
+    # Stop (a.k.a. stop-market): rests until price crosses `stop_price`, then
+    # fills like a market order. A SELL stop triggers when price falls to/below
+    # the stop (protective stop for a long, or breakdown entry); a BUY stop
+    # triggers when price rises to/above it (cover stop for a short, or breakout
+    # entry). The engine triggers it intrabar — no per-bar strategy polling.
+    STOP = "stop"
+    # Trailing stop: like STOP but the trigger ratchets with the position's
+    # favourable excursion by `trail_percent`. A SELL trailing stop trails
+    # `trail_percent` below the highest price seen since submission; a BUY
+    # trailing stop trails above the lowest.
+    TRAILING_STOP = "trailing_stop"
 
 
 @dataclass(frozen=True)
@@ -67,14 +78,61 @@ class Order:
     submitted_ts: datetime  # the bar close time at which the strategy decided
     client_order_id: str  # auto-generated; unique per strategy run
     expires_at_bar_count: int | None = None  # None = GTC (no expiry)
+    # Trigger price for STOP orders (and the initial trigger basis is computed
+    # from this for plain stops). None for market/limit.
+    stop_price: Decimal | None = None
+    # Trail distance as a percent (e.g. 5 = 5%) for TRAILING_STOP orders.
+    trail_percent: Decimal | None = None
+    # Attribution tags: the names of the signals the strategy emitted (via
+    # ctx.signal(...)) in the same on_bar() before submitting this order. These
+    # are the causal link used by attribution analytics to answer "which signal
+    # / filter drove this trade". Empty for strategies that emit no signals.
+    tags: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.order_type == OrderType.LIMIT and self.limit_price is None:
             raise ValueError("Limit orders require limit_price")
         if self.order_type == OrderType.MARKET and self.limit_price is not None:
             raise ValueError("Market orders must not have limit_price")
+        if self.order_type == OrderType.STOP and self.stop_price is None:
+            raise ValueError("Stop orders require stop_price")
+        if self.order_type == OrderType.TRAILING_STOP and self.trail_percent is None:
+            raise ValueError("Trailing-stop orders require trail_percent")
+        if self.order_type == OrderType.TRAILING_STOP and (
+            self.trail_percent is None or self.trail_percent <= 0
+        ):
+            raise ValueError("trail_percent must be positive")
         if self.quantity <= 0:
             raise ValueError(f"Order quantity must be positive: {self.quantity}")
+
+
+@dataclass(frozen=True)
+class SignalEvent:
+    """A discrete signal or filter outcome a strategy emitted during on_bar().
+
+    Strategies call ctx.signal(name, passed=..., value=..., symbol=...) to
+    record that a condition fired (e.g. "rsi_oversold") or that a filter
+    blocked an action (passed=False, e.g. "atr_filter" rejecting an entry).
+
+    These events are the raw material for attribution analytics: how often a
+    signal fired, what fraction passed its filters, and — when an order was
+    submitted in the same bar — how the resulting trades performed.
+
+    `value` carries an optional numeric reading (e.g. the RSI value) so the
+    same log doubles as a feature/label store for the later ML/DRL phase.
+
+    Lives in the strategy package (not backtest) because it is part of the
+    strategy-facing contract, exactly like Order — both backtest and live
+    paths emit and consume it without depending on the backtest package.
+    """
+
+    ts: datetime
+    bar_count: int
+    name: str
+    passed: bool = True
+    symbol: str | None = None
+    value: Decimal | None = None
+    meta: dict[str, Any] = field(default_factory=dict)
 
 
 P = TypeVar("P", bound=BaseModel)

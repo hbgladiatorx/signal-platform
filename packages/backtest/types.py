@@ -10,11 +10,45 @@ serialization to JSON or pandas operations and are explicitly converted.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
-from packages.strategy.base import Order, OrderSide, OrderType
+from packages.strategy.base import Order, OrderSide, OrderType, SignalEvent
+
+# Re-exported so downstream code can import SignalEvent from the backtest types
+# module alongside the other result types, even though it is defined in the
+# strategy package (it is part of the strategy-facing contract).
+__all__ = [
+    "InstrumentMeta",
+    "BacktestConfig",
+    "Fill",
+    "Position",
+    "EquityPoint",
+    "BacktestResult",
+    "SignalEvent",
+]
+
+
+# ============================================================
+# Instrument metadata (drives multiplier / option settlement)
+# ============================================================
+@dataclass(frozen=True)
+class InstrumentMeta:
+    """Per-symbol facts the engine needs for non-equity/crypto handling.
+
+    Defaults describe a plain 1x instrument (equity/crypto), so when no meta is
+    supplied the engine behaves exactly as before. Options set multiplier=100
+    and provide expiry/right/strike (and the underlying canonical symbol when
+    available) so positions can be settled at expiry.
+    """
+
+    multiplier: Decimal = Decimal(1)
+    asset_class: str = "equity"
+    expiry: date | None = None
+    right: str | None = None  # 'C' or 'P'
+    strike: Decimal | None = None
+    underlying: str | None = None  # canonical symbol of the underlier
 
 
 # ============================================================
@@ -39,6 +73,20 @@ class BacktestConfig:
     fee_rate_bps: int = 10
     slippage_bps: int = 5
     max_pct_of_volume: Decimal | None = None
+    # Per-contract commission for options (Alpaca-style ~$0.65/contract).
+    option_fee_per_contract: Decimal = Decimal("0.65")
+    # Optional per-symbol overrides. When both are None the engine is identical
+    # to its pre-options behavior (multiplier 1, bps fees), so crypto/equity
+    # backtests are unaffected.
+    contract_multipliers: dict[str, Decimal] | None = None
+    instrument_meta: dict[str, "InstrumentMeta"] | None = None
+    # --- Shorting / margin ---
+    # allow_short=False reverts to the original long-only behavior (a fill that
+    # would make a position negative is rejected). margin_rate is the fraction
+    # of gross exposure that post-fill equity must cover when a fill INCREASES
+    # exposure: 1.0 = fully collateralized (no leverage), 0.5 = 2:1, etc.
+    allow_short: bool = True
+    margin_rate: Decimal = Decimal(1)
 
     @property
     def fee_rate(self) -> Decimal:
@@ -49,6 +97,26 @@ class BacktestConfig:
     def slippage(self) -> Decimal:
         """Slippage as a Decimal fraction."""
         return Decimal(self.slippage_bps) / Decimal(10_000)
+
+    def multiplier_for(self, symbol: str) -> Decimal:
+        """Contract multiplier for a symbol (1 for equity/crypto, 100 options)."""
+        if self.contract_multipliers and symbol in self.contract_multipliers:
+            return self.contract_multipliers[symbol]
+        if self.instrument_meta and symbol in self.instrument_meta:
+            return self.instrument_meta[symbol].multiplier
+        return Decimal(1)
+
+    def meta_for(self, symbol: str) -> "InstrumentMeta | None":
+        if self.instrument_meta:
+            return self.instrument_meta.get(symbol)
+        return None
+
+    def fee_for(self, symbol: str, fill_price: Decimal, quantity: Decimal) -> Decimal:
+        """Fee for a fill: per-contract for options, bps of notional otherwise."""
+        meta = self.meta_for(symbol)
+        if meta is not None and meta.asset_class == "option":
+            return self.option_fee_per_contract * quantity
+        return fill_price * quantity * self.fee_rate
 
 
 # ============================================================
@@ -79,6 +147,10 @@ class Fill:
     filled_ts: datetime
     order_submitted_ts: datetime
     is_partial: bool = False
+    # Attribution tags copied from the originating Order (the signals active
+    # when the strategy decided to trade). Used to attribute round-trip P&L
+    # back to the signals/filters that caused entries. See SignalEvent.
+    tags: tuple[str, ...] = ()
 
 
 # ============================================================
@@ -97,6 +169,9 @@ class Position:
     quantity: Decimal = Decimal(0)
     avg_cost: Decimal = Decimal(0)
     realized_pnl: Decimal = Decimal(0)
+    # Contract multiplier (1 for equity/crypto, 100 for options). Set when the
+    # position is first opened; used for cash math and mark-to-market.
+    multiplier: Decimal = Decimal(1)
 
 
 # ============================================================
@@ -139,6 +214,14 @@ class BacktestResult:
     cancelled_orders: list[Order] = field(default_factory=list)
     expired_orders: list[Order] = field(default_factory=list)
     strategy_state_final: dict[str, Any] = field(default_factory=dict)
+    # Every signal/filter event the strategy emitted, in chronological order.
+    # Drives attribution analytics (the "why"). Empty for strategies that
+    # never call ctx.signal().
+    signal_events: list["SignalEvent"] = field(default_factory=list)
+    # Total orders the strategy submitted across the run. 0 ⇒ the strategy never
+    # tried to trade (a dead/impossible entry condition), as opposed to trading
+    # but never closing a round trip. Drives the 0-trade diagnostic.
+    orders_submitted: int = 0
 
     @property
     def final_equity(self) -> Decimal:

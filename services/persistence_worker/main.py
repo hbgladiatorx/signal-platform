@@ -80,6 +80,9 @@ class PersistenceWorker:
         self.batch_timeout_ms = int(
             os.environ.get("PERSISTENCE_BATCH_TIMEOUT_MS", "500")
         )
+        self.instrument_refresh_s = int(
+            os.environ.get("PERSISTENCE_INSTRUMENT_REFRESH_S", "300")
+        )
         self.bus = RedisStreamsBus()
         self._shutdown = asyncio.Event()
 
@@ -126,6 +129,9 @@ class PersistenceWorker:
                 name="quotes",
             ),
             asyncio.create_task(self._heartbeat(), name="heartbeat"),
+            asyncio.create_task(
+                self._instrument_refresh_loop(), name="instrument_refresh"
+            ),
         ]
 
         await self._shutdown.wait()
@@ -139,21 +145,43 @@ class PersistenceWorker:
     async def _load_instrument_cache(self) -> None:
         """Load the instruments table into memory.
 
-        Phase 1: queried once at startup, no TTL.
-        Phase 4+: switch to TTL-based refresh if instruments change dynamically.
+        Rebuilds a fresh dict and swaps it in atomically (dict-reference
+        assignment) so the live universe can grow without a worker restart.
+        Refreshed periodically by ``_instrument_refresh_loop``.
         """
+        cache: dict[str, int] = {}
         async with session_scope() as session:
             result = await session.execute(
                 text("SELECT id, canonical_symbol FROM instruments WHERE active = TRUE")
             )
             for row in result:
-                self._instrument_cache[row.canonical_symbol] = row.id
+                cache[row.canonical_symbol] = row.id
 
-        log.info(
-            "persistence.instruments_loaded",
-            count=len(self._instrument_cache),
-            symbols=list(self._instrument_cache.keys()),
-        )
+        previous = len(self._instrument_cache)
+        self._instrument_cache = cache
+        # Log the full symbol list only on first load; later refreshes just
+        # report the delta to avoid noisy logs on a large universe.
+        if previous == 0:
+            log.info("persistence.instruments_loaded", count=len(cache))
+        elif len(cache) != previous:
+            log.info(
+                "persistence.instruments_refreshed",
+                count=len(cache),
+                added=len(cache) - previous,
+            )
+
+    async def _instrument_refresh_loop(self) -> None:
+        """Periodically reload the instrument cache so newly discovered
+        instruments become persistable without restarting the worker."""
+        try:
+            while not self._shutdown.is_set():
+                await asyncio.sleep(self.instrument_refresh_s)
+                try:
+                    await self._load_instrument_cache()
+                except Exception as e:  # noqa: BLE001
+                    log.error("persistence.instrument_refresh_error", error=str(e))
+        except asyncio.CancelledError:
+            raise
 
     async def _consume_loop(
         self,

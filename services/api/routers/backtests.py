@@ -27,6 +27,7 @@ we accept this as a known caveat.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 from datetime import datetime
@@ -36,7 +37,7 @@ from uuid import UUID
 
 import redis.asyncio as redis
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, model_validator
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -48,8 +49,14 @@ from packages.backtest.persistence import (
     load_backtest_trades,
 )
 from packages.data.messagebus import QUEUE_BACKTEST_JOBS
-from services.api.auth import get_current_user
-from services.api.deps import get_db_session
+from packages.analysis.narrate import generate_narrative
+from packages.analysis.tweak_advisor import suggest_param_tweaks
+from starlette.concurrency import run_in_threadpool
+from services.api.deps import (
+    CurrentUserRecord,
+    get_current_user_record,
+    get_db_session,
+)
 from services.api.routers.strategies import get_strategy_registry
 from packages.strategy.loader import StrategyLoadError
 from packages.strategy.resolver import StrategyNotFoundError, resolve_strategy
@@ -77,47 +84,6 @@ async def _get_redis() -> redis.Redis:
 
 
 # ============================================================
-# Current-user helper (Auth0 sub → users row)
-# ============================================================
-class CurrentUserRecord(BaseModel):
-    id: UUID
-    org_id: UUID
-    email: str | None = None
-    role: str
-
-
-async def get_current_user_record(
-    claims: dict[str, Any] = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db_session),
-) -> CurrentUserRecord:
-    """Look up the platform `users` row for the JWT's `sub` claim.
-
-    Raises 404 if no row exists; this happens for M2M tokens that haven't
-    been pre-provisioned.
-    """
-    auth0_sub = claims.get("sub")
-    if not auth0_sub:
-        raise HTTPException(401, "Token missing 'sub' claim")
-    result = await session.execute(
-        text(
-            "SELECT id, org_id, email, role FROM users WHERE auth0_sub = :sub"
-        ),
-        {"sub": auth0_sub},
-    )
-    row = result.mappings().first()
-    if row is None:
-        raise HTTPException(
-            status_code=404,
-            detail=(
-                f"No user record found for Auth0 subject {auth0_sub!r}. "
-                "Use a user-issued token (not M2M) or pre-provision a "
-                "users row with this auth0_sub."
-            ),
-        )
-    return CurrentUserRecord(**dict(row))
-
-
-# ============================================================
 # Request / response models
 # ============================================================
 class CreateBacktestRequest(BaseModel):
@@ -128,6 +94,21 @@ class CreateBacktestRequest(BaseModel):
     starting_cash: Decimal = Field(default=Decimal("10000"), gt=0)
     fee_rate_bps: int = Field(default=10, ge=0, le=1000)
     slippage_bps: int = Field(default=5, ge=0, le=1000)
+    # Optional inclusive date window. Both NULL = full history (default
+    # in-sample run); set both to run a bounded window, e.g. a held-out
+    # out-of-sample segment. The worker filters bars to this range.
+    window_start: datetime | None = Field(default=None)
+    window_end: datetime | None = Field(default=None)
+
+    @model_validator(mode="after")
+    def _check_window(self) -> "CreateBacktestRequest":
+        if (
+            self.window_start is not None
+            and self.window_end is not None
+            and self.window_start >= self.window_end
+        ):
+            raise ValueError("window_start must be strictly before window_end")
+        return self
 
 
 class CreateBacktestResponse(BaseModel):
@@ -189,6 +170,20 @@ class BacktestDetail(BaseModel):
     num_open_trades: int | None = None
     win_rate_pct: float | None = None
     profit_factor: float | None = None
+    # Performance attribution (the "why"): per-symbol / per-signal P&L
+    # decomposition and signal fire/block frequency. Stored verbatim as the
+    # JSON shape produced by attribution_to_dict(). None for runs with no
+    # closed trades or completed before attribution was added.
+    attribution: dict[str, Any] | None = None
+    # Signal-edge ML model (Phase 3): in-sample logistic fit over the
+    # feature/label store — which signals predict profitable trades. Verbatim
+    # model_to_dict() shape. None for runs with nothing to learn / pre-Phase-3.
+    ml_model: dict[str, Any] | None = None
+    # Deterministic analysis (the "what worked / why / what to fix"): verdict,
+    # 0-100 score, derived metrics, and ranked findings. The optional LLM
+    # narrative lives under analysis["narrative"]. analyze_backtest() shape.
+    # None for runs completed before this was added.
+    analysis: dict[str, Any] | None = None
 
 
 class TradeRow(BaseModel):
@@ -306,6 +301,8 @@ async def create_new_backtest(
         starting_cash=req.starting_cash,
         fee_rate_bps=req.fee_rate_bps,
         slippage_bps=req.slippage_bps,
+        window_start=req.window_start,
+        window_end=req.window_end,
     )
 
     # Flush so the row is visible to the worker once we push.
@@ -416,6 +413,9 @@ async def get_one_backtest(
         num_open_trades=row.get("num_open_trades"),
         win_rate_pct=_opt_float(row.get("win_rate_pct")),
         profit_factor=_opt_float(row.get("profit_factor")),
+        attribution=row.get("attribution_json"),
+        ml_model=row.get("ml_model_json"),
+        analysis=row.get("analysis_json"),
     )
 
 
@@ -464,3 +464,112 @@ async def get_backtest_equity(
         )
         for r in rows
     ]
+
+
+class NarrativeResponse(BaseModel):
+    ok: bool
+    # The generated prose (markdown). Present iff ok. Also persisted into
+    # analysis_json["narrative"] so the detail view shows it without re-asking.
+    narrative: str | None = None
+    # User-readable reason when ok is False (e.g. credits exhausted). The
+    # deterministic findings remain available regardless.
+    error: str | None = None
+
+
+@router.post("/{backtest_id}/narrative", response_model=NarrativeResponse)
+async def generate_backtest_narrative(
+    backtest_id: UUID = Path(...),
+    session: AsyncSession = Depends(get_db_session),
+    user: CurrentUserRecord = Depends(get_current_user_record),
+) -> NarrativeResponse:
+    """Generate (and cache) an LLM narrative over the deterministic analysis.
+
+    On-demand and best-effort: if the analysis is missing the call 400s; if the
+    LLM is unavailable (no key / no credit) it returns ok=False with a reason
+    and the UI falls back to the structured findings. A successful narrative is
+    persisted into analysis_json["narrative"].
+    """
+    row = await _load_my_backtest_or_404(session, backtest_id, user)
+    analysis = row.get("analysis_json")
+    if not analysis:
+        raise HTTPException(
+            400,
+            "No analysis available for this backtest yet (it may predate the "
+            "analysis feature or have no closed trades).",
+        )
+
+    result = await run_in_threadpool(
+        generate_narrative, analysis, row.get("strategy_name")
+    )
+    if not result.ok:
+        return NarrativeResponse(ok=False, error=result.error)
+
+    # Persist the narrative into the analysis blob so it survives reloads.
+    merged = {**analysis, "narrative": result.narrative}
+    await session.execute(
+        text(
+            "UPDATE backtests SET analysis_json = CAST(:a AS JSONB) WHERE id = :id"
+        ),
+        {"a": json.dumps(merged), "id": backtest_id},
+    )
+    await session.commit()
+    return NarrativeResponse(ok=True, narrative=result.narrative)
+
+
+class SuggestTweaksRequest(BaseModel):
+    # The strategy's current builder graph, sent by the frontend (which already
+    # has it loaded). The advisor targets real node ids/fields so the UI can
+    # patch the graph in place and re-backtest. Shape: {"nodes":[...],"edges":[...]}.
+    graph_json: dict[str, Any] | None = Field(default=None)
+
+
+class ParamTweak(BaseModel):
+    node_id: str
+    node_label: str | None = None
+    node_type: str | None = None
+    field: str
+    current: Any = None
+    suggested: Any
+    rationale: str = ""
+
+
+class SuggestTweaksResponse(BaseModel):
+    ok: bool
+    summary: str = ""
+    tweaks: list[ParamTweak] = []
+    error: str | None = None
+
+
+@router.post("/{backtest_id}/suggest-tweaks", response_model=SuggestTweaksResponse)
+async def suggest_backtest_tweaks(
+    body: SuggestTweaksRequest,
+    backtest_id: UUID = Path(...),
+    session: AsyncSession = Depends(get_db_session),
+    user: CurrentUserRecord = Depends(get_current_user_record),
+) -> SuggestTweaksResponse:
+    """AI: find specific parameters worth tweaking, tied to the strategy's graph.
+
+    Given this backtest's deterministic analysis + the strategy's node graph,
+    Claude proposes editable {node, field, current, suggested} tweaks the user
+    can adjust and re-backtest. Best-effort: ok=False (with a reason) when the
+    LLM is unavailable or the strategy has no editable graph.
+    """
+    row = await _load_my_backtest_or_404(session, backtest_id, user)
+    analysis = row.get("analysis_json")
+    if not analysis:
+        raise HTTPException(
+            400,
+            "No analysis available for this backtest yet (it may predate the "
+            "analysis feature or have no closed trades).",
+        )
+
+    result = await run_in_threadpool(
+        suggest_param_tweaks, analysis, body.graph_json, row.get("strategy_name")
+    )
+    if not result.ok:
+        return SuggestTweaksResponse(ok=False, error=result.error, summary=result.summary)
+    return SuggestTweaksResponse(
+        ok=True,
+        summary=result.summary,
+        tweaks=[ParamTweak(**t) for t in result.tweaks],
+    )

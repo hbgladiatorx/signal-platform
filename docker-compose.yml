@@ -90,6 +90,67 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  ingestion_alpaca:
+    build:
+      context: .
+      dockerfile: infra/docker/python.Dockerfile
+    container_name: signal_ingestion_alpaca
+    restart: unless-stopped
+    command: ["python", "-m", "services.ingestion_alpaca.main"]
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - signal_net
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+        reservations:
+          memory: 100M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  ingestion_polygon:
+    build:
+      context: .
+      dockerfile: infra/docker/python.Dockerfile
+    container_name: signal_ingestion_polygon
+    restart: unless-stopped
+    command: ["python", "-m", "services.ingestion_polygon.main"]
+    env_file:
+      - .env
+    environment:
+      # Idle by default (empty symbol list) until the operator turns it on with
+      # INGESTION_POLYGON_SYMBOLS="*" (full equity universe) or a curated list.
+      INGESTION_POLYGON_SYMBOLS: "${INGESTION_POLYGON_SYMBOLS:-}"
+      INGESTION_POLYGON_CHANNEL: "${INGESTION_POLYGON_CHANNEL:-aggregates_sec}"
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - signal_net
+    deploy:
+      resources:
+        limits:
+          memory: 500M
+        reservations:
+          memory: 150M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   persistence_worker:
     build:
       context: .
@@ -163,6 +224,39 @@ services:
     deploy:
       resources:
         limits:
+          # Backtests over long 1m histories (100k+ bars) build a per-bar
+          # equity curve + materialize bars as pandas Series; 400M OOM-killed
+          # such runs and stranded the job. Raised to 1G (host has 3.7G total,
+          # so this is the safe ceiling alongside postgres/api). The bar-count
+          # guard + window-aware loading keep multi-symbol/huge runs bounded.
+          memory: 1G
+        reservations:
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  paper_trader:
+    build:
+      context: .
+      dockerfile: infra/docker/python.Dockerfile
+    container_name: signal_paper_trader
+    restart: unless-stopped
+    command: ["python", "-m", "services.paper_trader.main"]
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - signal_net
+    deploy:
+      resources:
+        limits:
           memory: 400M
         reservations:
           memory: 150M
@@ -171,6 +265,19 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  # Test runner — opt-in via the `test` profile, never starts on a normal `up`.
+  # Run:  docker compose --profile test run --rm test
+  test:
+    build:
+      context: .
+      dockerfile: infra/docker/test.Dockerfile
+    profiles: ["test"]
+    env_file:
+      - .env
+    networks:
+      - signal_net
+    command: ["pytest", "-q"]
 
   api:
     build:
@@ -210,7 +317,41 @@ services:
         max-size: "10m"
         max-file: "3"
 
+  # Active frontend: the thebayn TanStack Start app (separate repo at
+  # ../thebayn). Built with bun, served as a nitro node-server. Same-origin
+  # behind Caddy; the API client defaults to VITE_API_BASE=/api.
+  thebayn:
+    build:
+      context: ../thebayn
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE: /api
+    container_name: signal_thebayn
+    restart: unless-stopped
+    environment:
+      PORT: "3000"
+      HOST: 0.0.0.0
+    networks:
+      - signal_net
+    depends_on:
+      api:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 500M
+        reservations:
+          memory: 150M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Legacy Next.js frontend — superseded by thebayn. Kept for rollback but not
+  # started by default (resource-tight box). Run with: --profile legacy.
   frontend:
+    profiles: ["legacy"]
     build:
       context: .
       dockerfile: infra/docker/frontend.Dockerfile
@@ -253,7 +394,7 @@ services:
     depends_on:
       api:
         condition: service_healthy
-      frontend:
+      thebayn:
         condition: service_started
     networks:
       - signal_net

@@ -146,6 +146,39 @@ async def mark_walkforward_running(
     )
 
 
+async def reclaim_stale_walkforwards(
+    conn: AsyncConnection,
+    stale_after_seconds: int = 1800,
+) -> list[UUID]:
+    """Fail walk-forwards stranded in 'running' past the staleness threshold.
+
+    Same orphan problem as backtests: a worker killed mid-run leaves the row
+    in 'running' forever. Swept on worker startup, gated on `started_at` age so
+    a sibling worker's in-flight run is untouched. Returns reclaimed ids.
+    """
+    result = await conn.execute(
+        text(
+            """
+            UPDATE walkforwards
+            SET status = 'failed',
+                completed_at = now(),
+                duration_seconds = EXTRACT(
+                    EPOCH FROM (now() - COALESCE(started_at, created_at))
+                ),
+                error_message = 'Worker process exited while running (orphaned '
+                                'job, likely OOM or restart); failed by startup '
+                                'recovery.'
+            WHERE status = 'running'
+              AND COALESCE(started_at, created_at)
+                  < now() - make_interval(secs => :stale_after)
+            RETURNING id
+            """
+        ),
+        {"stale_after": stale_after_seconds},
+    )
+    return [row[0] for row in result.all()]
+
+
 async def mark_walkforward_failed(
     conn: AsyncConnection,
     walkforward_id: UUID,

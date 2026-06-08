@@ -44,25 +44,42 @@ from uuid import UUID
 import pandas as pd
 import redis.asyncio as redis
 import structlog
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from packages.backtest import BacktestConfig, compute_analytics, run_backtest
+from packages.backtest import (
+    BacktestConfig,
+    attribution_to_dict,
+    compute_analytics,
+    compute_attribution,
+    run_backtest,
+)
+from packages.analysis import analyze_backtest, generate_narrative
+from packages.ml import (
+    build_dataset,
+    extract_samples,
+    model_to_dict,
+    train_signal_edge_model,
+)
+from packages.ml.persistence import save_training_samples
+from packages.backtest.instruments import load_instrument_meta
 from packages.backtest.walkforward import run_walkforward
 from packages.backtest.walkforward_persistence import (
     load_walkforward,
     mark_walkforward_failed,
     mark_walkforward_running,
+    reclaim_stale_walkforwards,
     save_walkforward_results,
 )
 from packages.backtest.persistence import (
     load_backtest,
     mark_backtest_failed,
     mark_backtest_running,
+    reclaim_stale_backtests,
     save_backtest_results,
 )
 from packages.data.db import get_engine
 from packages.data.messagebus import QUEUE_BACKTEST_JOBS, QUEUE_WALKFORWARD_JOBS
+from packages.livetrade.bars import load_bars
 from packages.strategy.base import Strategy
 from packages.strategy.registry import discover_strategies
 from packages.data.db import session_scope
@@ -97,56 +114,25 @@ REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 WORKER_NAME = os.environ.get("HOSTNAME", "backtest-worker-1")
 POP_TIMEOUT_S = 5  # BRPOP blocking time
 
-RESOLUTION_TABLE: dict[str, str] = {
-    "1m": "cagg_bars_1m",
-    "5m": "cagg_bars_5m",
-    "15m": "cagg_bars_15m",
-    "1h": "cagg_bars_1h",
-    "4h": "cagg_bars_4h",
-    "1d": "cagg_bars_1d",
-}
+# A job killed mid-run (OOM, restart, SIGKILL) never reaches its failure
+# handler, so it stays 'running' forever and the UI renders an all-zero result.
+# On startup we fail any 'running' row older than this, leaving a sibling
+# worker's genuinely in-flight job alone (real runs finish in seconds-minutes).
+STALE_RUNNING_SECONDS = int(os.environ.get("BACKTEST_STALE_RUNNING_SECONDS", "1800"))
+
+# Upper bound on bars a single backtest may span. The engine builds a per-bar
+# equity curve and materializes bars as pandas Series, so memory scales with
+# bar count; past this the run risks OOM-killing the worker. We fail honestly
+# with an actionable message instead. Env-tunable as the worker's cap changes.
+MAX_BACKTEST_BARS = int(os.environ.get("BACKTEST_MAX_BARS", "750000"))
 
 STRATEGIES_DIR = Path("/app/strategies")
 
 
-# ============================================================
-# Bar loading
-# ============================================================
-async def _load_bars(
-    engine: AsyncEngine,
-    symbol: str,
-    resolution: str,
-) -> pd.DataFrame:
-    """Load OHLCV bars for `symbol` at `resolution`, indexed by bucket."""
-    table = RESOLUTION_TABLE.get(resolution)
-    if table is None:
-        raise ValueError(
-            f"Unknown bar_resolution: {resolution!r}. "
-            f"Valid: {list(RESOLUTION_TABLE.keys())}"
-        )
-
-    async with engine.connect() as conn:
-        result = await conn.execute(
-            text(f"""
-                SELECT b.bucket, b.open, b.high, b.low, b.close, b.volume
-                FROM {table} b
-                JOIN instruments i ON i.id = b.instrument_id
-                WHERE i.canonical_symbol = :symbol
-                ORDER BY b.bucket
-            """),
-            {"symbol": symbol},
-        )
-        rows = result.mappings().all()
-
-    if not rows:
-        return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
-
-    df = pd.DataFrame(rows)
-    df["bucket"] = pd.to_datetime(df["bucket"], utc=True)
-    df = df.set_index("bucket")
-    for col in ("open", "high", "low", "close", "volume"):
-        df[col] = df[col].astype(float)
-    return df
+# Bar loading is shared with the live paper-trading runner; see
+# packages/livetrade/bars.py. `_load_bars` remains as a thin alias so the
+# existing call sites and any external imports keep working.
+_load_bars = load_bars
 
 
 # ============================================================
@@ -216,14 +202,30 @@ async def _process_job(
         # 3c) Instantiate strategy
         strategy = strategy_cls(symbols=symbols, params=params)
 
-        # 4) Load bars
+        # 4) Load bars. A requested window (window_start/window_end) bounds the
+        # run to a date range — e.g. a held-out out-of-sample segment. NULL on
+        # both means full history. The window is pushed into the SQL query so we
+        # only materialize bars inside the range, never the symbol's full
+        # history (loading 5 years to test 1 month was the memory amplifier
+        # behind the OOM). Bars come back tz-aware UTC, indexed by bucket.
+        window_start = header.get("window_start")
+        window_end = header.get("window_end")
         bars: dict[str, pd.DataFrame] = {}
         bars_start = None
         bars_end = None
         max_bar_count = 0
         for symbol in symbols:
-            df = await _load_bars(engine, symbol, resolution)
+            df = await _load_bars(
+                engine, symbol, resolution,
+                start=window_start, end=window_end,
+            )
             if df.empty:
+                if window_start is not None or window_end is not None:
+                    raise RuntimeError(
+                        f"No bars for {symbol!r} at resolution {resolution!r} "
+                        f"within the requested window "
+                        f"[{window_start}, {window_end}]"
+                    )
                 raise RuntimeError(
                     f"No bars available for {symbol!r} at resolution {resolution!r}"
                 )
@@ -234,25 +236,84 @@ async def _process_job(
                 bars_end = df.index[-1]
             max_bar_count = max(max_bar_count, len(df))
 
+        # Pre-flight memory guard: engine memory scales with total bars across
+        # all symbols (per-bar equity curve + bars materialized as Series), so
+        # reject oversized runs with an actionable error rather than letting the
+        # worker OOM and strand the job in 'running'.
+        total_bar_count = sum(len(df) for df in bars.values())
+        if total_bar_count > MAX_BACKTEST_BARS:
+            raise RuntimeError(
+                f"Backtest spans {total_bar_count:,} bars across {len(symbols)} "
+                f"symbol(s) at {resolution!r} (limit {MAX_BACKTEST_BARS:,}). "
+                f"Narrow the date range or use a coarser bar resolution."
+            )
+
         log.info(
             "backtest_worker.job.bars_loaded",
             backtest_id=str(backtest_id),
             symbols=symbols,
             bars=max_bar_count,
+            total_bars=total_bar_count,
             bars_start=str(bars_start),
             bars_end=str(bars_end),
         )
 
-        # 5) Run backtest
+        # 5) Run backtest. Load instrument metadata so options get their
+        # contract multiplier + expiry settlement; for crypto/equity this is a
+        # no-op (multiplier 1, no expiry).
+        instrument_meta = await load_instrument_meta(engine, symbols)
         config = BacktestConfig(
             starting_cash=Decimal(str(header["starting_cash"])),
             fee_rate_bps=int(header["fee_rate_bps"]),
             slippage_bps=int(header["slippage_bps"]),
+            instrument_meta=instrument_meta,
         )
         result = run_backtest(strategy, bars, config)
 
-        # 6) Compute analytics
+        # 6) Compute analytics (the "how well"), attribution (the "why"), and
+        #    the signal-edge model (which signals predict profitable trades).
         analytics = compute_analytics(result)
+        attribution = compute_attribution(result, analytics)
+        dataset = build_dataset(result, analytics)
+        model = train_signal_edge_model(dataset)
+        ml_model_json = model_to_dict(model) if dataset.n_samples > 0 else None
+        # Deterministic analysis (the "what worked / why / what to fix"): derived
+        # from the metrics + attribution + ml model. The optional LLM narrative
+        # is generated on-demand by the API, not here (keeps the worker fast).
+        analysis_json = analyze_backtest(
+            {
+                "total_return_pct": analytics.total_return_pct,
+                "annualized_return_pct": analytics.annualized_return_pct,
+                "sharpe_ratio": analytics.sharpe_ratio,
+                "sortino_ratio": analytics.sortino_ratio,
+                "max_drawdown_pct": analytics.max_drawdown_pct,
+                "calmar_ratio": analytics.calmar_ratio,
+                "num_closed_trades": analytics.num_closed_trades,
+                "win_rate_pct": analytics.win_rate_pct,
+                "avg_winner_pct": analytics.avg_winner_pct,
+                "avg_loser_pct": analytics.avg_loser_pct,
+                "profit_factor": analytics.profit_factor,
+                "orders_submitted": result.orders_submitted,
+            },
+            attribution_to_dict(attribution) if attribution is not None else None,
+            ml_model_json,
+        )
+        # AI narrative: now that a funded Anthropic key is configured, generate the
+        # plain-English "what worked / why / what to fix" prose inline so the detail
+        # page shows the full AI analysis automatically — no "Explain with AI" click.
+        # Best-effort: degrades to the deterministic findings if the LLM is down or
+        # out of credit, and only runs when there's a substantive analysis to narrate.
+        if analysis_json and analytics.num_closed_trades > 0:
+            try:
+                narration = generate_narrative(analysis_json, strategy_name=strategy_name)
+                if narration.ok and narration.narrative:
+                    analysis_json["narrative"] = narration.narrative
+                else:
+                    log.info("backtest_worker.narrative.skipped", reason=narration.error)
+            except Exception:  # noqa: BLE001 — never fail a backtest over narration
+                log.warning("backtest_worker.narrative.error", exc_info=True)
+        # Portable per-trip samples for the cross-backtest store (Phase 4).
+        training_samples = extract_samples(result, analytics)
 
         log.info(
             "backtest_worker.job.computed",
@@ -260,6 +321,10 @@ async def _process_job(
             fills=result.num_trades,
             closed_trips=analytics.num_closed_trades,
             total_return_pct=analytics.total_return_pct,
+            best_symbol=attribution.best_symbol,
+            best_signal=attribution.best_signal,
+            model_fitted=model.fitted,
+            model_samples=model.n_samples,
         )
 
         # 7) Persist
@@ -269,9 +334,21 @@ async def _process_job(
                 backtest_id,
                 result,
                 analytics,
+                attribution=attribution,
+                ml_model_json=ml_model_json,
+                analysis_json=analysis_json,
                 bars_start=bars_start.to_pydatetime() if bars_start else None,
                 bars_end=bars_end.to_pydatetime() if bars_end else None,
                 num_bars=max_bar_count,
+            )
+            # Accumulate this run's trips into the cross-backtest store, in the
+            # same transaction so samples and the saved backtest stay in sync.
+            await save_training_samples(
+                conn,
+                backtest_id,
+                header["user_id"],
+                strategy_name,
+                training_samples,
             )
 
         log.info(
@@ -355,10 +432,12 @@ async def _process_walkforward_job(
                 raise RuntimeError(f"No bars available for {symbol!r} at resolution {resolution!r}")
             bars[symbol] = df
 
+        instrument_meta = await load_instrument_meta(engine, symbols)
         config = BacktestConfig(
             starting_cash=Decimal(str(header["starting_cash"])),
             fee_rate_bps=int(header["fee_rate_bps"]),
             slippage_bps=int(header["slippage_bps"]),
+            instrument_meta=instrument_meta,
         )
         result = run_walkforward(
             strategy_cls=strategy_cls,
@@ -406,6 +485,23 @@ async def main_loop() -> None:
         pop_timeout_s=POP_TIMEOUT_S,
         strategies=list(strategies_cache.keys()),
     )
+
+    # Recover orphans: jobs a previous worker left stranded in 'running' when it
+    # was killed mid-run. Without this they stay 'running' forever and surface
+    # as fake all-zero results. Best-effort — never block startup on it.
+    try:
+        async with engine.begin() as conn:
+            stale_bt = await reclaim_stale_backtests(conn, STALE_RUNNING_SECONDS)
+            stale_wf = await reclaim_stale_walkforwards(conn, STALE_RUNNING_SECONDS)
+        if stale_bt or stale_wf:
+            log.warning(
+                "backtest_worker.reclaimed_orphans",
+                backtests=[str(i) for i in stale_bt],
+                walkforwards=[str(i) for i in stale_wf],
+                stale_after_s=STALE_RUNNING_SECONDS,
+            )
+    except Exception as e:  # noqa: BLE001 — recovery must not crash the worker
+        log.error("backtest_worker.reclaim_failed", err=str(e))
 
     shutdown_event = asyncio.Event()
 

@@ -73,6 +73,57 @@ async def list_instruments(
     return [Instrument.model_validate(row) for row in result.mappings()]
 
 
+class InstrumentCoverage(BaseModel):
+    canonical_symbol: str
+    bars: int
+    first: str | None = None
+    last: str | None = None
+
+
+@router.get("/coverage", response_model=list[InstrumentCoverage])
+async def instrument_coverage(
+    asset_class: AssetClass | None = Query(default=None),
+    session: AsyncSession = Depends(get_db_session),
+    _user: dict = Depends(get_current_user),
+) -> list[InstrumentCoverage]:
+    """How much historical data each instrument actually has (daily-bar proxy).
+
+    The frontend uses this to pick symbols that are tradeable in a backtest:
+    most of the 256 crypto instruments have little or no history, so picking
+    by name alone (or alphabetical fallback) silently runs a strategy on a
+    symbol with no data → zero trades. Daily caggs are the cheapest proxy for
+    "this symbol has a usable history" and `bars`/`first`/`last` let the UI
+    sort, default, and warn. Only instruments with ≥1 daily bar are returned.
+    """
+    query = """
+        SELECT i.canonical_symbol AS canonical_symbol,
+               COUNT(*)            AS bars,
+               MIN(c.bucket)       AS first,
+               MAX(c.bucket)       AS last
+        FROM cagg_bars_1d c
+        JOIN instruments i ON i.id = c.instrument_id
+        WHERE 1=1
+    """
+    params: dict = {}
+    if asset_class is not None:
+        query += " AND i.asset_class = :asset_class"
+        params["asset_class"] = asset_class.value
+    query += " GROUP BY i.canonical_symbol ORDER BY bars DESC"
+
+    result = await session.execute(text(query), params)
+    out: list[InstrumentCoverage] = []
+    for row in result.mappings():
+        out.append(
+            InstrumentCoverage(
+                canonical_symbol=row["canonical_symbol"],
+                bars=int(row["bars"]),
+                first=row["first"].isoformat() if row["first"] else None,
+                last=row["last"].isoformat() if row["last"] else None,
+            )
+        )
+    return out
+
+
 @router.get("/{canonical_symbol}", response_model=Instrument)
 async def get_instrument(
     canonical_symbol: str,

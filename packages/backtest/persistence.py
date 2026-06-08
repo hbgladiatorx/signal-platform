@@ -33,6 +33,10 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 from packages.backtest.analytics import BacktestAnalytics
+from packages.backtest.attribution import (
+    BacktestAttribution,
+    attribution_to_dict,
+)
 from packages.backtest.types import BacktestResult
 
 
@@ -51,19 +55,26 @@ async def create_backtest(
     starting_cash: Decimal,
     fee_rate_bps: int = 10,
     slippage_bps: int = 5,
+    window_start: datetime | None = None,
+    window_end: datetime | None = None,
 ) -> UUID:
-    """Insert a new backtest row in 'pending' state. Returns the new id."""
+    """Insert a new backtest row in 'pending' state. Returns the new id.
+
+    window_start/window_end bound the requested date range (inclusive). NULL on
+    both means "run over the symbol's full available history" — the worker only
+    filters bars when a bound is set.
+    """
     result = await conn.execute(
         text("""
             INSERT INTO backtests (
                 user_id, org_id, strategy_name, params_json,
                 symbols, bar_resolution, starting_cash,
-                fee_rate_bps, slippage_bps, status
+                fee_rate_bps, slippage_bps, window_start, window_end, status
             ) VALUES (
                 :user_id, :org_id, :strategy_name,
                 CAST(:params_json AS JSONB),
                 :symbols, :bar_resolution, :starting_cash,
-                :fee_rate_bps, :slippage_bps, 'pending'
+                :fee_rate_bps, :slippage_bps, :window_start, :window_end, 'pending'
             ) RETURNING id
         """),
         {
@@ -76,6 +87,8 @@ async def create_backtest(
             "starting_cash": starting_cash,
             "fee_rate_bps": fee_rate_bps,
             "slippage_bps": slippage_bps,
+            "window_start": window_start,
+            "window_end": window_end,
         },
     )
     return result.scalar_one()
@@ -94,6 +107,46 @@ async def mark_backtest_running(
         """),
         {"id": backtest_id},
     )
+
+
+async def reclaim_stale_backtests(
+    conn: AsyncConnection,
+    stale_after_seconds: int = 1800,
+) -> list[UUID]:
+    """Fail backtests stuck in 'running' past the staleness threshold.
+
+    A backtest only reaches 'running' inside `_process_job`. If the worker
+    process is killed mid-run (OOM, container restart, SIGKILL), the
+    try/except that would call `mark_backtest_failed` never executes, so the
+    row is stranded in 'running' forever and the UI renders a fake all-zero
+    result. Nothing else ever transitions it.
+
+    On worker startup we sweep these orphans. We gate on `started_at` age
+    rather than failing every 'running' row so a sibling worker's genuinely
+    in-flight job (scale-out runs multiple containers) is left alone — real
+    runs complete in seconds-to-minutes, far under the default 30-minute gate.
+
+    Returns the ids that were reclaimed (for logging).
+    """
+    result = await conn.execute(
+        text("""
+            UPDATE backtests
+            SET status = 'failed',
+                completed_at = now(),
+                error_message = 'Worker process exited while running (orphaned '
+                                'job, likely OOM or restart); failed by startup '
+                                'recovery.',
+                duration_seconds = EXTRACT(
+                    EPOCH FROM (now() - COALESCE(started_at, created_at))
+                )
+            WHERE status = 'running'
+              AND COALESCE(started_at, created_at)
+                  < now() - make_interval(secs => :stale_after)
+            RETURNING id
+        """),
+        {"stale_after": stale_after_seconds},
+    )
+    return [row[0] for row in result.all()]
 
 
 async def mark_backtest_failed(
@@ -133,6 +186,9 @@ async def save_backtest_results(
     result: BacktestResult,
     analytics: BacktestAnalytics,
     *,
+    attribution: BacktestAttribution | None = None,
+    ml_model_json: dict | None = None,
+    analysis_json: dict | None = None,
     bars_start: datetime | None = None,
     bars_end: datetime | None = None,
     num_bars: int | None = None,
@@ -141,6 +197,13 @@ async def save_backtest_results(
 
     Caller is expected to wrap this in a single transaction so partial
     writes can't leave the DB in an inconsistent state.
+
+    `attribution`, when supplied, is serialized into the backtests row's
+    `attribution_json` column (the per-symbol / per-signal "why"). None leaves
+    the column NULL — the detail view simply omits the attribution section.
+
+    `ml_model_json` is the already-serialized signal-edge model dict (from
+    `model_to_dict`); it is written to `ml_model_json`. None leaves it NULL.
     """
     # ----- Update header: status, summary metrics -----
     await conn.execute(
@@ -163,11 +226,25 @@ async def save_backtest_results(
                 num_closed_trades = :num_closed_trades,
                 num_open_trades = :num_open_trades,
                 win_rate_pct = :win_rate_pct,
-                profit_factor = :profit_factor
+                profit_factor = :profit_factor,
+                attribution_json = CAST(:attribution_json AS JSONB),
+                ml_model_json = CAST(:ml_model_json AS JSONB),
+                analysis_json = CAST(:analysis_json AS JSONB)
             WHERE id = :id
         """),
         {
             "id": backtest_id,
+            "attribution_json": (
+                json.dumps(attribution_to_dict(attribution))
+                if attribution is not None
+                else None
+            ),
+            "ml_model_json": (
+                json.dumps(ml_model_json) if ml_model_json is not None else None
+            ),
+            "analysis_json": (
+                json.dumps(analysis_json) if analysis_json is not None else None
+            ),
             "bars_start": bars_start,
             "bars_end": bars_end,
             "num_bars": num_bars,

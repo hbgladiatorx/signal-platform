@@ -60,18 +60,80 @@ from typing import Any
 
 import pandas as pd
 
-from packages.backtest.fills import simulate_market_fill, try_fill_limit_order
+from packages.backtest.fills import (
+    simulate_market_fill,
+    try_fill_limit_order,
+    try_fill_stop_order,
+)
 from packages.backtest.portfolio import Portfolio
 from packages.backtest.types import (
     BacktestConfig,
     BacktestResult,
     EquityPoint,
     Fill,
+    InstrumentMeta,
+    SignalEvent,
 )
 from packages.strategy.base import Order, OrderSide, OrderType, Strategy
 from packages.strategy.context import BarContext
 
 log = logging.getLogger(__name__)
+
+
+def _option_settlement_price(
+    meta: InstrumentMeta, symbol: str, last_marks: dict[str, Decimal]
+) -> Decimal:
+    """Settlement price for an expiring option: intrinsic value vs the
+    underlying mark when known, else the option's last mark, else worthless."""
+    if meta.underlying and meta.strike is not None and meta.right:
+        underlying = last_marks.get(meta.underlying)
+        if underlying is not None:
+            if meta.right.upper() == "C":
+                return max(Decimal(0), underlying - meta.strike)
+            return max(Decimal(0), meta.strike - underlying)
+    last = last_marks.get(symbol)
+    return last if last is not None else Decimal(0)
+
+
+def _settle_expiring_options(
+    ts: pd.Timestamp,
+    bar_count: int,
+    portfolio: Portfolio,
+    config: BacktestConfig,
+    last_marks: dict[str, Decimal],
+    fills: list[Fill],
+    settled: set[str],
+) -> None:
+    if not config.instrument_meta:
+        return
+    today = ts.date() if hasattr(ts, "date") else ts
+    for sym, pos in list(portfolio.positions.items()):
+        if pos.quantity == 0 or sym in settled:
+            continue
+        meta = config.instrument_meta.get(sym)
+        if meta is None or meta.asset_class != "option" or meta.expiry is None:
+            continue
+        if today < meta.expiry:
+            continue
+        settle_price = _option_settlement_price(meta, sym, last_marks)
+        qty = pos.quantity
+        # Settlement/exercise carries no commission in this model.
+        portfolio.apply_sell(sym, qty, settle_price, Decimal(0))
+        fills.append(
+            Fill(
+                client_order_id=f"expiry-{sym}-{bar_count}",
+                symbol=sym,
+                side=OrderSide.SELL,
+                order_type=OrderType.MARKET,
+                quantity=qty,
+                price=settle_price,
+                fee=Decimal(0),
+                filled_ts=ts,
+                order_submitted_ts=ts,
+                is_partial=False,
+            )
+        )
+        settled.add(sym)
 
 
 REQUIRED_COLUMNS = ("open", "high", "low", "close", "volume")
@@ -146,13 +208,38 @@ def run_backtest(
     portfolio = Portfolio(config.starting_cash)
     strategy.on_init()
 
+    # Static snapshot of option contracts in this run, exposed to strategies via
+    # ctx.option_chain(). Empty unless option instrument_meta was supplied.
+    option_chain_snapshot: list[dict[str, Any]] = [
+        {
+            "symbol": s,
+            "underlying": m.underlying,
+            "right": m.right,
+            "strike": float(m.strike) if m.strike is not None else None,
+            "expiry": str(m.expiry) if m.expiry is not None else None,
+            "multiplier": float(m.multiplier),
+        }
+        for s, m in (config.instrument_meta or {}).items()
+        if m.asset_class == "option"
+    ]
+
     fills: list[Fill] = []
+    signal_events: list[SignalEvent] = []
     equity_curve: list[EquityPoint] = []
     rejected_orders: list[tuple[Order, str]] = []
     cancelled_orders: list[Order] = []
     expired_orders: list[Order] = []
     pending_orders: list[Order] = []
     last_marks: dict[str, Decimal] = {}
+    # Per-order high/low water mark for trailing stops, keyed by client_order_id.
+    # The engine owns this; entries are dropped when the order leaves the book.
+    trail_state: dict[str, Decimal] = {}
+    # Total orders the strategy submitted across the whole run. 0 means the
+    # strategy never even tried to trade — an entry condition was never true
+    # (often an impossible/incomparable comparison). Distinguishes a dead
+    # strategy from one that traded but closed nothing.
+    orders_submitted = 0
+    settled_options: set[str] = set()
 
     # Cancellation requests collected during the PREVIOUS on_bar(), to be
     # processed at the start of THIS bar's Phase 2.
@@ -165,6 +252,15 @@ def run_backtest(
             this_bar = bar_by_ts.get(sym, {}).get(ts)
             if this_bar is not None:
                 last_marks[sym] = Decimal(str(this_bar["close"]))
+
+        # --- (1b) OPTION EXPIRY SETTLEMENT ---
+        # Force-close any open option position whose expiry date has been
+        # reached, settling at intrinsic value vs the underlying (if its mark is
+        # known) else the option's last mark, else worthless. No-op unless the
+        # backtest was given option instrument_meta.
+        _settle_expiring_options(
+            ts, bar_count, portfolio, config, last_marks, fills, settled_options
+        )
 
         # --- (2a) EXPIRATIONS ---
         # Remove orders whose expiry has been reached.
@@ -205,6 +301,10 @@ def run_backtest(
 
             if order.order_type == OrderType.MARKET:
                 fill_result = simulate_market_fill(order, this_bar, config)
+            elif order.order_type in (OrderType.STOP, OrderType.TRAILING_STOP):
+                fill_result = try_fill_stop_order(
+                    order, this_bar, config, trail_state
+                )
             else:
                 fill_result = try_fill_limit_order(order, this_bar, config)
 
@@ -215,33 +315,55 @@ def run_backtest(
 
             fill, remainder_qty = fill_result
 
-            # --- (2d) Apply fill against portfolio; REJECT if insufficient ---
-            if fill.side == OrderSide.BUY:
-                cost = fill.price * fill.quantity + fill.fee
-                if cost > portfolio.cash:
+            # Carry the order's attribution tags (the signals that were active
+            # when the strategy decided to trade) onto the fill, so round-trip
+            # analytics can attribute P&L back to those signals/filters.
+            if order.tags:
+                fill = dataclasses.replace(fill, tags=order.tags)
+
+            # --- (2d) Apply fill against portfolio; REJECT if it breaches
+            #          shorting policy or the margin/buying-power requirement ---
+            mult = config.multiplier_for(order.symbol)
+            signed = fill.quantity if fill.side == OrderSide.BUY else -fill.quantity
+            old_qty = portfolio.get_position(order.symbol).quantity
+            new_qty = old_qty + signed
+
+            # Shorting policy: when disabled, reject anything that would open or
+            # extend a short (preserves the original long-only semantics).
+            if new_qty < 0 and not config.allow_short:
+                reason = (
+                    f"shorting disabled: sell of {fill.quantity} would make "
+                    f"position {new_qty} (have {old_qty})"
+                )
+                rejected_orders.append((order, reason))
+                _safe_callback(strategy.on_order_rejected, order, reason)
+                continue
+
+            # Buying-power check — only when the fill INCREASES gross exposure
+            # (opening or extending). Reductions/closes never need margin.
+            mark = last_marks.get(order.symbol, fill.price)
+            old_exposure = abs(old_qty) * mark * mult
+            new_exposure = abs(new_qty) * mark * mult
+            if new_exposure > old_exposure:
+                marks_now = dict(last_marks)
+                marks_now[order.symbol] = mark
+                cash_after = portfolio.cash - signed * fill.price * mult - fill.fee
+                equity_after, gross_after = portfolio.projected_equity_and_gross(
+                    cash_after, marks_now, order.symbol, new_qty, mult
+                )
+                if equity_after < config.margin_rate * gross_after:
                     reason = (
-                        f"insufficient cash: need {cost:.2f}, "
-                        f"have {portfolio.cash:.2f}"
+                        f"insufficient buying power: post-fill equity "
+                        f"{equity_after:.2f} < {config.margin_rate} × gross "
+                        f"exposure {gross_after:.2f}"
                     )
                     rejected_orders.append((order, reason))
                     _safe_callback(strategy.on_order_rejected, order, reason)
                     continue
-                portfolio.apply_buy(
-                    order.symbol, fill.quantity, fill.price, fill.fee
-                )
-            else:  # SELL
-                pos = portfolio.get_position(order.symbol)
-                if fill.quantity > pos.quantity:
-                    reason = (
-                        f"insufficient position: trying to sell "
-                        f"{fill.quantity}, have {pos.quantity}"
-                    )
-                    rejected_orders.append((order, reason))
-                    _safe_callback(strategy.on_order_rejected, order, reason)
-                    continue
-                portfolio.apply_sell(
-                    order.symbol, fill.quantity, fill.price, fill.fee
-                )
+
+            portfolio.apply_fill(
+                order.symbol, fill.side, fill.quantity, fill.price, fill.fee, mult
+            )
 
             fills.append(fill)
 
@@ -252,6 +374,9 @@ def run_backtest(
                     order, quantity=remainder_qty
                 )
                 next_pending.append(remainder_order)
+            else:
+                # Order fully filled and left the book — drop any trailing state.
+                trail_state.pop(order.client_order_id, None)
 
         pending_orders = next_pending
 
@@ -270,6 +395,7 @@ def run_backtest(
             cash=portfolio.cash,
             pending_orders=pending_orders,
             bar_count=bar_count,
+            option_chain=option_chain_snapshot,
         )
 
         try:
@@ -283,9 +409,13 @@ def run_backtest(
             )
 
         # Queue submitted orders for next bar
-        pending_orders.extend(ctx.collected_orders())
+        submitted = ctx.collected_orders()
+        orders_submitted += len(submitted)
+        pending_orders.extend(submitted)
         # Carry cancellation requests to next bar's Phase 2b
         pending_cancellations = ctx.collected_cancellations()
+        # Harvest this bar's signal/filter events for attribution analytics
+        signal_events.extend(ctx.collected_signals())
 
         # --- (4) MARK TO MARKET ---
         positions_value = portfolio.mark_to_market(last_marks)
@@ -309,4 +439,6 @@ def run_backtest(
         cancelled_orders=cancelled_orders,
         expired_orders=expired_orders,
         strategy_state_final=dict(strategy.state),
+        signal_events=signal_events,
+        orders_submitted=orders_submitted,
     )

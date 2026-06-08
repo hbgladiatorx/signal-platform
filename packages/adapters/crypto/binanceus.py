@@ -19,32 +19,43 @@ import json
 from collections.abc import AsyncIterator
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 import structlog
 import websockets
 
 from packages.adapters.base import AssetAdapter
+from packages.adapters.crypto import _symbols
 from packages.core.exceptions import AdapterError
 from packages.core.models import QuoteL1Event, TradeEvent
 from packages.core.types import TradeSide
+
+if TYPE_CHECKING:
+    from packages.data.symbol_registry import SymbolRegistry
 
 log = structlog.get_logger(__name__)
 
 WS_BASE = "wss://stream.binance.us:9443/stream"
 
-# Hardcoded translation table for Phase 1.
-# In Phase 2 this is replaced by a startup query against the instruments table.
-_NATIVE_TO_CANONICAL: dict[str, str] = {
-    "BTCUSDT": "BTC-USDT@BINANCEUS",
-    "ETHUSDT": "ETH-USDT@BINANCEUS",
-}
+# Max combined-stream subscriptions per WebSocket connection. Binance allows up
+# to 1024 but very long URLs are fragile; we chunk well below that. Each pair
+# uses 1 stream for trades (and 1 more for L1 quotes if enabled).
+MAX_STREAMS_PER_CONN = 100
 
 
 class BinanceUSAdapter(AssetAdapter):
-    """Adapter for Binance.US spot trade and L1 quote streams."""
+    """Adapter for Binance.US spot trade and L1 quote streams.
+
+    Native<->canonical translation comes from an injected ``SymbolRegistry``
+    (loaded from the instruments table) so the universe is not capped to a
+    hardcoded list. When no registry is provided (e.g. unit tests), it falls
+    back to mechanical symbol splitting via :mod:`packages.adapters.crypto._symbols`.
+    """
 
     venue = "BINANCEUS"
+
+    def __init__(self, registry: "SymbolRegistry | None" = None) -> None:
+        self._registry = registry
 
     def to_native_symbol(self, canonical_symbol: str) -> str:
         """'BTC-USDT@BINANCEUS' -> 'BTCUSDT'."""
@@ -62,12 +73,18 @@ class BinanceUSAdapter(AssetAdapter):
     def to_canonical_symbol(self, native_symbol: str) -> str:
         """'BTCUSDT' -> 'BTC-USDT@BINANCEUS'.
 
-        Phase 1: lookup table. Phase 2: database-backed.
+        Prefers the injected registry (exact, instruments-backed); falls back
+        to mechanical quote-asset splitting when no registry is available or
+        the symbol is not yet in the table.
         """
-        key = native_symbol.upper()
-        if key not in _NATIVE_TO_CANONICAL:
-            raise AdapterError(f"unknown native symbol: {native_symbol}")
-        return _NATIVE_TO_CANONICAL[key]
+        if self._registry is not None:
+            canonical = self._registry.to_canonical_or_none(native_symbol, self.venue)
+            if canonical is not None:
+                return canonical
+        try:
+            return _symbols.native_to_canonical(native_symbol)
+        except ValueError as e:
+            raise AdapterError(str(e)) from e
 
     def _build_stream_url(
         self,
@@ -85,8 +102,7 @@ class BinanceUSAdapter(AssetAdapter):
         canonical_symbols: list[str],
     ) -> AsyncIterator[TradeEvent]:
         native = [self.to_native_symbol(s) for s in canonical_symbols]
-        url = self._build_stream_url(native, "aggTrade")
-        async for event in self._reconnect_loop(url, self._parse_trade):
+        async for event in self._stream_chunked(native, "aggTrade", self._parse_trade):
             yield event
 
     async def stream_quotes_l1(
@@ -94,9 +110,50 @@ class BinanceUSAdapter(AssetAdapter):
         canonical_symbols: list[str],
     ) -> AsyncIterator[QuoteL1Event]:
         native = [self.to_native_symbol(s) for s in canonical_symbols]
-        url = self._build_stream_url(native, "bookTicker")
-        async for event in self._reconnect_loop(url, self._parse_quote):
+        async for event in self._stream_chunked(native, "bookTicker", self._parse_quote):
             yield event
+
+    async def _stream_chunked(
+        self,
+        native_symbols: list[str],
+        stream_suffix: str,
+        parser: Callable[[dict[str, Any]], Any],
+    ) -> AsyncIterator[Any]:
+        """Stream from one or more WS connections, chunked to respect the
+        per-connection stream cap. A single chunk streams directly; multiple
+        chunks each run an independent reconnect loop and fan in via a queue.
+        """
+        chunks = [
+            native_symbols[i : i + MAX_STREAMS_PER_CONN]
+            for i in range(0, len(native_symbols), MAX_STREAMS_PER_CONN)
+        ]
+        if len(chunks) <= 1:
+            url = self._build_stream_url(native_symbols, stream_suffix)
+            async for event in self._reconnect_loop(url, parser):
+                yield event
+            return
+
+        log.info(
+            "binanceus.stream_sharded",
+            stream=stream_suffix,
+            symbols=len(native_symbols),
+            connections=len(chunks),
+        )
+        queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=10000)
+
+        async def _pump(chunk: list[str]) -> None:
+            url = self._build_stream_url(chunk, stream_suffix)
+            async for event in self._reconnect_loop(url, parser):
+                await queue.put(event)
+
+        tasks = [asyncio.create_task(_pump(c)) for c in chunks]
+        try:
+            while True:
+                yield await queue.get()
+        finally:
+            for t in tasks:
+                t.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _reconnect_loop(
         self,

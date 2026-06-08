@@ -86,13 +86,17 @@ class RedisStreamsBus:
         msg_id = await client.xadd(stream, data, maxlen=100_000, approximate=True)
         return msg_id.decode() if isinstance(msg_id, bytes) else msg_id
 
-    async def ensure_group(self, stream: str, group: str) -> None:
+    async def ensure_group(
+        self, stream: str, group: str, start_id: str = "0"
+    ) -> None:
         client = await self._get_client()
         try:
             # mkstream creates the stream if it doesn't exist yet.
-            # id="0" means the group starts from the beginning of the stream.
-            # For "start from new messages only," use id="$".
-            await client.xgroup_create(stream, group, id="0", mkstream=True)
+            # start_id="0" starts the group at the beginning of the stream;
+            # start_id="$" starts from new messages only (live consumers that
+            # must not replay retained history). On restart the group already
+            # exists and resumes from its last-delivered id regardless.
+            await client.xgroup_create(stream, group, id=start_id, mkstream=True)
         except redis.ResponseError as e:
             # BUSYGROUP means the group already exists. That's fine.
             if "BUSYGROUP" not in str(e):
@@ -162,9 +166,19 @@ GROUP_WS_BROADCAST = "ws-broadcast"
 # Step 18
 GROUP_BAR_BUILDER = "bar-builder"   # consumes trades:raw, builds bars
 
+# Paper trading: the paper_trader service consumes bars:closed to drive live
+# strategies. Each shard uses a distinct group suffix so every shard sees ALL
+# bars (routing is by session ownership, not stream load-balancing).
+GROUP_PAPER_TRADER = "paper-trader"
+
 # ============================================================
 # Job queues (Redis LIST keys for BRPOP/LPUSH job patterns)
 # ============================================================
 # Step 22b: backtest worker consumes job UUIDs (as strings) from this list
 QUEUE_BACKTEST_JOBS = "backtest:jobs"
 QUEUE_WALKFORWARD_JOBS = "walkforward:jobs"
+
+# Paper trading control channel: the API LPUSHes JSON control messages
+# ({"action": "start"|"stop"|"flatten", "session_id": "<uuid>"}) and the
+# paper_trader's ControlListener consumes them via BRPOP.
+QUEUE_PAPER_CONTROL = "paper:control"
