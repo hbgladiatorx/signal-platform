@@ -21,6 +21,10 @@ export interface StrategyStats {
   avgR: number;
   liveDays: number;
   subscribers: number;
+  // Headline backtest summary surfaced in the studio strategy list/detail.
+  totalReturn?: number; // fraction (0.123 = +12.3%)
+  profitFactor?: number;
+  totalTrades?: number;
 }
 
 export interface Strategy {
@@ -121,7 +125,9 @@ export interface DevStrategy {
   createdAt: string;
   lastRunAt?: string;
   graph: StrategyGraph;
+  sourceCode?: string;
   stats?: StrategyStats;
+  isActive?: boolean;
   liveSinceDays?: number;
   versions: Array<{ id: string; createdAt: string; note: string }>;
   submissionStatus?: "Submitted" | "Under Review" | "Pipeline Validation" | "Human Review" | "Accepted" | "Rejected";

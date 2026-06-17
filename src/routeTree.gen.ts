@@ -29,6 +29,7 @@ import { Route as StudioHomeRouteImport } from './routes/studio.home'
 import { Route as StudioHealthRouteImport } from './routes/studio.health'
 import { Route as StudioEarningsRouteImport } from './routes/studio.earnings'
 import { Route as StudioDocsRouteImport } from './routes/studio.docs'
+import { Route as StudioCopilotRouteImport } from './routes/studio.copilot'
 import { Route as StudioBacktestsRouteImport } from './routes/studio.backtests'
 import { Route as AppSignalsRouteImport } from './routes/app.signals'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
@@ -145,6 +146,11 @@ const StudioDocsRoute = StudioDocsRouteImport.update({
   path: '/docs',
   getParentRoute: () => StudioRoute,
 } as any)
+const StudioCopilotRoute = StudioCopilotRouteImport.update({
+  id: '/copilot',
+  path: '/copilot',
+  getParentRoute: () => StudioRoute,
+} as any)
 const StudioBacktestsRoute = StudioBacktestsRouteImport.update({
   id: '/backtests',
   path: '/backtests',
@@ -239,6 +245,7 @@ export interface FileRoutesByFullPath {
   '/app/settings': typeof AppSettingsRoute
   '/app/signals': typeof AppSignalsRoute
   '/studio/backtests': typeof StudioBacktestsRouteWithChildren
+  '/studio/copilot': typeof StudioCopilotRoute
   '/studio/docs': typeof StudioDocsRoute
   '/studio/earnings': typeof StudioEarningsRoute
   '/studio/health': typeof StudioHealthRoute
@@ -276,6 +283,7 @@ export interface FileRoutesByTo {
   '/app/settings': typeof AppSettingsRoute
   '/app/signals': typeof AppSignalsRoute
   '/studio/backtests': typeof StudioBacktestsRouteWithChildren
+  '/studio/copilot': typeof StudioCopilotRoute
   '/studio/docs': typeof StudioDocsRoute
   '/studio/earnings': typeof StudioEarningsRoute
   '/studio/health': typeof StudioHealthRoute
@@ -314,6 +322,7 @@ export interface FileRoutesById {
   '/app/settings': typeof AppSettingsRoute
   '/app/signals': typeof AppSignalsRoute
   '/studio/backtests': typeof StudioBacktestsRouteWithChildren
+  '/studio/copilot': typeof StudioCopilotRoute
   '/studio/docs': typeof StudioDocsRoute
   '/studio/earnings': typeof StudioEarningsRoute
   '/studio/health': typeof StudioHealthRoute
@@ -353,6 +362,7 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/app/signals'
     | '/studio/backtests'
+    | '/studio/copilot'
     | '/studio/docs'
     | '/studio/earnings'
     | '/studio/health'
@@ -390,6 +400,7 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/app/signals'
     | '/studio/backtests'
+    | '/studio/copilot'
     | '/studio/docs'
     | '/studio/earnings'
     | '/studio/health'
@@ -427,6 +438,7 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/app/signals'
     | '/studio/backtests'
+    | '/studio/copilot'
     | '/studio/docs'
     | '/studio/earnings'
     | '/studio/health'
@@ -600,6 +612,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudioDocsRouteImport
       parentRoute: typeof StudioRoute
     }
+    '/studio/copilot': {
+      id: '/studio/copilot'
+      path: '/copilot'
+      fullPath: '/studio/copilot'
+      preLoaderRoute: typeof StudioCopilotRouteImport
+      parentRoute: typeof StudioRoute
+    }
     '/studio/backtests': {
       id: '/studio/backtests'
       path: '/backtests'
@@ -752,6 +771,7 @@ const StudioBacktestsRouteWithChildren = StudioBacktestsRoute._addFileChildren(
 
 interface StudioRouteChildren {
   StudioBacktestsRoute: typeof StudioBacktestsRouteWithChildren
+  StudioCopilotRoute: typeof StudioCopilotRoute
   StudioDocsRoute: typeof StudioDocsRoute
   StudioEarningsRoute: typeof StudioEarningsRoute
   StudioHealthRoute: typeof StudioHealthRoute
@@ -771,6 +791,7 @@ interface StudioRouteChildren {
 
 const StudioRouteChildren: StudioRouteChildren = {
   StudioBacktestsRoute: StudioBacktestsRouteWithChildren,
+  StudioCopilotRoute: StudioCopilotRoute,
   StudioDocsRoute: StudioDocsRoute,
   StudioEarningsRoute: StudioEarningsRoute,
   StudioHealthRoute: StudioHealthRoute,

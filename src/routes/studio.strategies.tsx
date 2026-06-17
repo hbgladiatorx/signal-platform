@@ -71,29 +71,40 @@ function StrategiesList() {
       </div>
 
       <Card className="border-border bg-elevated">
-        <div className="grid grid-cols-12 gap-3 border-b border-border px-4 py-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-          <div className="col-span-4">Name</div>
+        <div className="grid grid-cols-12 gap-2 border-b border-border px-4 py-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+          <div className="col-span-3">Name</div>
           <div className="col-span-1">Asset</div>
-          <div className="col-span-2">Status</div>
-          <div className="col-span-2">Last Run</div>
+          <div className="col-span-1">Status</div>
+          <div className="col-span-1 text-right">Return</div>
+          <div className="col-span-1 text-right">PF</div>
           <div className="col-span-1 text-right">Sharpe</div>
           <div className="col-span-1 text-right">Win</div>
+          <div className="col-span-1 text-right">Max DD</div>
+          <div className="col-span-1 text-right">Trades</div>
           <div className="col-span-1 text-right">Actions</div>
         </div>
         <div className="divide-y divide-border">
-          {list.map((s) => (
-            <div key={s.id} className="grid grid-cols-12 items-center gap-3 px-4 py-3 text-sm">
-              <div className="col-span-4">
+          {list.map((s) => {
+            const st = s.stats;
+            const ret = st?.totalReturn;
+            return (
+            <div key={s.id} className="grid grid-cols-12 items-center gap-2 px-4 py-3 text-sm">
+              <div className="col-span-3">
                 <Link to="/studio/strategy/$id" params={{ id: s.id }} className="font-medium hover:text-violet">{s.name}</Link>
-                <div className="text-xs text-muted-foreground line-clamp-1">{s.description}</div>
+                <div className="text-xs text-muted-foreground line-clamp-1">
+                  {s.lastRunAt ? `Last run ${formatDistanceToNow(new Date(s.lastRunAt), { addSuffix: true })}` : (s.description || "Not yet backtested")}
+                </div>
               </div>
               <div className="col-span-1"><AssetClassBadge assetClass={s.assetClass} hideIcon /></div>
-              <div className="col-span-2"><StageBadge stage={s.stage} /></div>
-              <div className="col-span-2 font-mono text-xs text-muted-foreground">
-                {s.lastRunAt ? formatDistanceToNow(new Date(s.lastRunAt), { addSuffix: true }) : "—"}
+              <div className="col-span-1"><StageBadge stage={s.stage} /></div>
+              <div className={`col-span-1 text-right font-mono ${ret == null ? "" : ret >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+                {ret == null ? "—" : `${ret >= 0 ? "+" : ""}${(ret * 100).toFixed(1)}%`}
               </div>
-              <div className="col-span-1 text-right font-mono">{s.stats?.sharpe?.toFixed(2) ?? "—"}</div>
-              <div className="col-span-1 text-right font-mono">{s.stats ? `${(s.stats.winRate * 100).toFixed(0)}%` : "—"}</div>
+              <div className="col-span-1 text-right font-mono">{st?.profitFactor != null ? st.profitFactor.toFixed(2) : "—"}</div>
+              <div className="col-span-1 text-right font-mono">{st?.sharpe != null ? st.sharpe.toFixed(2) : "—"}</div>
+              <div className="col-span-1 text-right font-mono">{st ? `${(st.winRate * 100).toFixed(0)}%` : "—"}</div>
+              <div className="col-span-1 text-right font-mono text-muted-foreground">{st ? `${(st.maxDrawdown * 100).toFixed(0)}%` : "—"}</div>
+              <div className="col-span-1 text-right font-mono text-muted-foreground">{st?.totalTrades ?? "—"}</div>
               <div className="col-span-1 flex justify-end gap-1">
                 <Button size="sm" variant="ghost" title="Backtest now (no AI)" onClick={() => setRunFor(s)}>
                   <Play className="size-3.5" />
@@ -103,7 +114,8 @@ function StrategiesList() {
                 </Button>
               </div>
             </div>
-          ))}
+            );
+          })}
           {list.length === 0 && (
             <div className="px-4 py-8 text-center text-sm text-muted-foreground">No strategies match your filters.</div>
           )}

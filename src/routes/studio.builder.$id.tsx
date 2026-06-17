@@ -5,7 +5,7 @@ import ReactFlow, {
   type Connection, type Edge, type Node, type OnNodesChange, type OnEdgesChange,
 } from "reactflow";
 import { useQuery } from "@tanstack/react-query";
-import { getDevStrategy, getTemplates, saveStrategyGraph, runBacktest, ensureDevStrategyDraft } from "@/lib/api/studio";
+import { getDevStrategy, getTemplates, saveStrategyGraph, runBacktest, ensureDevStrategyDraft, validateStrategySource, saveStrategySource, planGraphFromCode, type SourceValidation } from "@/lib/api/studio";
 import { advanceStage } from "@/lib/strategy-stage";
 import { StrategyNode, type StrategyNodeData } from "@/components/studio/StrategyNode";
 import { NodePalette, PALETTE, type PaletteNode } from "@/components/studio/NodePalette";
@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
-import { Save, PlayCircle, Rocket, CheckCircle2, AlertCircle, Download, ChevronDown, ChevronUp, FileCode, Sparkles, ChevronsLeftRight, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Save, PlayCircle, Rocket, CheckCircle2, AlertCircle, Download, ChevronDown, ChevronUp, FileCode, Sparkles, ChevronsLeftRight, PanelLeftClose, PanelLeftOpen, Code2, RefreshCw, Loader2, PanelRightClose } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { AssetClass, StrategyGraph } from "@/lib/types";
@@ -73,6 +73,11 @@ function Builder() {
   const [aiHighlight, setAiHighlight] = useState<Set<string>>(new Set());
   const [sidebarWidth, setSidebarWidth] = useState(340);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Code panel — Python is the source of truth; the graph is a derived view.
+  const [codeOpen, setCodeOpen] = useState(false);
+  const [code, setCode] = useState("");
+  const [codeValid, setCodeValid] = useState<SourceValidation | null>(null);
+  const [codeBusy, setCodeBusy] = useState<null | "save" | "graph" | "code">(null);
   const counter = useRef(0);
 
   // Drag-to-resize the AI / palette sidebar.
@@ -153,9 +158,92 @@ function Builder() {
       setAssetClass(strategy.assetClass);
       setNodes(toRFNodes(strategy.graph));
       setEdges(toRFEdges(strategy.graph));
+      setCode(strategy.sourceCode ?? "");
       counter.current = strategy.graph.nodes.length;
     }
   }, [strategy]);
+
+  // Live-validate the Python as the user edits it (debounced; no AI, just the
+  // backend validator). Drives the valid/invalid badge in the code panel.
+  useEffect(() => {
+    if (!codeOpen || code.trim().length < 10) { setCodeValid(null); return; }
+    let cancelled = false;
+    const t = setTimeout(() => {
+      validateStrategySource(code)
+        .then((v) => { if (!cancelled) setCodeValid(v); })
+        .catch(() => { if (!cancelled) setCodeValid(null); });
+    }, 600);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [code, codeOpen]);
+
+  const log = (level: "info" | "error" | "ok", msg: string) =>
+    setLogs((l) => [...l, { ts: new Date().toISOString(), level, msg }]);
+
+  // Persist edited Python directly (validate + PUT source_code only). Never
+  // regenerates the graph, so the code can't be clobbered.
+  const handleSaveCode = async () => {
+    if (isNew) { toast.error("Build or generate the strategy first, then save its code."); return; }
+    setCodeBusy("save");
+    try {
+      const v = await validateStrategySource(code);
+      setCodeValid(v);
+      if (!v.ok) {
+        toast.error(`Code has ${v.errors.length} error(s) — fix before saving`);
+        v.errors.slice(0, 5).forEach((e) => log("error", `code: ${e.line ? `L${e.line}: ` : ""}${e.message}`));
+        return;
+      }
+      await saveStrategySource(id, code);
+      log("ok", `Saved Python source (${v.className ?? "strategy"}). Graph left untouched.`);
+      toast.success("Code saved");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Save failed");
+    } finally { setCodeBusy(null); }
+  };
+
+  // AI: render the node graph that represents the current code (reverse direction).
+  const handleGraphFromCode = async () => {
+    if (code.trim().length < 10) { toast.error("No code to render."); return; }
+    setCodeBusy("graph");
+    log("info", "AI: rendering graph from code…");
+    try {
+      const r = await planGraphFromCode(code, assetClass);
+      if (!r.ok || !r.graph) {
+        toast.error(r.error ?? "Couldn't render a graph from this code");
+        log("error", `graph-from-code: ${r.error ?? "no graph returned"}`);
+        return;
+      }
+      applyAIGraph({ name, assetClass, graph: r.graph, plan: r.plan, assumptions: r.assumptions });
+      r.assumptions.forEach((a) => log("info", `AI note: ${a}`));
+      toast.success("Graph updated from code (view only — code stays authoritative)");
+    } catch (e: any) {
+      toast.error(e?.message ?? "AI render failed");
+    } finally { setCodeBusy(null); }
+  };
+
+  // AI: regenerate Python from the current graph (existing translate path) and
+  // load it into the editor. Lossy graph→code direction.
+  const handleCodeFromGraph = async () => {
+    if (nodes.length === 0) { toast.error("The graph is empty."); return; }
+    setCodeBusy("code");
+    log("info", "AI: generating code from graph…");
+    try {
+      const graph: StrategyGraph = {
+        nodes: nodes.map((n) => ({
+          id: n.id, type: n.data.nodeType, category: n.data.category, label: n.data.label,
+          position: n.position, data: n.data.config,
+        })),
+        edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle ?? undefined, targetHandle: e.targetHandle ?? undefined })),
+      };
+      const draft = await ensureDevStrategyDraft({ id: isNew ? undefined : id, name, assetClass, graph });
+      setCode(draft.sourceCode ?? "");
+      log("ok", "AI generated Python from the graph. Review, then Save code.");
+      toast.success("Code generated from graph");
+      if (isNew && draft.id) navigate({ to: "/studio/builder/$id", params: { id: draft.id } });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Translate failed");
+      log("error", `code-from-graph: ${e?.message ?? "failed"}`);
+    } finally { setCodeBusy(null); }
+  };
 
   const onNodesChange: OnNodesChange = useCallback((c) => setNodes((ns) => applyNodeChanges(c, ns)), []);
   const onEdgesChange: OnEdgesChange = useCallback((c) => setEdges((es) => applyEdgeChanges(c, es)), []);
@@ -283,6 +371,9 @@ function Builder() {
           <Button size="sm" variant="ghost" onClick={() => setShowTemplates(true)}><FileCode className="mr-1 size-4" /> Templates</Button>
           <Button size="sm" variant="outline" onClick={handleExport}><Download className="mr-1 size-4" /> Export JSON</Button>
           <Button size="sm" variant="outline" onClick={validate}>Validate</Button>
+          <Button size="sm" variant={codeOpen ? "default" : "outline"} onClick={() => setCodeOpen((o) => !o)} title="Show the Python code behind the graph">
+            <Code2 className="mr-1 size-4" /> Code
+          </Button>
           <Button size="sm" variant="outline" onClick={handleSave}><Save className="mr-1 size-4" /> Save</Button>
           <Button size="sm" className="bg-cyan text-cyan-foreground hover:bg-cyan/90" onClick={() => setShowBacktest(true)}>
             <PlayCircle className="mr-1 size-4" /> Run Backtest
@@ -446,6 +537,43 @@ function Builder() {
           </div>
         </div>
 
+
+        {/* Code panel — Python is the source of truth; graph is a derived view */}
+        {codeOpen && (
+          <div className="flex w-[34rem] max-w-[48vw] shrink-0 flex-col border-l border-border bg-sidebar">
+            <div className="flex items-center gap-2 border-b border-border bg-elevated px-3 py-2">
+              <Code2 className="size-4 text-cyan" />
+              <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Python source</span>
+              {codeValid && (
+                codeValid.ok
+                  ? <span className="flex items-center gap-1 text-[11px] text-futures"><CheckCircle2 className="size-3" /> valid · {codeValid.className}</span>
+                  : <span className="flex items-center gap-1 text-[11px] text-danger" title={codeValid.errors[0]?.message}><AlertCircle className="size-3" /> {codeValid.errors.length} error{codeValid.errors.length === 1 ? "" : "s"}</span>
+              )}
+              <button onClick={() => setCodeOpen(false)} title="Close" className="ml-auto text-muted-foreground hover:text-foreground"><PanelRightClose className="size-4" /></button>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 border-b border-border px-2 py-1.5">
+              <Button size="sm" variant="outline" disabled={!!codeBusy || isNew} onClick={handleSaveCode} title="Validate & save the code (graph untouched)">
+                {codeBusy === "save" ? <Loader2 className="mr-1 size-3.5 animate-spin" /> : <Save className="mr-1 size-3.5" />} Save code
+              </Button>
+              <Button size="sm" variant="outline" disabled={!!codeBusy} onClick={handleGraphFromCode} title="AI: redraw the graph from this code">
+                {codeBusy === "graph" ? <Loader2 className="mr-1 size-3.5 animate-spin" /> : <RefreshCw className="mr-1 size-3.5" />} Update graph from code
+              </Button>
+              <Button size="sm" variant="ghost" disabled={!!codeBusy} onClick={handleCodeFromGraph} title="AI: regenerate the code from the current graph (lossy)">
+                {codeBusy === "code" ? <Loader2 className="mr-1 size-3.5 animate-spin" /> : <Sparkles className="mr-1 size-3.5" />} Code from graph
+              </Button>
+            </div>
+            <textarea
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              spellCheck={false}
+              placeholder={isNew ? "Build or generate a strategy, then its Python appears here." : "# Loading source…"}
+              className="min-h-0 flex-1 resize-none bg-background/40 px-3 py-2 font-mono text-[11px] leading-relaxed text-foreground outline-none"
+            />
+            <div className="border-t border-border px-3 py-1.5 text-[10px] leading-snug text-muted-foreground">
+              The Python is the source of truth. Editing &amp; saving it never changes the graph. The graph is a best-effort AI view — use “Update graph from code” to refresh it.
+            </div>
+          </div>
+        )}
 
         {/* Inspector */}
         <div className="w-72 shrink-0 border-l border-border bg-sidebar">

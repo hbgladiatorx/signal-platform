@@ -2,8 +2,7 @@ import { useEffect } from "react";
 import { Link, Outlet, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   Home, BookOpen, BarChart3, Signal as SignalIcon, Settings, Bell, Search,
-  Wallet, FileText, User, Layers, GitBranch, Inbox as InboxIcon, ArrowRightLeft, Lock, Sparkles, Activity, Brain,
-  Database, Gauge,
+  User, ArrowRightLeft, Lock, Sparkles, Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -30,20 +29,14 @@ const traderNav: NavItem[] = [
   { to: "/app/settings", label: "Settings", icon: Settings },
 ];
 
+// Studio is copilot-first: the copilot drives build → backtest → validate →
+// forward, so those individual tabs collapse into it. Live monitoring and
+// settings stay separate. (Older pages remain reachable by URL.)
 const studioNav: NavItem[] = [
-  { to: "/studio/home", label: "My Studio", icon: Home },
-  { to: "/studio/strategies", label: "Strategies", icon: Layers },
-  { to: "/studio/strategies", label: "Builder", icon: GitBranch },
-  { to: "/studio/backtests", label: "Backtests", icon: BarChart3 },
-  { to: "/studio/walkforward", label: "Walk-fwd", icon: ArrowRightLeft },
-  { to: "/studio/ml", label: "ML", icon: Brain },
-  { to: "/studio/instruments", label: "Instruments", icon: Database },
-  { to: "/studio/health", label: "Health", icon: Gauge },
+  { to: "/studio/home", label: "Overview", icon: Home },
+  { to: "/studio/copilot", label: "Copilot", icon: Sparkles },
   { to: "/studio/live", label: "Live", icon: Activity },
-  { to: "/studio/signals", label: "Signals", icon: SignalIcon },
-  { to: "/studio/earnings", label: "Earnings", icon: Wallet },
-  { to: "/studio/submissions", label: "Submit", icon: InboxIcon },
-  { to: "/studio/docs", label: "Docs", icon: FileText },
+  { to: "/studio/settings", label: "Settings", icon: Settings },
 ];
 
 
@@ -73,7 +66,7 @@ function Shell({ mode }: { mode: "trader" | "studio" }) {
       <header className="sticky top-0 z-30 border-b border-border bg-background/70 backdrop-blur">
         <div className="flex h-14 items-center gap-3 px-4 md:px-6">
           <Link
-            to={isStudio ? "/studio/home" : "/app/home"}
+            to={isStudio ? "/studio/copilot" : "/app/home"}
             className="flex shrink-0 items-center gap-2 font-semibold tracking-tight"
           >
             <div className={cn("grid size-7 place-items-center rounded-md font-bold", isStudio ? "bg-violet/15 text-violet" : "bg-cyan/15 text-cyan")}>

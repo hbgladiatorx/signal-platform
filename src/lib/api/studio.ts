@@ -22,6 +22,7 @@ import type {
   PersonalSignal,
   PipelineStage,
   StrategyGraph,
+  StrategyStats,
   StudioEarning,
   SuggestTweaksResult,
 } from "../types";
@@ -73,6 +74,7 @@ interface ApiBacktestSummary {
   max_drawdown_pct?: number | null;
   num_closed_trades?: number | null;
   win_rate_pct?: number | null;
+  profit_factor?: number | null;
 }
 interface ApiBacktestDetail extends ApiBacktestSummary {
   params_json?: Record<string, unknown>;
@@ -127,16 +129,56 @@ function toAssetClass(s?: string | null): AssetClass {
   return "stocks";
 }
 
-function userToDev(u: ApiUserStrategy): DevStrategy {
+// Pick the "headline" backtest for a strategy: the completed run with the
+// widest tested window (full-period over H1/H2 splits), tie-broken by trade
+// count. This is what we surface as the strategy's performance in the list.
+function pickHeadline(bts: ApiBacktestSummary[]): ApiBacktestSummary | undefined {
+  const span = (b: ApiBacktestSummary) =>
+    b.bars_start && b.bars_end
+      ? new Date(b.bars_end).getTime() - new Date(b.bars_start).getTime()
+      : 0;
+  return bts
+    .filter((b) => b.status === "completed" && (b.num_closed_trades ?? 0) > 0)
+    .slice()
+    .sort((a, b) => span(b) - span(a) || (b.num_closed_trades ?? 0) - (a.num_closed_trades ?? 0))[0];
+}
+
+function statsFromBacktest(b: ApiBacktestSummary): StrategyStats {
+  return {
+    sharpe: b.sharpe_ratio ?? 0,
+    winRate: (b.win_rate_pct ?? 0) / 100,
+    maxDrawdown: (b.max_drawdown_pct ?? 0) / 100,
+    sampleSize: b.num_closed_trades ?? 0,
+    avgR: 0,
+    liveDays: 0,
+    subscribers: 0,
+    totalReturn: (b.total_return_pct ?? 0) / 100,
+    profitFactor: b.profit_factor ?? undefined,
+    totalTrades: b.num_closed_trades ?? 0,
+  };
+}
+
+function userToDev(u: ApiUserStrategy, bts: ApiBacktestSummary[] = []): DevStrategy {
+  const head = pickHeadline(bts);
+  const latest = bts.length
+    ? bts.slice().sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      )[0]
+    : undefined;
   return {
     id: u.id,
     name: u.name,
     description: u.description ?? "",
     assetClass: toAssetClass(u.asset_class),
-    stage: "Draft",
+    // Reflect reality: a strategy with a completed backtest has been backtested;
+    // otherwise it's still a draft. (Live trading is tracked separately.)
+    stage: head ? "Backtested" : "Draft",
+    isActive: u.is_active,
     createdAt: u.created_at,
-    lastRunAt: u.updated_at,
+    lastRunAt: latest?.created_at ?? u.updated_at,
     graph: u.graph_json ?? { nodes: [], edges: [] },
+    sourceCode: u.source_code,
+    stats: head ? statsFromBacktest(head) : undefined,
     versions: [{ id: "v1", createdAt: u.created_at, note: "Saved" }],
   };
 }
@@ -355,11 +397,18 @@ function graphToNL(name: string, assetClass: AssetClass, graph: StrategyGraph): 
 // ============================================================
 
 export async function getDevStrategies(): Promise<DevStrategy[]> {
-  const [users, builtins] = await Promise.all([
+  const [users, builtins, backtests] = await Promise.all([
     api.get<ApiUserStrategy[]>("/user-strategies", { limit: 200 }),
     api.get<ApiStrategyInfo[]>("/strategies").catch(() => [] as ApiStrategyInfo[]),
+    api.get<ApiBacktestSummary[]>("/backtests", { limit: 100 }).catch(() => [] as ApiBacktestSummary[]),
   ]);
-  const userDevs = users.map(userToDev);
+  const byName = new Map<string, ApiBacktestSummary[]>();
+  for (const b of backtests) {
+    const arr = byName.get(b.strategy_name);
+    if (arr) arr.push(b);
+    else byName.set(b.strategy_name, [b]);
+  }
+  const userDevs = users.map((u) => userToDev(u, byName.get(u.name) ?? []));
   const builtinDevs = builtins
     .filter((s) => s.source === "built-in")
     .map(builtinToDev);
@@ -374,8 +423,11 @@ export async function getDevStrategy(id: string): Promise<DevStrategy | undefine
     return builtinToDev(s);
   }
   try {
-    const u = await api.get<ApiUserStrategy>(`/user-strategies/${id}`);
-    return userToDev(u);
+    const [u, backtests] = await Promise.all([
+      api.get<ApiUserStrategy>(`/user-strategies/${id}`),
+      api.get<ApiBacktestSummary[]>("/backtests", { limit: 100 }).catch(() => [] as ApiBacktestSummary[]),
+    ]);
+    return userToDev(u, backtests.filter((b) => b.strategy_name === u.name));
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) return undefined;
     throw e;
@@ -501,6 +553,72 @@ export async function saveStrategyGraph(id: string, graph: StrategyGraph) {
   return { ok: true, savedAt: new Date().toISOString() };
 }
 
+// ---------- code-first authoring (Python is the source of truth) ----------
+
+export interface SourceValidation {
+  ok: boolean;
+  className?: string;
+  errors: Array<{ line?: number; message: string }>;
+}
+
+// Validate Python strategy source WITHOUT saving — drives the live "valid/invalid"
+// indicator as the user edits code in the builder.
+export async function validateStrategySource(source: string): Promise<SourceValidation> {
+  const r = await api.post<{
+    ok: boolean;
+    class_name?: string | null;
+    errors?: Array<{ line?: number | null; message: string }>;
+  }>("/user-strategies/validate", { source_code: source });
+  return {
+    ok: r.ok,
+    className: r.class_name ?? undefined,
+    errors: (r.errors ?? []).map((e) => ({ line: e.line ?? undefined, message: e.message })),
+  };
+}
+
+// Persist edited Python as the runnable artifact. Sends ONLY source_code, so the
+// graph is never regenerated/clobbered — code stays authoritative.
+export async function saveStrategySource(id: string, source: string): Promise<DevStrategy> {
+  if (!id || id === "builtin:" || id.startsWith(BUILTIN_PREFIX)) {
+    throw new ApiError(400, "Built-in strategies can't be edited. Clone it first.");
+  }
+  const u = await api.put<ApiUserStrategy>(`/user-strategies/${id}`, { source_code: source });
+  return userToDev(u);
+}
+
+export interface CodeGraphResult {
+  ok: boolean;
+  graph?: StrategyGraph;
+  plan: string[];
+  assumptions: string[];
+  error?: string;
+}
+
+// AI: render the node graph that REPRESENTS the given Python source (reverse of
+// graph->code). Best-effort VIEW — code remains the source of truth.
+export async function planGraphFromCode(
+  source: string,
+  assetClass: AssetClass,
+): Promise<CodeGraphResult> {
+  const r = await api.post<{
+    ok: boolean;
+    graph?: { nodes: unknown[]; edges: unknown[] } | null;
+    plan?: string[];
+    assumptions?: string[];
+    error?: string | null;
+  }>("/user-strategies/plan-graph-from-code", {
+    source_code: source,
+    asset_class: ASSET_TO_VENUE_CLASS[assetClass] ? assetClass : "crypto",
+  });
+  return {
+    ok: r.ok,
+    graph: r.ok && r.graph ? (r.graph as unknown as StrategyGraph) : undefined,
+    plan: r.plan ?? [],
+    assumptions: r.assumptions ?? [],
+    error: r.error ?? undefined,
+  };
+}
+
 // ============================================================
 // Backtests
 // ============================================================
@@ -511,6 +629,34 @@ export async function getBacktestsForStrategy(strategyId: string): Promise<Backt
   return list
     .filter((b) => b.strategy_name === name)
     .map((b) => summaryToRun(b, strategyId));
+}
+
+export interface RecentBacktest {
+  id: string;
+  strategyName: string;
+  symbols: string[];
+  status: string;
+  createdAt: string;
+  totalReturn?: number; // fraction
+  sharpe?: number;
+  profitFactor?: number;
+  trades?: number;
+}
+
+// Most-recent backtests across all the user's strategies, for the overview page.
+export async function getRecentBacktests(limit = 12): Promise<RecentBacktest[]> {
+  const list = await api.get<ApiBacktestSummary[]>("/backtests", { limit });
+  return list.map((b) => ({
+    id: b.id,
+    strategyName: b.strategy_name,
+    symbols: b.symbols,
+    status: b.status,
+    createdAt: b.created_at,
+    totalReturn: b.total_return_pct == null ? undefined : b.total_return_pct / 100,
+    sharpe: b.sharpe_ratio ?? undefined,
+    profitFactor: b.profit_factor ?? undefined,
+    trades: b.num_closed_trades ?? undefined,
+  }));
 }
 
 export async function getBacktest(id: string): Promise<BacktestRun | undefined> {

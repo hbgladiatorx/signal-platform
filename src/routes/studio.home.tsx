@@ -1,55 +1,93 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { getDevStrategies, getPersonalSignals, getBacktestsForStrategy } from "@/lib/api/studio";
+import { useMemo } from "react";
+import { getDevStrategies, getRecentBacktests } from "@/lib/api/studio";
+import { listSessions } from "@/lib/api/sessions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StageBadge } from "@/components/common/StageBadge";
 import { AssetClassBadge } from "@/components/common/AssetClassBadge";
-import { DirectionPill } from "@/components/common/DirectionPill";
-import { StatusPill } from "@/components/common/StatusPill";
 import { formatDistanceToNow } from "date-fns";
-import { Plus, Layers, FlaskConical, Activity, Inbox } from "lucide-react";
-import type { PipelineStage } from "@/lib/types";
+import { Plus, Layers, FlaskConical, Activity, Inbox, TrendingUp, Trophy } from "lucide-react";
 import { CustomizeButton } from "@/components/common/CustomizeButton";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/studio/home")({
-  head: () => ({ meta: [{ title: "Studio — Bayn" }] }),
+  head: () => ({ meta: [{ title: "Overview — Bayn Studio" }] }),
   component: StudioHome,
 });
 
-const STAGE_GROUPS: Array<{ label: string; stages: PipelineStage[]; accent: string }> = [
-  { label: "Draft", stages: ["Draft"], accent: "text-muted-foreground" },
-  { label: "Backtesting", stages: ["Backtested", "Out-of-Sample Passed"], accent: "text-cyan" },
-  { label: "Forward Testing", stages: ["Forward Testing"], accent: "text-options" },
-  { label: "Live", stages: ["Live"], accent: "text-futures" },
-  { label: "Submitted", stages: ["Submitted", "Under Review"], accent: "text-violet" },
-];
+const fmtPct = (v?: number) =>
+  v == null ? "—" : `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
+const pctClass = (v?: number) =>
+  v == null ? "text-muted-foreground" : v >= 0 ? "text-emerald-500" : "text-red-500";
+const tickerOf = (sym: string) => sym.split("@")[0];
 
 function StudioHome() {
   const strategies = useQuery({ queryKey: ["devStrategies"], queryFn: getDevStrategies });
-  const sigs = useQuery({ queryKey: ["personalSignals", 6], queryFn: () => getPersonalSignals({ limit: 6 }) });
+  const backtests = useQuery({ queryKey: ["recentBacktests", 12], queryFn: () => getRecentBacktests(12) });
+  const sessions = useQuery({ queryKey: ["sessions"], queryFn: listSessions, refetchInterval: 15000 });
 
   const list = strategies.data ?? [];
+  const runs = backtests.data ?? [];
+  const sess = sessions.data ?? [];
+
+  const summary = useMemo(() => {
+    const withStats = list.filter((s) => s.stats);
+    const returns = withStats.map((s) => s.stats!.totalReturn).filter((v): v is number => v != null);
+    const best = withStats
+      .filter((s) => s.stats!.totalReturn != null)
+      .sort((a, b) => (b.stats!.totalReturn ?? 0) - (a.stats!.totalReturn ?? 0))[0];
+    const liveCount = sess.filter((s) => s.status === "running" || s.status === "starting").length;
+    return {
+      total: list.length,
+      backtested: withStats.length,
+      sessions: sess.length,
+      liveCount,
+      bestReturn: returns.length ? Math.max(...returns) : undefined,
+      best,
+    };
+  }, [list, sess]);
+
+  const topStrategies = useMemo(
+    () =>
+      [...list].sort(
+        (a, b) => (b.stats?.totalReturn ?? -Infinity) - (a.stats?.totalReturn ?? -Infinity),
+      ),
+    [list],
+  );
+
+  const tiles: Array<{
+    label: string;
+    value: string;
+    sub?: string;
+    valueClass?: string;
+    icon: typeof Layers;
+    accent: string;
+  }> = [
+    { label: "Strategies", value: String(summary.total), icon: Layers, accent: "text-violet" },
+    { label: "Backtested", value: String(summary.backtested), icon: FlaskConical, accent: "text-cyan" },
+    { label: "Live / paper", value: String(summary.sessions), sub: summary.liveCount ? `${summary.liveCount} running` : undefined, icon: Activity, accent: "text-futures" },
+    { label: "Best return", value: fmtPct(summary.bestReturn), valueClass: pctClass(summary.bestReturn), icon: TrendingUp, accent: "text-emerald-500" },
+    { label: "Backtests run", value: String(runs.length >= 12 ? "12+" : runs.length), icon: Trophy, accent: "text-gold" },
+  ];
 
   return (
     <div className="space-y-6 p-4 md:p-6">
-      {/* Hero header — gradient violet panel */}
+      {/* Hero */}
       <div
         className="relative overflow-hidden rounded-xl border border-violet/30 p-5"
-        style={{
-          background:
-            "linear-gradient(135deg, color-mix(in oklab, var(--violet) 14%, var(--background)) 0%, var(--background) 65%)",
-        }}
+        style={{ background: "linear-gradient(135deg, color-mix(in oklab, var(--violet) 14%, var(--background)) 0%, var(--background) 65%)" }}
       >
         <div className="pointer-events-none absolute -right-16 -top-16 size-48 rounded-full bg-violet/20 blur-3xl" />
         <div className="relative flex flex-wrap items-end justify-between gap-3">
           <div className="space-y-1.5">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-violet/40 bg-violet/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.18em] text-violet">
-              Private workspace
+              Overview
             </span>
             <h1 className="text-2xl font-semibold tracking-tight">My Studio</h1>
             <p className="font-mono text-xs text-muted-foreground">
-              // strategies, backtests, and personal signals — only visible to you
+              // everything at a glance — strategies, backtests, and live trading
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -61,107 +99,143 @@ function StudioHome() {
             </Button>
           </div>
         </div>
+        {summary.best && (
+          <div className="relative mt-4 inline-flex items-center gap-2 rounded-lg border border-border bg-background/50 px-3 py-1.5 text-xs">
+            <Trophy className="size-3.5 text-gold" />
+            <span className="text-muted-foreground">Top performer:</span>
+            <Link to="/studio/strategy/$id" params={{ id: summary.best.id }} className="font-medium hover:text-violet">{summary.best.name}</Link>
+            <span className={cn("font-mono", pctClass(summary.best.stats?.totalReturn))}>{fmtPct(summary.best.stats?.totalReturn)}</span>
+            {summary.best.stats?.profitFactor != null && <span className="font-mono text-muted-foreground">PF {summary.best.stats.profitFactor.toFixed(2)}</span>}
+          </div>
+        )}
       </div>
 
       {/* Summary tiles */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        {STAGE_GROUPS.map((g) => {
-          const count = list.filter((s) => g.stages.includes(s.stage)).length;
-          return (
-            <Card key={g.label} className="border-border bg-elevated p-4 transition-colors hover:border-violet/30">
-              <div className={`text-[10px] uppercase tracking-[0.18em] ${g.accent}`}>{g.label}</div>
-              <div className="mt-1 font-mono text-3xl tabular-nums">{count}</div>
-            </Card>
-          );
-        })}
+        {tiles.map((t) => (
+          <Card key={t.label} className="border-border bg-elevated p-4 transition-colors hover:border-violet/30">
+            <div className="flex items-center justify-between">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{t.label}</div>
+              <t.icon className={cn("size-3.5", t.accent)} />
+            </div>
+            <div className={cn("mt-1 font-mono text-3xl tabular-nums", t.valueClass)}>{t.value}</div>
+            {t.sub && <div className="font-mono text-[10px] text-futures">{t.sub}</div>}
+          </Card>
+        ))}
       </div>
 
-      {/* Recent personal signals */}
-      <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Recent personal signals</h2>
-          <Button variant="ghost" size="sm" asChild><Link to="/studio/signals">View all →</Link></Button>
-        </div>
-        <Card className="border-border bg-elevated">
-          {!sigs.data?.length ? (
-            <div className="p-6 text-center text-sm text-muted-foreground">
-              <Inbox className="mx-auto mb-2 size-8 opacity-50" />
-              No live signals yet. Deploy a strategy to start receiving signals from your own rules.
-            </div>
-          ) : (
-            <div className="divide-y divide-border">
-              {sigs.data.map((sig) => (
-                <div key={sig.id} className="grid grid-cols-12 items-center gap-3 px-4 py-3">
-                  <div className="col-span-2 text-xs text-muted-foreground">{formatDistanceToNow(new Date(sig.firedAt), { addSuffix: true })}</div>
-                  <div className="col-span-4 truncate">
-                    <div className="truncate text-sm font-medium">{sig.ownStrategyName}</div>
-                    <div className="font-mono text-xs text-violet">{sig.symbol}</div>
-                  </div>
-                  <div className="col-span-1"><DirectionPill direction={sig.direction} /></div>
-                  <div className="col-span-3 font-mono text-xs text-muted-foreground">
-                    <span className="text-foreground">{sig.entry}</span> · stop {sig.stop} · tgt {sig.target}
-                  </div>
-                  <div className="col-span-2 flex justify-end"><StatusPill status={sig.status} /></div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-      </section>
-
-      {/* Active backtests + Recent activity */}
+      {/* Live sessions + Recent backtests */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Card className="border-border bg-elevated p-5">
-          <div className="mb-3 flex items-center gap-2 text-sm font-medium"><FlaskConical className="size-4 text-violet" /> Active backtests</div>
-          <div className="space-y-2 text-sm text-muted-foreground">
-            {list.slice(0, 2).map((s) => (
-              <div key={s.id} className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-foreground">{s.name}</span>
-                  <span className="font-mono text-xs">{Math.floor(60 + Math.random() * 30)}%</span>
-                </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                  <div className="h-full bg-violet" style={{ width: `${60 + Math.random() * 30}%` }} />
-                </div>
-              </div>
-            ))}
+        {/* Live / paper sessions */}
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-sm font-medium uppercase tracking-wider text-muted-foreground"><Activity className="size-4" /> Live & paper</h2>
+            <Button variant="ghost" size="sm" asChild><Link to="/studio/live">Monitor →</Link></Button>
           </div>
-        </Card>
-        <Card className="border-border bg-elevated p-5">
-          <div className="mb-3 flex items-center gap-2 text-sm font-medium"><Activity className="size-4 text-violet" /> Recent activity</div>
-          <ul className="space-y-2 text-sm">
-            {list.flatMap((s) => s.versions.slice(0, 1).map((v) => ({ s, v }))).slice(0, 5).map(({ s, v }) => (
-              <li key={s.id + v.id} className="flex items-center justify-between text-muted-foreground">
-                <span><span className="text-foreground">{s.name}</span> · {v.note}</span>
-                <span className="font-mono text-xs">{formatDistanceToNow(new Date(v.createdAt), { addSuffix: true })}</span>
-              </li>
-            ))}
-          </ul>
-        </Card>
+          <Card className="border-border bg-elevated">
+            {sess.length === 0 ? (
+              <div className="p-6 text-center text-sm text-muted-foreground">
+                <Inbox className="mx-auto mb-2 size-8 opacity-50" />
+                No live or paper sessions running. Deploy a strategy to start trading.
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {sess.slice(0, 6).map((s) => {
+                  const pnl = s.realized_pnl == null ? undefined : Number(s.realized_pnl);
+                  return (
+                    <div key={s.id} className="grid grid-cols-12 items-center gap-2 px-4 py-3 text-sm">
+                      <div className="col-span-5 truncate">
+                        <div className="truncate font-medium">{s.strategy_name}</div>
+                        <div className="font-mono text-[11px] text-muted-foreground">{s.symbols.map(tickerOf).join(", ")}</div>
+                      </div>
+                      <div className="col-span-2">
+                        <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-mono uppercase", s.mode === "live" ? "bg-red-500/15 text-red-500" : "bg-cyan/15 text-cyan")}>{s.mode}</span>
+                      </div>
+                      <div className="col-span-2 font-mono text-[11px] text-muted-foreground">{s.status}</div>
+                      <div className={cn("col-span-3 text-right font-mono text-xs", pnl == null ? "text-muted-foreground" : pnl >= 0 ? "text-emerald-500" : "text-red-500")}>
+                        {pnl == null ? "—" : `${pnl >= 0 ? "+" : ""}$${pnl.toFixed(2)}`}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+        </section>
+
+        {/* Recent backtests */}
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-sm font-medium uppercase tracking-wider text-muted-foreground"><FlaskConical className="size-4" /> Recent backtests</h2>
+            <Button variant="ghost" size="sm" asChild><Link to="/studio/backtests">View all →</Link></Button>
+          </div>
+          <Card className="border-border bg-elevated">
+            {runs.length === 0 ? (
+              <div className="p-6 text-center text-sm text-muted-foreground">
+                <Inbox className="mx-auto mb-2 size-8 opacity-50" />
+                No backtests yet. Run one from a strategy to see it here.
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {runs.slice(0, 6).map((b) => (
+                  <div key={b.id} className="grid grid-cols-12 items-center gap-2 px-4 py-3 text-sm">
+                    <div className="col-span-5 truncate">
+                      <div className="truncate font-medium">{b.strategyName}</div>
+                      <div className="font-mono text-[11px] text-muted-foreground">{b.symbols.map(tickerOf).join(", ")} · {formatDistanceToNow(new Date(b.createdAt), { addSuffix: true })}</div>
+                    </div>
+                    <div className={cn("col-span-3 text-right font-mono", pctClass(b.totalReturn))}>
+                      {b.status === "completed" ? fmtPct(b.totalReturn) : <span className="text-muted-foreground">{b.status}</span>}
+                    </div>
+                    <div className="col-span-2 text-right font-mono text-xs text-muted-foreground">{b.sharpe != null ? `Sh ${b.sharpe.toFixed(2)}` : "—"}</div>
+                    <div className="col-span-2 text-right font-mono text-xs text-muted-foreground">{b.trades ?? "—"} trd</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </section>
       </div>
 
-      {/* My strategies summary */}
+      {/* Strategies overview — full metrics */}
       <section>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground flex items-center gap-2"><Layers className="size-4" /> My strategies</h2>
+          <h2 className="flex items-center gap-2 text-sm font-medium uppercase tracking-wider text-muted-foreground"><Layers className="size-4" /> Strategies</h2>
           <Button variant="ghost" size="sm" asChild><Link to="/studio/strategies">View all →</Link></Button>
         </div>
         <Card className="border-border bg-elevated">
-          <div className="divide-y divide-border">
-            {list.slice(0, 5).map((s) => (
-              <Link key={s.id} to="/studio/strategy/$id" params={{ id: s.id }} className="grid grid-cols-12 items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30">
-                <div className="col-span-5">
-                  <div className="font-medium">{s.name}</div>
-                  <div className="text-xs text-muted-foreground">{s.description}</div>
-                </div>
-                <div className="col-span-2"><AssetClassBadge assetClass={s.assetClass} hideIcon /></div>
-                <div className="col-span-3"><StageBadge stage={s.stage} /></div>
-                <div className="col-span-2 text-right font-mono text-sm text-muted-foreground">
-                  {s.stats ? `Sharpe ${s.stats.sharpe.toFixed(2)}` : "—"}
-                </div>
-              </Link>
-            ))}
+          <div className="grid grid-cols-12 gap-2 border-b border-border px-4 py-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+            <div className="col-span-3">Name</div>
+            <div className="col-span-1">Asset</div>
+            <div className="col-span-2">Status</div>
+            <div className="col-span-1 text-right">Return</div>
+            <div className="col-span-1 text-right">PF</div>
+            <div className="col-span-1 text-right">Sharpe</div>
+            <div className="col-span-1 text-right">Win</div>
+            <div className="col-span-1 text-right">Max DD</div>
+            <div className="col-span-1 text-right">Trades</div>
           </div>
+          {topStrategies.length === 0 ? (
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground">No strategies yet. Build one to get started.</div>
+          ) : (
+            <div className="divide-y divide-border">
+              {topStrategies.slice(0, 10).map((s) => {
+                const st = s.stats;
+                return (
+                  <Link key={s.id} to="/studio/strategy/$id" params={{ id: s.id }} className="grid grid-cols-12 items-center gap-2 px-4 py-3 text-sm transition-colors hover:bg-muted/30">
+                    <div className="col-span-3 truncate font-medium">{s.name}</div>
+                    <div className="col-span-1"><AssetClassBadge assetClass={s.assetClass} hideIcon /></div>
+                    <div className="col-span-2"><StageBadge stage={s.stage} /></div>
+                    <div className={cn("col-span-1 text-right font-mono", pctClass(st?.totalReturn))}>{st?.totalReturn != null ? fmtPct(st.totalReturn) : "—"}</div>
+                    <div className="col-span-1 text-right font-mono">{st?.profitFactor != null ? st.profitFactor.toFixed(2) : "—"}</div>
+                    <div className="col-span-1 text-right font-mono">{st?.sharpe != null ? st.sharpe.toFixed(2) : "—"}</div>
+                    <div className="col-span-1 text-right font-mono">{st ? `${(st.winRate * 100).toFixed(0)}%` : "—"}</div>
+                    <div className="col-span-1 text-right font-mono text-muted-foreground">{st ? `${(st.maxDrawdown * 100).toFixed(0)}%` : "—"}</div>
+                    <div className="col-span-1 text-right font-mono text-muted-foreground">{st?.totalTrades ?? "—"}</div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </Card>
       </section>
     </div>
