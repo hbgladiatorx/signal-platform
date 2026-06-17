@@ -26,7 +26,9 @@ from typing import Any, Optional
 
 log = logging.getLogger(__name__)
 
-MODEL = "claude-sonnet-4-20250514"
+# claude-sonnet-4-6 is the current Sonnet model; claude-sonnet-4-20250514 was
+# retired and now 404s. Override via GRAPH_PLANNER_MODEL if needed.
+MODEL = os.environ.get("GRAPH_PLANNER_MODEL", "claude-sonnet-4-6")
 
 # ============================================================
 # The canvas node palette — the ONLY node types the AI may emit.
@@ -286,16 +288,67 @@ def _normalize_nodes_edges(
     return nodes, edges
 
 
-def plan_graph_from_nl(
-    nl_description: str,
-    asset_class_hint: Optional[str] = None,
-    context_graph: Optional[dict[str, Any]] = None,
+# System prompt for the reverse direction: read Python strategy source and
+# render the equivalent builder node graph. Reuses the same palette + tool so
+# the output is a normal, inspector-editable graph. This is a best-effort VIEW
+# of the code — the Python source remains the source of truth.
+CODE_SYSTEM_PROMPT = f'''\
+You are the build assistant for the Signal Platform's visual strategy builder.
+You are given the PYTHON SOURCE of a trading strategy (a Strategy subclass with
+an on_bar method). Your job is to render the node GRAPH that best REPRESENTS
+that code on the React-Flow builder canvas, so the user can see their code as a
+diagram.
+
+You MUST call the `emit_strategy_graph` tool. Read the actual code: the
+indicators it computes (ctx.rsi/sma/ema/macd/etc. and their periods), the
+entry/exit conditions (comparisons, crossovers, regime filters), the position
+sizing, and any stop-loss / take-profit. Emit nodes that mirror those exactly —
+do NOT invent indicators or conditions the code does not contain, and do NOT
+drop ones it does.
+
+# THE NODE PALETTE — emit ONLY these node types
+
+{PALETTE_DOC}
+
+# RULES
+
+1. Flow left-to-right: data -> indicator -> logic -> risk -> signal. Every graph
+   needs at least one `data` node and at least one `signal` node.
+2. Map the code faithfully:
+   - ctx.rsi(sym, N) -> rsi node {{period:N}}; ctx.sma(sym, N) -> sma {{period:N}}; etc.
+   - `rsi < 43` -> comparator {{op:"<", value:43}}; `price > sma` (regime filter)
+     -> comparator on price vs the sma feed.
+   - take_profit_pct -> takeProfit {{type:"percent", value:...}}; stop_loss_pct
+     -> stopLoss {{type:"percent", value:...}}.
+   - submit_buy_market -> entry {{direction:"LONG"}}; a short side -> entry {{direction:"SHORT"}}.
+   - position_pct -> positionSize {{type:"percent_account", value:...}}.
+   Use the symbol/timeframe from the code if present, else a sensible default
+   (crypto "<BASE>-USDT@BINANCEUS").
+3. If a piece of the code's logic cannot be expressed in the palette (e.g. a
+   custom regime gate or true short side), approximate it with the closest nodes
+   and NOTE it in `assumptions` — the graph is a view, the code is authoritative.
+4. Give every node a short label and lay them out left-to-right by category.
+
+# OUTPUT FIELDS
+
+- name: keep the strategy's existing name/docstring title if discernible.
+- assetClass: crypto | stocks | options | futures (infer from the symbol).
+- plan: 3-6 present-tense bullets describing what the code does, in order.
+- assumptions: anything the palette could not represent exactly (be honest).
+- questions: leave empty ([]) — you are rendering existing code, not gathering requirements.
+- nodes / edges: as in the tool schema, laid out left-to-right.
+
+Be faithful to the code.'''
+
+
+def _run_emit(
+    system_prompt: str, user_msg: str, asset_class_hint: Optional[str]
 ) -> GraphPlan:
-    """Call Claude to turn an NL strategy description into a builder node graph.
+    """Shared Claude call + parse for both NL->graph and code->graph planners.
 
     Returns GraphPlan(ok=False, error=...) on any failure (missing key, out of
-    credits, timeout, no tool_use) so the frontend can degrade gracefully to its
-    offline heuristic builder instead of throwing.
+    credits, timeout, no tool_use) so the frontend can degrade gracefully
+    instead of throwing.
     """
     try:
         from anthropic import Anthropic, APIError, APITimeoutError
@@ -312,25 +365,12 @@ def plan_graph_from_nl(
             error="ANTHROPIC_API_KEY is not set in the api container's environment.",
         )
 
-    user_parts = [f"Strategy idea:\n{nl_description.strip()}"]
-    if asset_class_hint:
-        user_parts.append(f"\nPreferred asset class: {asset_class_hint}.")
-    if context_graph and context_graph.get("nodes"):
-        # Give the model the current canvas so a follow-up message refines
-        # rather than rebuilds from scratch.
-        user_parts.append(
-            "\nThere is already a graph on the canvas. Revise it to honour the "
-            "new instruction, keeping unrelated nodes intact:\n"
-            + json.dumps(context_graph)[:8000]
-        )
-    user_msg = "\n".join(user_parts)
-
     client = Anthropic(api_key=api_key, timeout=60.0)
     try:
         response = client.messages.create(
             model=MODEL,
             max_tokens=4096,
-            system=SYSTEM_PROMPT,
+            system=system_prompt,
             tools=[EMIT_GRAPH_TOOL],
             tool_choice={"type": "tool", "name": "emit_strategy_graph"},
             messages=[{"role": "user", "content": user_msg}],
@@ -389,3 +429,43 @@ def plan_graph_from_nl(
         input_tokens=in_tok,
         output_tokens=out_tok,
     )
+
+
+def plan_graph_from_nl(
+    nl_description: str,
+    asset_class_hint: Optional[str] = None,
+    context_graph: Optional[dict[str, Any]] = None,
+) -> GraphPlan:
+    """Turn an NL strategy description into a builder node graph (AI build chat)."""
+    user_parts = [f"Strategy idea:\n{nl_description.strip()}"]
+    if asset_class_hint:
+        user_parts.append(f"\nPreferred asset class: {asset_class_hint}.")
+    if context_graph and context_graph.get("nodes"):
+        # Give the model the current canvas so a follow-up message refines
+        # rather than rebuilds from scratch.
+        user_parts.append(
+            "\nThere is already a graph on the canvas. Revise it to honour the "
+            "new instruction, keeping unrelated nodes intact:\n"
+            + json.dumps(context_graph)[:8000]
+        )
+    return _run_emit(SYSTEM_PROMPT, "\n".join(user_parts), asset_class_hint)
+
+
+def plan_graph_from_code(
+    source_code: str,
+    asset_class_hint: Optional[str] = None,
+) -> GraphPlan:
+    """Render the builder node graph that represents a strategy's PYTHON source.
+
+    The reverse of graph->code translation. Best-effort VIEW: the Python source
+    stays the source of truth, so a graph that can't capture every nuance is
+    fine (the model notes gaps in `assumptions`).
+    """
+    code = (source_code or "").strip()
+    if len(code) < 10:
+        return GraphPlan(ok=False, error="No source code to render.")
+    user_msg = (
+        "Render the node graph that represents this strategy's Python source:\n\n"
+        "```python\n" + code[:16000] + "\n```"
+    )
+    return _run_emit(CODE_SYSTEM_PROMPT, user_msg, asset_class_hint)

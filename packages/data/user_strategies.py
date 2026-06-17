@@ -84,7 +84,9 @@ async def get_user_strategy(
             SELECT
                 id, user_id, org_id, name, description, nl_description,
                 class_name, source_code, params_schema, graph_json, asset_class,
-                is_active, created_at, updated_at
+                is_active, created_at, updated_at,
+                promoted_at, deployed_live_at, last_deploy_mode,
+                last_deployed_at, submitted_to_bayn_at
             FROM user_strategies
             WHERE id = :id AND user_id = :user_id
             """
@@ -219,6 +221,58 @@ async def update_user_strategy(
             UPDATE user_strategies
             SET {set_clause}
             WHERE id = :id AND user_id = :user_id
+            """
+        ),
+        params,
+    )
+    return result.rowcount > 0
+
+
+async def set_strategy_lifecycle_milestone(
+    session: AsyncSession,
+    *,
+    strategy_id: UUID,
+    user_id: UUID,
+    promoted: bool = False,
+    deployed_mode: Optional[str] = None,
+    submitted: bool = False,
+) -> bool:
+    """Set one or more durable lifecycle milestones on a strategy.
+
+    Used by the copilot's gated transitions:
+      * promoted=True            -> promoted_at = now()  (stage: deployable)
+      * deployed_mode="paper"    -> last_deploy_mode/last_deployed_at only
+      * deployed_mode="live"     -> also deployed_live_at = now()  (stage: bayn_eligible)
+      * submitted=True           -> submitted_to_bayn_at = now()
+
+    All sets are NOW(); milestones are monotonic (we never clear them).
+    Returns True if a row was updated.
+    """
+    sets: list[str] = []
+    params: dict[str, Any] = {"id": strategy_id, "user_id": user_id}
+
+    if promoted:
+        sets.append("promoted_at = COALESCE(promoted_at, now())")
+    if deployed_mode is not None:
+        sets.append("last_deploy_mode = :mode")
+        sets.append("last_deployed_at = now()")
+        params["mode"] = deployed_mode
+        if deployed_mode == "live":
+            sets.append("deployed_live_at = COALESCE(deployed_live_at, now())")
+    if submitted:
+        sets.append("submitted_to_bayn_at = now()")
+
+    if not sets:
+        return True
+
+    sets.append("updated_at = now()")
+    set_clause = ", ".join(sets)
+    result = await session.execute(
+        text(
+            f"""
+            UPDATE user_strategies
+            SET {set_clause}
+            WHERE id = :id AND user_id = :user_id AND is_active = TRUE
             """
         ),
         params,

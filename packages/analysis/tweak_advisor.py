@@ -21,7 +21,9 @@ from typing import Any, Optional
 
 log = logging.getLogger(__name__)
 
-MODEL = "claude-sonnet-4-20250514"
+# claude-sonnet-4-6 is the current Sonnet; claude-sonnet-4-20250514 was retired
+# and now 404s. Override via env if needed.
+MODEL = os.environ.get("TWEAK_ADVISOR_MODEL", "claude-sonnet-4-6")
 
 # Node fields that are genuinely tunable numbers/enums worth suggesting on.
 # Mirrors the builder palette (thebayn NodePalette.tsx). Anything else is left

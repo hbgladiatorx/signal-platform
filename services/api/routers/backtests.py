@@ -137,6 +137,7 @@ class BacktestSummary(BaseModel):
     max_drawdown_pct: float | None = None
     num_closed_trades: int | None = None
     win_rate_pct: float | None = None
+    profit_factor: float | None = None
 
 
 class BacktestDetail(BaseModel):
@@ -353,6 +354,7 @@ async def list_my_backtests(
             max_drawdown_pct=float(r["max_drawdown_pct"]) if r.get("max_drawdown_pct") is not None else None,
             num_closed_trades=r.get("num_closed_trades"),
             win_rate_pct=float(r["win_rate_pct"]) if r.get("win_rate_pct") is not None else None,
+            profit_factor=float(r["profit_factor"]) if r.get("profit_factor") is not None else None,
         )
         for r in rows
     ]

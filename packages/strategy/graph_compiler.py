@@ -187,23 +187,68 @@ def compile_graph_to_source(
                     out.append(src)
         return out
 
+    def _operand(sid: str) -> tuple[str | None, str | None, dict | None]:
+        """Classify a comparator input: ('series', expr, ind) for an indicator,
+        ('price', 'price', None) for the price node, else (None, None, None)."""
+        if sid in indicators:
+            ind = indicators[sid]
+            return ("series", ind["var"], ind)
+        node = by_id.get(sid)
+        if node is not None and node_type(node) == "price":
+            return ("price", "price", None)
+        return (None, None, None)
+
     def build_conditions(comparators: list[dict]) -> list[dict] | None:
-        """Each comparator: an indicator (upstream) vs a numeric value."""
+        """Compile each comparator into a condition.
+
+        Two shapes are supported:
+          * indicator vs constant — ``RSI < 30`` (one indicator feeds the
+            comparator; the level comes from the node's ``value``).
+          * series vs series — ``price < EMA`` (price AND an indicator, or two
+            indicators, feed the comparator). The node's ``value`` is a UI
+            placeholder and is ignored. Previously this shape was miscompiled to
+            ``indicator <op> value`` (e.g. ``ema < 0``), a dead condition that
+            never fired, so these strategies always backtested 0 trades.
+        """
         conds: list[dict] = []
         for cmp_node in comparators:
             data = cmp_node.get("data") or {}
             op = data.get("op")
-            value = _num(data.get("value"))
-            if op not in ("<", ">", "<=", ">=") or value is None:
+            if op not in ("<", ">", "<=", ">="):
                 return None  # references a level/expr we can't compile
-            ind = None
-            for sid in upstream.get(cmp_node.get("id"), []):
-                if sid in indicators:
-                    ind = indicators[sid]
-                    break
-            if ind is None:
-                return None  # comparator not fed by a compilable indicator
-            conds.append({"ind": ind, "op": op, "value": value})
+            operands = [
+                _operand(sid) for sid in upstream.get(cmp_node.get("id"), [])
+            ]
+            series = [o for o in operands if o[0] in ("series", "price")]
+            if len(series) >= 2:
+                # Series vs series. Prefer price as the left operand so the
+                # condition reads like the builder's "Price <op> Indicator";
+                # otherwise (indicator vs indicator) keep edge order.
+                price_ops = [o for o in series if o[0] == "price"]
+                ind_ops = [o for o in series if o[0] == "series"]
+                if price_ops and ind_ops:
+                    left, right = price_ops[0], ind_ops[0]
+                else:
+                    left, right = series[0], series[1]
+                ref_ind = left[2] or right[2]
+                conds.append(
+                    {
+                        "form": "series",
+                        "op": op,
+                        "left": left[1],
+                        "right": right[1],
+                        "inds": [o[2] for o in (left, right) if o[2] is not None],
+                        "sig_type": ref_ind["type"] if ref_ind else "price",
+                        "sig_value_var": ref_ind["var"] if ref_ind else "price",
+                    }
+                )
+                continue
+            # Indicator vs constant.
+            value = _num(data.get("value"))
+            ind = series[0][2] if series and series[0][0] == "series" else None
+            if ind is None or value is None:
+                return None  # not a shape we can faithfully compile
+            conds.append({"form": "ind_const", "ind": ind, "op": op, "value": value})
         return conds
 
     entry_cmps = comparators_feeding(entry_ids)
@@ -316,9 +361,14 @@ def _emit_source(
     uniq: dict[str, dict] = {}
     for ind in indicators:
         uniq[ind["var"]] = ind
+
+    def _cond_inds(c: dict) -> list[dict]:
+        return [c["ind"]] if c.get("form", "ind_const") == "ind_const" else c["inds"]
+
     # Ensure every indicator referenced by a condition is present.
     for c in (*entry_conds, *exit_conds):
-        uniq[c["ind"]["var"]] = c["ind"]
+        for ind in _cond_inds(c):
+            uniq[ind["var"]] = ind
 
     lines: list[str] = []
     A = lines.append
@@ -350,23 +400,34 @@ def _emit_source(
         A(f"        default={ind['period']}, ge=2, le=400,")
         A(f'        description="Lookback period for {ind["type"].upper()}.",')
         A("    )")
-    # threshold params — one per condition, named by side+indicator
-    thr_names: list[str] = []
-    for i, c in enumerate(entry_conds):
-        nm = f"entry_threshold_{i+1}" if len(entry_conds) > 1 else "entry_threshold"
-        thr_names.append(nm)
-        A(f"    {nm}: float = Field(")
-        A(f"        default={c['value']}, ge=-1e9, le=1e9,")
-        A(f'        description="Entry trigger level for {c["ind"]["type"].upper()}.",')
-        A("    )")
-    exit_thr_names: list[str] = []
-    for i, c in enumerate(exit_conds):
-        nm = f"exit_threshold_{i+1}" if len(exit_conds) > 1 else "exit_threshold"
-        exit_thr_names.append(nm)
-        A(f"    {nm}: float = Field(")
-        A(f"        default={c['value']}, ge=-1e9, le=1e9,")
-        A(f'        description="Exit trigger level for {c["ind"]["type"].upper()}.",')
-        A("    )")
+    # threshold params — only "indicator vs constant" conditions carry a tunable
+    # level. Series-vs-series conditions (price vs EMA) compare two live values
+    # and have no constant to expose. The param name is stashed on the condition
+    # so the on_bar expression below references the same identifier.
+    def _emit_thresholds(conds: list[dict], side: str) -> None:
+        ic = [c for c in conds if c.get("form", "ind_const") == "ind_const"]
+        for i, c in enumerate(ic):
+            nm = f"{side}_threshold_{i+1}" if len(ic) > 1 else f"{side}_threshold"
+            c["_thr"] = nm
+            A(f"    {nm}: float = Field(")
+            A(f"        default={c['value']}, ge=-1e9, le=1e9,")
+            A(f'        description="{side.capitalize()} trigger level for '
+              f'{c["ind"]["type"].upper()}.",')
+            A("    )")
+
+    _emit_thresholds(entry_conds, "entry")
+    _emit_thresholds(exit_conds, "exit")
+
+    def _cond_expr(c: dict) -> str:
+        if c.get("form", "ind_const") == "ind_const":
+            return f"{c['ind']['var']} {c['op']} self.params.{c['_thr']}"
+        return f"{c['left']} {c['op']} {c['right']}"
+
+    def _cond_sig(c: dict) -> tuple[str, str]:
+        """(signal_type, value_var) for the ctx.signal() attribution call."""
+        if c.get("form", "ind_const") == "ind_const":
+            return c["ind"]["type"], c["ind"]["var"]
+        return c["sig_type"], c["sig_value_var"]
     if stop_pct is not None:
         A("    stop_loss_percent: float = Field(")
         A(f"        default={stop_pct}, gt=0, le=90,")
@@ -438,16 +499,14 @@ def _emit_source(
         A("")
     # exit conditions
     if exit_conds:
-        exprs = []
-        for c, nm in zip(exit_conds, exit_thr_names):
-            exprs.append(f"{c['ind']['var']} {c['op']} self.params.{nm}")
-        joined = " and ".join(exprs)
+        joined = " and ".join(_cond_expr(c) for c in exit_conds)
         A(f"        if position > 0 and ({joined}):")
         # Tag each exit condition so attribution / the signal-edge model can
         # report per-signal performance (otherwise the ML shows "no signals").
         for i, c in enumerate(exit_conds):
-            sig = f"{c['ind']['type']}_exit" + (f"_{i+1}" if len(exit_conds) > 1 else "")
-            A(f'            ctx.signal("{sig}", passed=True, value={c["ind"]["var"]}, symbol=self.symbol)')
+            typ, val_var = _cond_sig(c)
+            sig = f"{typ}_exit" + (f"_{i+1}" if len(exit_conds) > 1 else "")
+            A(f'            ctx.signal("{sig}", passed=True, value={val_var}, symbol=self.symbol)')
         A("            ctx.submit_sell_market(self.symbol, position)")
         A('            self.state["stop_price"] = None')
         if tp_pct is not None:
@@ -455,15 +514,13 @@ def _emit_source(
         A("            return")
         A("")
     # entry conditions
-    exprs = []
-    for c, nm in zip(entry_conds, thr_names):
-        exprs.append(f"{c['ind']['var']} {c['op']} self.params.{nm}")
-    joined = " and ".join(exprs)
+    joined = " and ".join(_cond_expr(c) for c in entry_conds)
     A(f"        if position == 0 and ({joined}):")
     # Tag each entry condition — this is what feeds per-signal edge analytics.
     for i, c in enumerate(entry_conds):
-        sig = f"{c['ind']['type']}_entry" + (f"_{i+1}" if len(entry_conds) > 1 else "")
-        A(f'            ctx.signal("{sig}", passed=True, value={c["ind"]["var"]}, symbol=self.symbol)')
+        typ, val_var = _cond_sig(c)
+        sig = f"{typ}_entry" + (f"_{i+1}" if len(entry_conds) > 1 else "")
+        A(f'            ctx.signal("{sig}", passed=True, value={val_var}, symbol=self.symbol)')
     # Size the order from account equity (ctx.cash == equity while flat), so the
     # position is economically meaningful for any asset/price — not a fixed
     # 0.01-unit sliver. Submit only when the computed quantity is positive.

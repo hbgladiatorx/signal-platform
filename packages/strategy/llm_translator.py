@@ -471,7 +471,9 @@ def translate_nl_to_strategy(
 
     try:
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            # claude-sonnet-4-20250514 was retired and now 404s; use the current
+            # Sonnet. Override via LLM_TRANSLATOR_MODEL if needed.
+            model=os.environ.get("LLM_TRANSLATOR_MODEL", "claude-sonnet-4-6"),
             max_tokens=4000,
             system=SYSTEM_PROMPT,
             tools=[TRANSLATE_TOOL],

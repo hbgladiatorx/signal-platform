@@ -32,7 +32,7 @@ from packages.data.user_strategies import (
     update_user_strategy,
 )
 from packages.strategy.graph_compiler import compile_graph_to_source
-from packages.strategy.graph_planner import plan_graph_from_nl
+from packages.strategy.graph_planner import plan_graph_from_code, plan_graph_from_nl
 from packages.strategy.llm_translator import (
     TranslationResult,
     translate_nl_to_strategy,
@@ -498,6 +498,44 @@ async def plan_graph_endpoint(
         nl_description=req.prompt,
         asset_class_hint=req.asset_class,
         context_graph=req.graph_json,
+    )
+    d = result.to_dict()
+    return PlanGraphResponse(
+        ok=d["ok"],
+        name=d["name"] or None,
+        assetClass=d["assetClass"],
+        plan=d["plan"],
+        assumptions=d["assumptions"],
+        questions=d["questions"],
+        graph=d["graph"] if d["ok"] else None,
+        error=d["error"],
+        input_tokens=d["inputTokens"],
+        output_tokens=d["outputTokens"],
+    )
+
+
+class PlanGraphFromCodeRequest(BaseModel):
+    source_code: str = Field(
+        ..., min_length=10, max_length=64_000,
+        description="Python strategy source to render as a builder node graph.",
+    )
+    asset_class: Optional[str] = Field(default=None, max_length=40)
+
+
+@router.post("/plan-graph-from-code", response_model=PlanGraphResponse)
+async def plan_graph_from_code_endpoint(
+    req: PlanGraphFromCodeRequest,
+    user=Depends(get_current_user_record),
+) -> PlanGraphResponse:
+    """AI: render the node graph that REPRESENTS a strategy's Python source.
+
+    The reverse of /translate (graph -> code). Lets the builder show a visual
+    view of a code-authored strategy. Best-effort: the Python source stays the
+    source of truth, so the graph is a view (gaps land in `assumptions`).
+    """
+    result = plan_graph_from_code(
+        source_code=req.source_code,
+        asset_class_hint=req.asset_class,
     )
     d = result.to_dict()
     return PlanGraphResponse(

@@ -20,6 +20,7 @@ from packages.data.db import dispose_engine, get_engine
 from services.api.redis_subscriber import broadcaster
 from services.api.routers import (
     backtests,
+    copilot,
     health,
     instruments,
     live,
@@ -138,6 +139,7 @@ app.include_router(walkforwards.router)
 app.include_router(ml.router)
 app.include_router(paper_sessions.router)
 app.include_router(live.router)
+app.include_router(copilot.router)
 app.include_router(ws.router)
 
 

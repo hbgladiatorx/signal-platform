@@ -19,7 +19,9 @@ from typing import Any, Optional
 
 log = logging.getLogger(__name__)
 
-NARRATE_MODEL = "claude-sonnet-4-20250514"
+# claude-sonnet-4-6 is the current Sonnet; claude-sonnet-4-20250514 was retired
+# and now 404s. Override via env if needed.
+NARRATE_MODEL = os.environ.get("NARRATE_MODEL", "claude-sonnet-4-6")
 
 SYSTEM_PROMPT = """\
 You are a senior quantitative trading analyst reviewing a single backtest for \
