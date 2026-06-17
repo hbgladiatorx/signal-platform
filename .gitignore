@@ -55,3 +55,4 @@ logs/
 /signal-platform/
 # stray empty file
 /main
+scripts/.sb_orphan/
