@@ -10,13 +10,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
-  ArrowRightLeft, Plus, Loader2, ChevronDown,
+  ArrowRightLeft, Plus, Loader2, ChevronDown, Trash2,
   CheckCircle2, AlertTriangle, TrendingDown, Info, Wrench, ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import {
-  listWalkforwards, getWalkforward, createWalkforward,
+  listWalkforwards, getWalkforward, createWalkforward, deleteWalkforward,
   type WalkforwardSummary, type CreateWalkforwardInput,
   type WalkforwardAnalysis, type WalkforwardFinding, type ValidationVerdict,
 } from "@/lib/api/walkforward";
@@ -157,8 +157,22 @@ function StatusChip({ status }: { status: string }) {
 }
 
 function WalkforwardRow({ w, expanded, onToggle }: { w: WalkforwardSummary; expanded: boolean; onToggle: () => void }) {
+  const qc = useQueryClient();
+  // Two-step inline confirm — a walk-forward run can't be recovered.
+  const [confirming, setConfirming] = useState(false);
+  const remove = useMutation({
+    mutationFn: () => deleteWalkforward(w.id),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["walkforwards"] });
+      toast.success("Walk-forward deleted");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Couldn't delete that walk-forward"),
+    onSettled: () => setConfirming(false),
+  });
+
   return (
     <Card className="border-border bg-elevated">
+      <div className="flex items-center gap-1 pr-3">
       <button className="flex w-full items-center gap-3 p-3 text-left" onClick={onToggle}>
         <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform", expanded && "rotate-180")} />
         <div className="min-w-0 flex-1">
@@ -176,6 +190,19 @@ function WalkforwardRow({ w, expanded, onToggle }: { w: WalkforwardSummary; expa
           <span className="text-muted-foreground">win windows <span className="text-foreground">{pct(w.win_rate_windows_pct)}</span></span>
         </div>
       </button>
+        {confirming ? (
+          <div className="flex shrink-0 items-center gap-1">
+            <Button size="sm" variant="ghost" className="text-danger hover:text-danger" disabled={remove.isPending} onClick={() => remove.mutate()}>
+              {remove.isPending ? "Deleting…" : "Confirm"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setConfirming(false)}>Cancel</Button>
+          </div>
+        ) : (
+          <Button size="sm" variant="ghost" className="shrink-0" title="Delete this walk-forward" onClick={() => setConfirming(true)}>
+            <Trash2 className="size-3.5" />
+          </Button>
+        )}
+      </div>
       {expanded && <WalkforwardDetailPanel id={w.id} status={w.status} />}
     </Card>
   );
