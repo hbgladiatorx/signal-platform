@@ -1,12 +1,11 @@
 import { useEffect } from "react";
 import { Link, Outlet, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
-  Home, BookOpen, BarChart3, Signal as SignalIcon, Settings, Bell, Search,
+  Home, BookOpen, BarChart3, Signal as SignalIcon, Settings, Bell,
   User, ArrowRightLeft, Lock, Sparkles, Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -17,6 +16,7 @@ import { TVTickerTape } from "@/components/common/TVTickerTape";
 
 import { PlanBadge } from "@/components/billing/PlanBadge";
 import { getCurrentPlan } from "@/lib/api/billing";
+import { useAuth } from "@/hooks/use-auth";
 
 type NavItem = { to: string; label: string; icon: typeof Home };
 
@@ -53,6 +53,9 @@ function Shell({ mode }: { mode: "trader" | "studio" }) {
   const navigate = useNavigate();
   const nav = mode === "studio" ? studioNav : traderNav;
   const isStudio = mode === "studio";
+  const { user } = useAuth();
+  // Real signed-in handle from the Supabase session; honest fallback if absent.
+  const handle = user?.email ? `@${user.email.split("@")[0]}` : "your account";
 
   useEffect(() => {
     if (isStudio) document.documentElement.classList.add("studio-mode");
@@ -96,25 +99,15 @@ function Shell({ mode }: { mode: "trader" | "studio" }) {
             </TooltipProvider>
           )}
 
-          <div className="relative ml-auto hidden max-w-sm flex-1 md:block">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder={isStudio ? "Search strategies, nodes…" : "Search strategies, symbols…"}
-              className="h-9 border-border bg-elevated pl-8"
-            />
-          </div>
-
-          <Button variant="ghost" size="icon" className="relative ml-auto md:ml-0">
+          {/* Notifications. No notifications backend yet, so no count is shown
+              (an honest empty bell rather than a fabricated badge). */}
+          <Button variant="ghost" size="icon" aria-label="Notifications" className="relative ml-auto">
             <Bell className="size-5" />
-            <span className={cn(
-              "absolute right-1.5 top-1.5 grid size-4 place-items-center rounded-full text-[10px] font-bold",
-              isStudio ? "bg-violet text-violet-foreground" : "bg-danger text-danger-foreground",
-            )}>3</span>
           </Button>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-full">
+              <Button variant="ghost" size="icon" aria-label="Account menu" className="rounded-full">
                 <div className={cn("grid size-8 place-items-center rounded-full", isStudio ? "bg-violet/15 text-violet" : "bg-cyan/15 text-cyan")}>
                   <User className="size-4" />
                 </div>
@@ -123,7 +116,7 @@ function Shell({ mode }: { mode: "trader" | "studio" }) {
             <DropdownMenuContent align="end" className="w-60">
               <DropdownMenuLabel>
                 <div className="flex items-center gap-1.5">
-                  Signed in as <span className={isStudio ? "font-mono text-violet" : "font-mono text-cyan"}>@trader</span>
+                  Signed in as <span className={isStudio ? "font-mono text-violet" : "font-mono text-cyan"}>{handle}</span>
                 </div>
                 <div className="mt-1.5 flex items-center gap-1.5">
                   <PlanBadge tier={isStudio ? getCurrentPlan().developer : getCurrentPlan().trader} />
@@ -171,8 +164,6 @@ function Shell({ mode }: { mode: "trader" | "studio" }) {
 
         {/* Asset-class filter — trader only, cascades through context */}
         {!isStudio && <AssetChipRow />}
-
-        {!isStudio && <TVTickerTape />}
 
       </header>
 

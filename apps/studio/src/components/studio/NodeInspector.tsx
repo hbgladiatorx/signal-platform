@@ -82,7 +82,7 @@ export function NodeInspector({
           <div className="text-xs font-mono uppercase tracking-wider text-violet">{node.data.category}</div>
           <div className="font-medium">{node.data.label}</div>
         </div>
-        <Button size="icon" variant="ghost" onClick={() => onDelete(node.id)}>
+        <Button size="icon" variant="ghost" aria-label="Delete node" onClick={() => onDelete(node.id)}>
           <Trash2 className="size-4 text-danger" />
         </Button>
       </div>

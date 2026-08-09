@@ -8,7 +8,8 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AssetClassBadge } from "@/components/common/AssetClassBadge";
-import { PipelineBadge } from "@/components/common/PipelineBadge";
+import { OOSBadge } from "@/components/common/OOSBadge";
+import { QueryState } from "@/components/common/QueryState";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MetricLabel } from "@/components/common/Term";
 import type { GlossaryKey } from "@/lib/glossary";
@@ -33,7 +34,8 @@ function CatalogPage() {
   const [sort, setSort] = useState("subs");
   const [q, setQ] = useState("");
   const [paywallId, setPaywallId] = useState<string | null>(null);
-  const { data } = useQuery({ queryKey: ["strategies"], queryFn: getStrategies });
+  const stratQuery = useQuery({ queryKey: ["strategies"], queryFn: getStrategies });
+  const data = stratQuery.data;
   const queryClient = useQueryClient();
 
   const followedIds = useFollowedIds();
@@ -104,6 +106,13 @@ function CatalogPage() {
         <div className="ml-auto text-xs text-muted-foreground">{list.length} strategies</div>
       </div>
 
+      <QueryState
+        query={stratQuery}
+        skeletonRows={6}
+        emptyHeadline="No strategies available"
+        emptyBody="The catalog is empty right now — check back soon."
+      >
+        {() => (
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
         {list.map((s) => {
           const isFollowed = followedNow.has(s.id);
@@ -118,7 +127,7 @@ function CatalogPage() {
                   <AssetClassBadge assetClass={s.assetClass} hideIcon />
                 </div>
                 <p className="text-sm text-muted-foreground line-clamp-2">{s.description}</p>
-                <div><PipelineBadge compact /></div>
+                <div><OOSBadge strategy={s} /></div>
                 <div className="mt-auto grid grid-cols-4 gap-2 border-t border-border pt-3 text-center">
                   <Stat term="sharpe" label="Sharpe" value={s.stats.sharpe.toFixed(2)} />
                   <Stat term="winRate" label="Win" value={`${(s.stats.winRate * 100).toFixed(0)}%`} />
@@ -160,6 +169,8 @@ function CatalogPage() {
           </Card>
         )}
       </div>
+        )}
+      </QueryState>
       <PaywallModal
         strategyId={paywallId}
         open={!!paywallId}
