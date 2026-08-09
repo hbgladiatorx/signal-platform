@@ -31,6 +31,31 @@ function PerformancePage() {
     return assetClass === "all" ? all : all.filter((t) => t.signal.assetClass === assetClass);
   }, [data, assetClass]);
 
+  const exportCsv = () => {
+    const header = ["Date", "Strategy", "Symbol", "Direction", "Entry", "Fill", "R", "Result"];
+    const rows = taken.map((t) => [
+      format(new Date(t.takenAt), "yyyy-MM-dd HH:mm"),
+      t.signal.strategyName,
+      t.signal.symbol,
+      t.signal.direction,
+      t.signal.entry,
+      t.fillPrice,
+      t.pnlR?.toFixed(2) ?? "",
+      t.outcome,
+    ]);
+    const esc = (c: unknown) => {
+      const s = String(c ?? "");
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const csv = [header, ...rows].map((r) => r.map(esc).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `bayn-performance-${days === 365 ? "all" : days + "d"}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6 p-4 md:p-6">
       <div className="flex items-end justify-between">
@@ -87,7 +112,9 @@ function PerformancePage() {
                 <Share2 className="mr-2 size-3.5" /> Share summary
               </Link>
             </Button>
-            <Button variant="outline" size="sm"><Download className="mr-2 size-3.5" /> Export CSV</Button>
+            <Button variant="outline" size="sm" onClick={exportCsv} disabled={taken.length === 0}>
+              <Download className="mr-2 size-3.5" /> Export CSV
+            </Button>
           </div>
         </div>
         <div className="overflow-x-auto">
