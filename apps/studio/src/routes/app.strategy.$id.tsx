@@ -1,6 +1,11 @@
 import { createFileRoute, useParams, notFound, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { getStrategyById, getStrategyEquity, getSignals } from "@/lib/api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  getStrategyById, getStrategyEquity, getSignals,
+  subscribeToStrategy, unsubscribeFromStrategy, useFollowedIds,
+} from "@/lib/api";
+import { checkSlotAvailability, isFreeStrategy } from "@/lib/api/billing";
+import { PaywallModal } from "@/components/billing/PaywallModal";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -27,7 +32,23 @@ export const Route = createFileRoute("/app/strategy/$id")({
 
 function StrategyDetail() {
   const { id } = useParams({ from: "/app/strategy/$id" });
-  const [subscribed, setSubscribed] = useState(false);
+  const qc = useQueryClient();
+  const followedIds = useFollowedIds();
+  const isFollowed = followedIds.includes(id);
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const subscribe = useMutation({
+    mutationFn: subscribeToStrategy,
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["followed"] }); toast.success("Following — live signals will appear on Home"); },
+  });
+  const unsubscribe = useMutation({
+    mutationFn: unsubscribeFromStrategy,
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["followed"] }); toast("Unfollowed"); },
+  });
+  const toggleFollow = () => {
+    if (isFollowed) { unsubscribe.mutate(id); return; }
+    const check = checkSlotAvailability(id, followedIds.filter((x) => !isFreeStrategy(x)));
+    if (check.ok) subscribe.mutate(id); else setPaywallOpen(true);
+  };
   const strat = useQuery({ queryKey: ["strategy", id], queryFn: () => getStrategyById(id) });
   const equity = useQuery({ queryKey: ["equity", id], queryFn: () => getStrategyEquity(id, 90) });
   const sigs = useQuery({ queryKey: ["strat-sigs", id], queryFn: () => getSignals({ strategyId: id }) });
@@ -58,10 +79,11 @@ function StrategyDetail() {
             <span>·</span><span>Live {s.stats.liveDays} days</span>
           </div>
         </div>
-        <Button onClick={() => { setSubscribed((v) => !v); toast(subscribed ? "Unsubscribed" : "Subscribed (mock)"); }}
-          className={subscribed ? "" : "bg-cyan text-cyan-foreground hover:bg-cyan/90"}
-          variant={subscribed ? "outline" : "default"} size="lg">
-          {subscribed ? "Unsubscribe" : "Subscribe"}
+        <Button onClick={toggleFollow}
+          disabled={subscribe.isPending || unsubscribe.isPending}
+          className={isFollowed ? "" : "bg-cyan text-cyan-foreground hover:bg-cyan/90"}
+          variant={isFollowed ? "outline" : "default"} size="lg">
+          {isFollowed ? "Following" : isFreeStrategy(id) ? "Follow" : "Subscribe · $99/mo"}
         </Button>
       </div>
 
@@ -196,6 +218,13 @@ function StrategyDetail() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <PaywallModal
+        strategyId={paywallOpen ? id : null}
+        open={paywallOpen}
+        onOpenChange={setPaywallOpen}
+        onResolved={() => { qc.invalidateQueries({ queryKey: ["followed"] }); setPaywallOpen(false); }}
+      />
     </div>
   );
 }

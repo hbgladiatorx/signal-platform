@@ -1,7 +1,7 @@
 import { createFileRoute, useParams, notFound, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { getSignalById, getStrategyById, subscribeToStrategy, useFollowedIds } from "@/lib/api";
+import { getSignalById, getStrategyById, subscribeToStrategy, markSignalTaken, useFollowedIds } from "@/lib/api";
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { Share2, Bitcoin, Lock, Check } from "lucide-react";
 import { PaywallModal } from "@/components/billing/PaywallModal";
 import { checkSlotAvailability, isFreeStrategy } from "@/lib/api/billing";
+import { useAccountSize, useRiskPerTrade } from "@/lib/user-prefs";
 
 /** Per-strategy unlock price — matches the extra-strategy-slot add-on. */
 const STRATEGY_UNLOCK_PRICE = 99;
@@ -43,7 +44,9 @@ function SignalDetail() {
   const { id } = useParams({ from: "/app/signal/$id" });
   const sig = useQuery({ queryKey: ["signal", id], queryFn: () => getSignalById(id) });
   const strat = useQuery({ queryKey: ["sig-strat", sig.data?.strategyId], queryFn: () => getStrategyById(sig.data!.strategyId), enabled: !!sig.data });
-  const [accountSize] = useState(25000);
+  // Real, user-set account size + risk from prefs (0 when not yet configured).
+  const [accountSize] = useAccountSize();
+  const [riskPerTrade] = useRiskPerTrade();
   const [showBroker, setShowBroker] = useState(false);
   const [showTaken, setShowTaken] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
@@ -58,6 +61,17 @@ function SignalDetail() {
       qc.invalidateQueries({ queryKey: ["followed"] });
       toast.success("Strategy unlocked — signal details now available");
     },
+  });
+  const markTaken = useMutation({
+    mutationFn: (price: number) => markSignalTaken(id, price, "manual"),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["perf-full"] });
+      qc.invalidateQueries({ queryKey: ["perf"] });
+      setShowTaken(false);
+      setFillPrice("");
+      toast.success("Fill logged — added to your performance");
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Couldn't log that fill"),
   });
 
   if (sig.isFetched && !sig.data) throw notFound();
@@ -158,8 +172,11 @@ function SignalDetail() {
   }
 
   const riskPerShare = Math.abs(s.entry - s.stop);
-  const dollarsRisked = accountSize * 0.01;
-  const positionSize = Math.floor(dollarsRisked / Math.max(0.0001, riskPerShare));
+  // Fall back to a conventional 1% only when the user hasn't set a risk pref.
+  const effectiveRisk = riskPerTrade > 0 ? riskPerTrade : 0.01;
+  const dollarsRisked = accountSize * effectiveRisk;
+  const positionSize = accountSize > 0 ? Math.floor(dollarsRisked / Math.max(0.0001, riskPerShare)) : 0;
+  const riskPctLabel = `${(effectiveRisk * 100).toFixed(effectiveRisk * 100 % 1 ? 1 : 0)}%`;
 
 
   return (
@@ -245,8 +262,17 @@ function SignalDetail() {
             {s.iv != null && <Row label="IV" value={<span className="font-mono">{(s.iv * 100).toFixed(1)}%</span>} />}
             {s.contractMonth && <Row label="Contract" value={s.contractMonth} />}
             <div className="border-t border-border pt-3">
-              <Row label="Account risk" value={`$${(accountSize * 0.01).toFixed(0)} (1%)`} />
-              <Row label="Suggested size" value={<span className="font-mono text-cyan">{positionSize.toLocaleString()} {s.assetClass === "options" ? "contracts" : "units"}</span>} />
+              {accountSize > 0 ? (
+                <>
+                  <Row label="Account risk" value={`$${dollarsRisked.toFixed(0)} (${riskPctLabel})`} />
+                  <Row label="Suggested size" value={<span className="font-mono text-cyan">{positionSize.toLocaleString()} {s.assetClass === "options" ? "contracts" : "units"}</span>} />
+                </>
+              ) : (
+                <Row
+                  label="Suggested size"
+                  value={<Link to="/app/customize" className="text-xs text-cyan hover:underline">Set account size</Link>}
+                />
+              )}
             </div>
           </div>
 
@@ -289,7 +315,13 @@ function SignalDetail() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowTaken(false)}>Cancel</Button>
-            <Button onClick={() => { setShowTaken(false); toast("Marked as taken"); }} className="bg-cyan text-cyan-foreground hover:bg-cyan/90">Log fill</Button>
+            <Button
+              onClick={() => markTaken.mutate(Number(fillPrice) || s.entry)}
+              disabled={markTaken.isPending}
+              className="bg-cyan text-cyan-foreground hover:bg-cyan/90"
+            >
+              {markTaken.isPending ? "Logging…" : "Log fill"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

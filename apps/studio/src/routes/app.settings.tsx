@@ -13,6 +13,8 @@ import { MCPConnectionSection } from "@/components/agent/AgentConnections";
 import { ApiCredentialsCard } from "@/components/settings/ApiCredentialsCard";
 import { PlanBadge } from "@/components/billing/PlanBadge";
 import { getCurrentPlan, getTier, setCurrentPlan } from "@/lib/api/billing";
+import { useAccountSize, useIdentity, useNotifications } from "@/lib/user-prefs";
+import { useAuth } from "@/hooks/use-auth";
 
 
 
@@ -22,8 +24,18 @@ export const Route = createFileRoute("/app/settings")({
 });
 
 function SettingsPage() {
-  const [accountSize, setAccountSize] = useState(25000);
+  const [accountSize, setAccountSize] = useAccountSize();
+  const [identity, setIdentity] = useIdentity();
+  const [notifs, setNotifs] = useNotifications();
+  const { user } = useAuth();
   const [plan, setPlan] = useState(getCurrentPlan());
+
+  const notifItems: { key: keyof typeof notifs; label: string }[] = [
+    { key: "signalFired", label: "New signal from followed strategy" },
+    { key: "signalHitTarget", label: "Signal hit target" },
+    { key: "signalHitStop", label: "Signal hit stop" },
+    { key: "weeklySummary", label: "Weekly performance summary" },
+  ];
   const traderTier = plan.trader ? getTier(plan.trader) : null;
   const studioTier = plan.developer ? getTier(plan.developer) : null;
 
@@ -127,8 +139,19 @@ function SettingsPage() {
         <h2 className="font-semibold">Account</h2>
         <Separator className="my-4" />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="space-y-1.5"><Label>Display name</Label><Input defaultValue="Trader" className="bg-background" /></div>
-          <div className="space-y-1.5"><Label>Email</Label><Input defaultValue="you@firm.com" className="bg-background" /></div>
+          <div className="space-y-1.5">
+            <Label>Display name</Label>
+            <Input
+              value={identity.displayName}
+              onChange={(e) => setIdentity({ ...identity, displayName: e.target.value })}
+              placeholder="Your name"
+              className="bg-background"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Email</Label>
+            <Input value={user?.email ?? ""} readOnly disabled className="bg-background" />
+          </div>
         </div>
       </Card>
 
@@ -138,7 +161,7 @@ function SettingsPage() {
         <Separator className="my-4" />
         <div className="space-y-1.5">
           <Label>Account size (USD)</Label>
-          <Input type="number" value={accountSize} onChange={(e) => setAccountSize(Number(e.target.value))} className="bg-background" />
+          <Input type="number" value={accountSize || ""} onChange={(e) => setAccountSize(Number(e.target.value) || 0)} placeholder="25000" className="bg-background" />
         </div>
       </Card>
 
@@ -148,10 +171,10 @@ function SettingsPage() {
         <h2 className="font-semibold">Notifications</h2>
         <Separator className="my-4" />
         <div className="space-y-3">
-          {["New signal from followed strategy", "Signal hit target", "Signal hit stop", "Weekly performance summary"].map((label) => (
-            <div key={label} className="flex items-center justify-between">
-              <Label>{label}</Label>
-              <Switch defaultChecked />
+          {notifItems.map((it) => (
+            <div key={it.key} className="flex items-center justify-between">
+              <Label>{it.label}</Label>
+              <Switch checked={notifs[it.key]} onCheckedChange={(v) => setNotifs({ ...notifs, [it.key]: v })} />
             </div>
           ))}
         </div>
