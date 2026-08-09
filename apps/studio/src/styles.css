@@ -1,0 +1,231 @@
+@import "tailwindcss" source(none);
+@import "tw-animate-css";
+@import "reactflow/dist/style.css";
+@source "../src";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-cyan: var(--cyan);
+  --color-cyan-foreground: var(--cyan-foreground);
+  --color-violet: var(--violet);
+  --color-violet-foreground: var(--violet-foreground);
+  --color-danger: var(--danger);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
+  --color-success: var(--success);
+  --color-warn: var(--warn);
+  --color-stocks: var(--stocks);
+  --color-crypto: var(--crypto);
+  --color-options: var(--options);
+  --color-futures: var(--futures);
+  --color-elevated: var(--elevated);
+  --color-emerald: var(--emerald);
+  --color-emerald-deep: var(--emerald-deep);
+  --color-emerald-glow: var(--emerald-glow);
+  --color-brand-gold: var(--brand-gold);
+  --color-brand-cream: var(--brand-cream);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-chart-1: var(--cyan);
+  --color-chart-2: var(--danger);
+  --color-chart-3: var(--gold);
+  --color-chart-4: var(--stocks);
+  --color-chart-5: var(--options);
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "JetBrains Mono", "SF Mono", Menlo, monospace;
+}
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(0.145 0.005 270);
+  --foreground: oklch(0.96 0.005 270);
+  --elevated: oklch(0.19 0.005 270);
+  --card: oklch(0.19 0.005 270);
+  --card-foreground: oklch(0.96 0.005 270);
+  --popover: oklch(0.21 0.005 270);
+  --popover-foreground: oklch(0.96 0.005 270);
+  --primary: oklch(0.85 0.18 210);
+  --primary-foreground: oklch(0.12 0.02 270);
+  --secondary: oklch(0.25 0.005 270);
+  --secondary-foreground: oklch(0.96 0.005 270);
+  --muted: oklch(0.23 0.005 270);
+  --muted-foreground: oklch(0.65 0.01 270);
+  --accent: oklch(0.27 0.01 270);
+  --accent-foreground: oklch(0.96 0.005 270);
+  --destructive: oklch(0.65 0.22 20);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 10%);
+  --ring: oklch(0.85 0.18 210);
+
+  --cyan: oklch(0.85 0.18 210);
+  --cyan-foreground: oklch(0.12 0.02 270);
+  --violet: oklch(0.68 0.21 295);
+  --violet-foreground: oklch(0.98 0 0);
+  --danger: oklch(0.68 0.21 18);
+  --danger-foreground: oklch(0.98 0 0);
+  --gold: oklch(0.78 0.13 85);
+  --gold-foreground: oklch(0.15 0.02 85);
+  --success: oklch(0.78 0.17 155);
+  --warn: oklch(0.82 0.15 80);
+
+  /* Landing brand tokens (Emerald Prestige) */
+  --emerald-deep: oklch(0.32 0.09 160);
+  --emerald: oklch(0.55 0.14 160);
+  --emerald-glow: oklch(0.72 0.16 160);
+  --brand-gold: oklch(0.82 0.13 85);
+  --brand-cream: oklch(0.96 0.02 85);
+  --gradient-emerald: linear-gradient(135deg, var(--emerald-deep), var(--emerald-glow));
+  --gradient-gold-emerald: linear-gradient(135deg, var(--brand-gold), var(--emerald));
+  --shadow-emerald: 0 20px 60px -20px color-mix(in oklab, var(--emerald) 45%, transparent);
+  --shadow-gold: 0 20px 60px -25px color-mix(in oklab, var(--brand-gold) 40%, transparent);
+  --font-landing-display: "Sora", ui-sans-serif, system-ui, sans-serif;
+  --font-landing-body: "Manrope", ui-sans-serif, system-ui, sans-serif;
+
+  /* Asset classes — intentionally neutral. Color is reserved for state (cyan/violet/danger/gold). */
+  --stocks: oklch(0.72 0.01 270);
+  --crypto: oklch(0.72 0.01 270);
+  --options: oklch(0.72 0.01 270);
+  --futures: oklch(0.72 0.01 270);
+
+  --sidebar: oklch(0.17 0.005 270);
+  --sidebar-foreground: oklch(0.85 0.005 270);
+  --sidebar-accent: oklch(0.23 0.005 270);
+  --sidebar-accent-foreground: oklch(0.96 0.005 270);
+  --sidebar-border: oklch(1 0 0 / 6%);
+}
+
+/* Studio mode overrides sidebar accent to violet */
+.studio-mode {
+  --sidebar-accent: oklch(0.35 0.15 295 / 0.25);
+  --sidebar-accent-foreground: oklch(0.96 0.005 270);
+  --ring: oklch(0.68 0.21 295);
+}
+
+@layer base {
+  * { border-color: var(--color-border); }
+  html, body { background-color: var(--color-background); color: var(--color-foreground); font-family: var(--font-sans); }
+  body { font-feature-settings: "cv11", "ss01", "ss02", "zero", "tnum"; letter-spacing: -0.005em; }
+  h1, h2, h3, h4 { letter-spacing: -0.018em; }
+}
+
+@layer utilities {
+  .pulse-dot::before {
+    content: "";
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    margin-right: 0.4rem;
+    border-radius: 9999px;
+    background: var(--cyan);
+    box-shadow: 0 0 0 0 var(--cyan);
+    animation: pulse-ring 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  @keyframes pulse-ring {
+    0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--cyan) 60%, transparent); }
+    70% { box-shadow: 0 0 0 8px transparent; }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
+  .mode-fade { animation: mode-fade 200ms ease-out; }
+  @keyframes mode-fade {
+    from { opacity: 0.4; }
+    to { opacity: 1; }
+  }
+  .marquee-track {
+    display: flex;
+    width: max-content;
+    animation: marquee 60s linear infinite;
+  }
+  .marquee-slow { animation-duration: 110s; }
+  .marquee-pause:hover .marquee-track { animation-play-state: paused; }
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+}
+
+/* React Flow dark theming */
+.react-flow {
+  background: var(--background);
+}
+.react-flow__node {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+.react-flow__node.ai-placed {
+  animation: ai-pop 0.45s ease-out, ai-pulse 1.6s ease-in-out 2;
+  filter: drop-shadow(0 0 12px color-mix(in oklab, var(--violet) 60%, transparent));
+}
+@keyframes ai-pop {
+  from { transform: scale(0.6); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+@keyframes ai-pulse {
+  0%, 100% { filter: drop-shadow(0 0 4px color-mix(in oklab, var(--violet) 50%, transparent)); }
+  50%      { filter: drop-shadow(0 0 16px color-mix(in oklab, var(--violet) 90%, transparent)); }
+}
+
+.react-flow__handle {
+  background: var(--violet);
+  border: 2px solid var(--background);
+  width: 10px;
+  height: 10px;
+}
+.react-flow__edge-path {
+  stroke: color-mix(in oklab, var(--violet) 70%, transparent);
+  stroke-width: 2;
+}
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: var(--violet);
+}
+.react-flow__controls {
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.react-flow__controls button {
+  background: var(--elevated);
+  border-bottom: 1px solid var(--border);
+  color: var(--foreground);
+  fill: currentColor;
+}
+.react-flow__controls button:hover {
+  background: var(--accent);
+}
+.react-flow__minimap {
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.react-flow__attribution {
+  background: transparent;
+  color: var(--muted-foreground);
+}
