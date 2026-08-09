@@ -18,7 +18,7 @@ import { getCurrentPlan, setBillingScope, setCurrentPlan, type Billing, type Tie
 import { validateTicker } from "@/lib/api/finnhub.functions";
 import {
   setTraderSeeded, setStudioSeeded, setOnboarded,
-  setEnabledAssetClasses, setOnboardingPath,
+  useEnabledAssetClasses, setOnboardingPath,
   setAccountSize as persistAccountSize, setRiskPerTrade, setPreferenceScope,
   useWatchlist, useIdentity, useExperienceProfile,
   useNewsSources, useNewsCategories, useOnlyNewsForWatched,
@@ -353,13 +353,9 @@ function StepExperience() {
 }
 
 function StepMarkets() {
-  const [classes, setClasses] = useState<AC[]>([]);
-  useEffect(() => {
-    // load from prefs
-    const stored = (typeof window !== "undefined" ? window.localStorage.getItem("") : null);
-    void stored;
-  }, []);
-  // We keep classes locally and write through both setEnabledAssetClasses + studio prefs
+  // Read/write the real enabled-asset-classes pref so the selection persists
+  // and re-hydrates when the user navigates back to this step.
+  const [classes, setClasses] = useEnabledAssetClasses();
   return (
     <Step title="Which markets do you trade?" sub="Cascades through every filter. Pick at least one to enable live data.">
       <div className="flex flex-wrap gap-2">
@@ -367,11 +363,7 @@ function StepMarkets() {
           const on = classes.includes(a.key);
           return (
             <Chip key={a.key} on={on}
-              onClick={() => {
-                const next = on ? classes.filter((x) => x !== a.key) : [...classes, a.key];
-                setClasses(next);
-                setEnabledAssetClasses(next);
-              }}>{a.label}</Chip>
+              onClick={() => setClasses(toggle(classes, a.key))}>{a.label}</Chip>
           );
         })}
       </div>

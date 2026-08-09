@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { getStrategies } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import {
   ArrowRight,
@@ -42,6 +44,12 @@ export const Route = createFileRoute("/")({
 });
 
 function Landing() {
+  // Real count of published strategies (public read — same source as the
+  // catalog). Never fabricated: if it can't load, we fall back to honest copy
+  // with no number rather than inventing one.
+  const { data: liveStrategies } = useQuery({ queryKey: ["strategies"], queryFn: getStrategies });
+  const liveCount = liveStrategies?.length ?? null;
+
   useEffect(() => {
     const els = document.querySelectorAll<HTMLElement>("[data-reveal]");
     const io = new IntersectionObserver(
@@ -175,6 +183,7 @@ function Landing() {
         @keyframes navSheen {
           0% { background-position: 200% 0; }
           100% { background-position: -100% 0; }
+        }
         .nav-pill:hover { background: color-mix(in oklab, var(--background) 55%, transparent); }
 
         .nav-pill:hover { transform: translate(-50%, -1px); }
@@ -252,7 +261,11 @@ function Landing() {
               }}
             >
               <span className="pulse-dot" />
-              <span className="mono font-medium uppercase tracking-wider">127 live strategies · 4,200+ traders</span>
+              <span className="mono font-medium uppercase tracking-wider">
+                {liveCount && liveCount > 0
+                  ? `${liveCount} live ${liveCount === 1 ? "strategy" : "strategies"} · every one forward-tested`
+                  : "Backtested · out-of-sample · forward-tested"}
+              </span>
             </div>
             <h1
               className="hero-rise landing-display text-balance text-5xl font-bold leading-[1.04] md:text-7xl"
@@ -309,7 +322,7 @@ function Landing() {
                 <div className="flex items-center gap-1.5 mono uppercase tracking-wider text-muted-foreground">
                   <Activity className="size-3.5 text-emerald-glow" /> Trend-Following v3 · BTC-PERP
                 </div>
-                <span className="hidden md:inline rounded bg-success/15 px-1.5 py-0.5 mono text-[10px] uppercase text-success">Live</span>
+                <span className="hidden md:inline rounded bg-muted px-1.5 py-0.5 mono text-[10px] uppercase text-muted-foreground">Illustrative sample</span>
               </div>
               <div className="hidden md:flex items-center gap-4 mono text-[11px]">
                 <span className="text-muted-foreground">Sharpe <span className="text-foreground">1.84</span></span>
@@ -357,18 +370,19 @@ function Landing() {
             Every strategy passes a <span className="landing-grad-text">5-stage filter</span> before reaching you.
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-sm text-muted-foreground md:text-base">
-            98.5% of submissions are rejected. The ones that survive are monitored live and pulled the moment their edge decays.
+            Only a small fraction of submissions clear every stage. The ones that survive are monitored live and pulled the moment their edge decays.
           </p>
         </div>
 
         <div className="surface-card p-6 md:p-8">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
             {[
-              { n: "01", t: "Backtest", v: "8,420", sub: "Rules vs. years of history" },
-              { n: "02", t: "Out-of-Sample", v: "2,180", sub: "Held-out data, no peeking" },
-              { n: "03", t: "Forward-Test", v: "640", sub: "Paper-traded on live markets" },
-              { n: "04", t: "Live Review", v: "210", sub: "Human + walk-forward check" },
-              { n: "05", t: "Published", v: "127", sub: "Monitored 24/7" },
+              { n: "01", t: "Backtest", v: null as string | null, sub: "Rules vs. years of history" },
+              { n: "02", t: "Out-of-Sample", v: null as string | null, sub: "Held-out data, no peeking" },
+              { n: "03", t: "Forward-Test", v: null as string | null, sub: "Paper-traded on live markets" },
+              { n: "04", t: "Live Review", v: null as string | null, sub: "Human + walk-forward check" },
+              // Only the final stage shows a number — the real published count.
+              { n: "05", t: "Published", v: liveCount != null ? liveCount.toLocaleString() : null, sub: "Monitored continuously" },
             ].map((s, i) => (
               <div
                 key={s.n}
@@ -377,7 +391,7 @@ function Landing() {
               >
                 <div className="mono text-[10px] text-muted-foreground">{s.n}</div>
                 <div className="mt-1 text-sm font-semibold">{s.t}</div>
-                <div className="mt-2 mono text-base text-brand-gold">{s.v}</div>
+                {s.v != null && <div className="mt-2 mono text-base text-brand-gold">{s.v} live</div>}
                 <div className="mt-1 text-[11px] leading-snug text-muted-foreground">{s.sub}</div>
               </div>
             ))}
@@ -411,9 +425,9 @@ function Landing() {
               </p>
 
               <div className="mt-6 grid grid-cols-3 gap-3">
-                <Metric label="Avg return · 12mo" value="+37.4%" tone="emerald" />
-                <Metric label="Median Sharpe" value="1.84" tone="emerald" />
-                <Metric label="Max DD" value="−9%" tone="emerald" />
+                <Metric label="Validation" value="OOS" tone="emerald" />
+                <Metric label="Monitoring" value="Live" tone="emerald" />
+                <Metric label="Execution" value="You" tone="emerald" />
               </div>
 
               <ul className="mt-6 space-y-2.5 text-sm">
