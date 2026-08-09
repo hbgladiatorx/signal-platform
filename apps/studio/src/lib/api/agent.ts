@@ -621,7 +621,6 @@ export interface ChatMsg {
 }
 
 export async function chatTraderAI(prompt: string): Promise<ChatMsg> {
-  await new Promise((r) => setTimeout(r, 600 + Math.random() * 500));
   const p = prompt.toLowerCase();
 
   if (/build|create|make.*strategy|node|graph|backtest a strategy/.test(p)) {
@@ -632,95 +631,23 @@ export async function chatTraderAI(prompt: string): Promise<ChatMsg> {
     };
   }
 
-  if (/risk|exposure/.test(p)) {
-    return {
-      id: uid("m"), role: "assistant",
-      content:
-`**Current risk exposure**
-
-- Net delta is **+62%** long, concentrated in **futures (ES, NQ)** at 41% of capital.
-- Your worst-case daily loss across open positions ≈ **$1,840** (7.4% of $25k account) — above your 5% guardrail.
-- Crypto exposure (BTC-PERP long) adds correlated tech-beta on top of NQ.
-
-**What I'd watch:** an ES gap-down would compound with BTC overnight risk. Trimming one ES contract drops worst-case to ~$1,180 (4.7%).
-
-> To act on this, your connected agent can submit the trim through **Brokerage Agent** with your confirmation.`,
-      meta: { kind: "handoff" },
-    };
-  }
-
-  if (/underperform|backtest/.test(p)) {
-    return {
-      id: uid("m"), role: "assistant",
-      content:
-`**Subscribed strategies vs their backtests (last 30d):**
-
-| Strategy | Backtest Sharpe | Live Sharpe | Δ |
-|---|---|---|---|
-| QQQ Momentum Pullback | 1.82 | **0.74** | −1.08 ⚠ |
-| BTC Funding Reversion | 1.41 | 1.36 | flat |
-| SPX 0DTE Iron Condor | 0.95 | 1.12 | +0.17 |
-
-**QQQ Momentum Pullback** is the outlier — 4 of its last 6 signals hit stop, all on gap-down opens it never saw in-sample. Consider pausing follows until the dev runs a fresh OOS.`,
-    };
-  }
-
-  if (/win rate|asset class/.test(p)) {
-    return {
-      id: uid("m"), role: "assistant",
-      content:
-`**Win rate by asset class (last 90d, 47 trades):**
-
-- Stocks: **62%** (13/21), avg +0.9R
-- Crypto: **48%** (10/21) — strong wins but choppy
-- Futures: **40%** (2/5), avg −0.3R — small sample, but every loss was overnight
-
-Your edge is concentrated in **stocks**. Futures look like a sample-size issue — re-check after 20+ more signals before drawing conclusions.`,
-    };
-  }
-
-  if (/stop|last (three|3)/.test(p)) {
-    return {
-      id: uid("m"), role: "assistant",
-      content:
-`**Last 3 stopped signals:**
-
-1. **AAPL long** — fired pre-CPI print, stop hit on the −1.4% spike at 08:31. The strategy doesn't include an econ-calendar filter.
-2. **BTC-PERP long** — entered into a falling-VWAP regime; signal logic ignores VWAP slope.
-3. **NQ short** — stop placed inside prior-day high cluster, fill slipped 3 ticks.
-
-Common thread: **regime/context filters** are missing. The signals are valid in trend, weak in chop.`,
-    };
-  }
-
-  if (/bull|bear case/.test(p)) {
-    return {
-      id: uid("m"), role: "assistant",
-      content:
-`**Open BTC-PERP long @ 62,400 — bull vs bear:**
-
-**Bull**
-- Funding has normalized after Friday's flush; spot bid persistent above 61.8k.
-- ETF net flows turned positive 2 sessions running.
-
-**Bear**
-- Daily RSI(14) at 71 — same level that capped the last 3 rallies.
-- Macro: DXY firming into FOMC; risk-off pocket likely Wed AM.
-
-**Net:** asymmetric but late. A trail to 61.2k locks +1.0R and keeps optionality.
-
-> To trim or trail, your connected agent can route the order via Brokerage Agent with your confirmation.`,
-      meta: { kind: "handoff" },
-    };
-  }
-
-  // generic
+  // Preview: the trader analysis assistant is not yet connected to your live
+  // account/positions. It must NOT fabricate numbers — so instead of inventing
+  // risk/win-rate/PnL figures, it says so plainly and points to the surfaces
+  // that are already real and data-backed.
   return {
     id: uid("m"), role: "assistant",
     content:
-`Looking at your account, **win rate is 54% over 47 trades** with an avg +0.42R. The clearest issue is **futures (overnight risk)** dragging the curve.
+`**Preview — I'm not connected to your live account yet.**
 
-Ask me about: risk exposure, win rate by asset class, underperforming strategies, or why specific signals stopped out.`,
+I can't see your real positions, risk, or trade history, so I won't make numbers up. Once account analysis is live it will read directly from your tracked signals and fills.
+
+Everything below is real today:
+- **Signals** — live alerts from strategies you follow.
+- **Performance** — your actual taken-signal outcomes: win rate, R-multiples, drawdown.
+- **Studio** — build and backtest strategies against real market data.
+
+Ask me to build a strategy and I'll take you to Studio.`,
   };
 }
 
