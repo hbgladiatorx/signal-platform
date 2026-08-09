@@ -21,6 +21,7 @@ import {
   type WalkforwardAnalysis, type WalkforwardFinding, type ValidationVerdict,
 } from "@/lib/api/walkforward";
 import { getDevStrategies } from "@/lib/api/studio";
+import { QueryState } from "@/components/common/QueryState";
 
 // Referee verdict vocabulary → label + colour. One language across stages.
 const VERDICT_META: Record<ValidationVerdict, { label: string; cls: string; ring: string }> = {
@@ -111,9 +112,8 @@ const f2 = (n: number | null | undefined) => (n == null ? "—" : n.toFixed(2));
 const pct = (n: number | null | undefined) => (n == null ? "—" : `${n.toFixed(1)}%`);
 
 function WalkforwardPage() {
-  const { data, isLoading } = useQuery({ queryKey: ["walkforwards"], queryFn: listWalkforwards });
+  const wfQuery = useQuery({ queryKey: ["walkforwards"], queryFn: listWalkforwards });
   const [open, setOpen] = useState<string | null>(null);
-  const list = data ?? [];
 
   return (
     <div className="space-y-5 p-4 md:p-6">
@@ -130,19 +130,19 @@ function WalkforwardPage() {
         <NewWalkforwardDialog />
       </div>
 
-      {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
-      ) : list.length === 0 ? (
-        <Card className="border-dashed border-border bg-elevated p-8 text-center text-sm text-muted-foreground">
-          No walk-forward analyses yet. Create one to validate a strategy out-of-sample.
-        </Card>
-      ) : (
-        <div className="space-y-2">
-          {list.map((w) => (
-            <WalkforwardRow key={w.id} w={w} expanded={open === w.id} onToggle={() => setOpen(open === w.id ? null : w.id)} />
-          ))}
-        </div>
-      )}
+      <QueryState
+        query={wfQuery}
+        emptyHeadline="No walk-forward analyses yet"
+        emptyBody="Create one to validate a strategy out-of-sample."
+      >
+        {(list) => (
+          <div className="space-y-2">
+            {list.map((w) => (
+              <WalkforwardRow key={w.id} w={w} expanded={open === w.id} onToggle={() => setOpen(open === w.id ? null : w.id)} />
+            ))}
+          </div>
+        )}
+      </QueryState>
     </div>
   );
 }
