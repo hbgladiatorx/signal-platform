@@ -434,6 +434,21 @@ export async function getDevStrategy(id: string): Promise<DevStrategy | undefine
   }
 }
 
+// Built-in strategies are served read-only from /strategies under a synthetic
+// "builtin:" id — they have no /user-strategies row, so they can't be deleted.
+export function isBuiltinStrategy(id: string): boolean {
+  return id.startsWith(BUILTIN_PREFIX);
+}
+
+// Owner-scoped delete (204). The backend 404s a missing or foreign row, which
+// surfaces here as ApiError(404).
+export async function deleteUserStrategy(id: string): Promise<void> {
+  if (isBuiltinStrategy(id)) {
+    throw new ApiError(400, "Built-in strategies can't be deleted.");
+  }
+  await api.del<void>(`/user-strategies/${id}`);
+}
+
 export async function getTemplates(): Promise<
   Array<{ id: string; name: string; description: string; assetClass: AssetClass; graph: StrategyGraph }>
 > {
@@ -673,6 +688,43 @@ export async function getBacktest(id: string): Promise<BacktestRun | undefined> 
   }
 }
 
+// Owner-scoped delete (204); 404 for a missing/foreign run.
+export async function deleteBacktest(id: string): Promise<void> {
+  await api.del<void>(`/backtests/${id}`);
+}
+
+// Block until an async backtest job settles, then return its full run.
+async function awaitBacktest(id: string, maxPolls: number): Promise<BacktestRun> {
+  for (let i = 0; i < maxPolls; i++) {
+    const d = await api.get<ApiBacktestDetail>(`/backtests/${id}`);
+    if (d.status === "completed") {
+      const full = await getBacktest(id);
+      if (full) return full;
+    }
+    if (d.status === "failed") throw new ApiError(500, d.error_message || "Backtest failed");
+    await sleep(2000);
+  }
+  throw new ApiError(504, "Backtest timed out while waiting for results.");
+}
+
+// A completed run is immutable, so "editing" one means re-running it: clone the
+// stored config into a fresh /backtests job and wait for the new run.
+export async function cloneBacktest(id: string): Promise<BacktestRun> {
+  const src = await api.get<ApiBacktestDetail>(`/backtests/${id}`);
+  const { id: newId } = await api.post<{ id: string; status: string }>("/backtests", {
+    strategy_name: src.strategy_name,
+    params: src.params_json ?? {},
+    symbols: src.symbols,
+    bar_resolution: src.bar_resolution,
+    starting_cash: num(src.starting_cash) || 10000,
+    fee_rate_bps: src.fee_rate_bps ?? 10,
+    slippage_bps: src.slippage_bps ?? 5,
+    window_start: src.bars_start ?? undefined,
+    window_end: src.bars_end ?? undefined,
+  });
+  return awaitBacktest(newId, Math.max(150, (src.symbols?.length ?? 1) * 3));
+}
+
 // Generate (and cache) the on-demand LLM narrative over a backtest's
 // deterministic analysis. Returns ok=false (not throwing) when the LLM is
 // unavailable — e.g. Anthropic credits exhausted — so the UI can show the
@@ -769,23 +821,13 @@ export async function runBacktest(
   // Poll the async job to completion. Universe-scale runs (many symbols) take
   // longer, so scale the budget with the symbol count (~2s * N, min 5 min).
   const maxPolls = Math.max(150, symbols.length * 3);
-  for (let i = 0; i < maxPolls; i++) {
-    const d = await api.get<ApiBacktestDetail>(`/backtests/${id}`);
-    if (d.status === "completed") {
-      const full = await getBacktest(id);
-      // getBacktest() can't know the owning strategy (a backtest detail only
-      // carries strategy_name) so it stamps the backtest id as strategyId.
-      // We DO know it here — overwrite with the real one so callers can
-      // navigate to /studio/backtests/$strategyId and the detail page resolves
-      // the strategy instead of sitting on "Loading…" forever.
-      if (full) return { ...full, strategyId };
-    }
-    if (d.status === "failed") {
-      throw new ApiError(500, d.error_message || "Backtest failed");
-    }
-    await sleep(2000);
-  }
-  throw new ApiError(504, "Backtest timed out while waiting for results.");
+  const full = await awaitBacktest(id, maxPolls);
+  // awaitBacktest()/getBacktest() can't know the owning strategy (a backtest
+  // detail only carries strategy_name) so it stamps the backtest id as
+  // strategyId. We DO know it here — overwrite with the real one so callers can
+  // navigate to /studio/backtests/$strategyId and the detail page resolves the
+  // strategy instead of sitting on "Loading…" forever.
+  return { ...full, strategyId };
 }
 
 // Active instruments for an asset class, as symbol options for the builder.

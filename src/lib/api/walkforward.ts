@@ -110,3 +110,7 @@ export const getWalkforward = (id: string) =>
 
 export const createWalkforward = (body: CreateWalkforwardInput) =>
   api.post<{ id: string; status: string }>("/walkforwards", body);
+
+// Owner-scoped delete (204); 404 for a missing/foreign run.
+export const deleteWalkforward = (id: string) =>
+  api.del<void>(`/walkforwards/${id}`);
