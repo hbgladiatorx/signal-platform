@@ -21,6 +21,7 @@ from services.api.redis_subscriber import broadcaster
 from services.api.routers import (
     backtests,
     copilot,
+    deletes,
     health,
     instruments,
     live,
@@ -140,6 +141,7 @@ app.include_router(ml.router)
 app.include_router(paper_sessions.router)
 app.include_router(live.router)
 app.include_router(copilot.router)
+app.include_router(deletes.router)
 app.include_router(ws.router)
 
 
