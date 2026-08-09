@@ -1,9 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
-import { getDevStrategies, runBacktest } from "@/lib/api/studio";
+import { toast } from "sonner";
+import { deleteUserStrategy, getDevStrategies, isBuiltinStrategy, runBacktest } from "@/lib/api/studio";
 import { BacktestRunModal } from "@/components/studio/BacktestRunModal";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { StageBadge } from "@/components/common/StageBadge";
 import { AssetClassBadge } from "@/components/common/AssetClassBadge";
 import { formatDistanceToNow } from "date-fns";
-import { Play, Plus } from "lucide-react";
+import { Play, Plus, Trash2 } from "lucide-react";
 import type { AssetClass, DevStrategy, PipelineStage } from "@/lib/types";
 
 // `?stage=` pre-filters the list (the dashboard status cards link here). An
@@ -34,6 +35,7 @@ export const Route = createFileRoute("/studio/strategies")({
 
 function StrategiesList() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const { stage } = Route.useSearch();
   const { data } = useQuery({ queryKey: ["devStrategies"], queryFn: getDevStrategies });
   const [ac, setAc] = useState<"all" | AssetClass>("all");
@@ -43,8 +45,25 @@ function StrategiesList() {
   const setSt = (v: "all" | PipelineStage) =>
     navigate({ to: "/studio/strategies", search: v === "all" ? {} : { stage: v } });
   const [q, setQ] = useState("");
+  // Two-step inline confirm: the first Delete click arms this row.
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   // Strategy queued for a direct (LLM-free) backtest run via the modal.
   const [runFor, setRunFor] = useState<DevStrategy | null>(null);
+
+  async function onDelete(s: DevStrategy) {
+    setDeletingId(s.id);
+    try {
+      await deleteUserStrategy(s.id);
+      await qc.invalidateQueries({ queryKey: ["devStrategies"] });
+      toast.success(`Deleted "${s.name}"`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't delete that strategy");
+    } finally {
+      setDeletingId(null);
+      setConfirmId(null);
+    }
+  }
 
   const list = useMemo(() => {
     let arr = data ?? [];
@@ -131,6 +150,28 @@ function StrategiesList() {
                 <Button size="sm" variant="ghost" asChild>
                   <Link to="/studio/builder/$id" params={{ id: s.id }}>Edit</Link>
                 </Button>
+                {/* Built-ins live in the platform's library, not the user's —
+                    there's no row to delete. */}
+                {!isBuiltinStrategy(s.id) && (
+                  confirmId === s.id ? (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-danger hover:text-danger"
+                        disabled={deletingId === s.id}
+                        onClick={() => onDelete(s)}
+                      >
+                        {deletingId === s.id ? "Deleting…" : "Confirm"}
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setConfirmId(null)}>Cancel</Button>
+                    </>
+                  ) : (
+                    <Button size="sm" variant="ghost" title="Delete strategy" onClick={() => setConfirmId(s.id)}>
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  )
+                )}
               </div>
             </div>
             );
