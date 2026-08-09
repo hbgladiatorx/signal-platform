@@ -947,3 +947,45 @@ export async function submitStrategyToBayn(_id: string) {
 
 // Keep the PipelineStage type referenced so future stage mapping stays typed.
 export type { PipelineStage };
+
+// ── Certification ────────────────────────────────────────────────────────
+// Door into the live referee engine for a backtest the user already ran. The
+// server sources the backtest's equity WITH per-bar exposure, so the
+// exposure-aware integrity path engages and a normal low-frequency strategy
+// reaches a real verdict instead of a false UNVERIFIABLE.
+export interface CertResult {
+  verification_id: string | null;
+  verdict: "DEPLOY" | "HOLD_CONDITIONAL" | "REJECT" | "UNVERIFIABLE";
+  insecure: boolean;
+  declared_trials: number | null;
+  n_trials_used: number | null;
+  self_declared: boolean;
+  report_url: string | null;
+}
+
+export async function certifyBacktest(
+  backtestId: string,
+  declaredTrials: number,
+): Promise<CertResult> {
+  return api.post<CertResult>(`/backtests/${backtestId}/certify`, {
+    declared_trials: declaredTrials,
+  });
+}
+
+// The signed one-page HTML research note for an issued cert (authed fetch).
+export async function getCertReportHtml(verificationId: string): Promise<string> {
+  return api.get<string>(`/referee/cert/${verificationId}/report`);
+}
+
+// ── Skip forward testing ─────────────────────────────────────────────────
+// Explicit, recorded opt-out: advance a VALIDATED (oos-passed) strategy toward
+// deployable WITHOUT forward testing. The server records forward_test="skipped"
+// (never "passed"); default path (forward testing) is unchanged.
+export interface SkipForwardTestResult {
+  ok: boolean;
+  forward_test: string; // "skipped"
+  state: Record<string, unknown>;
+}
+export async function skipForwardTest(strategyId: string): Promise<SkipForwardTestResult> {
+  return api.post<SkipForwardTestResult>(`/copilot/strategies/${strategyId}/skip-forward-test`);
+}

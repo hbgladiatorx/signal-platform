@@ -6,12 +6,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, PlayCircle, Search, Globe } from "lucide-react";
+import { Loader2, PlayCircle, Search, Check } from "lucide-react";
 import { toast } from "sonner";
 import { getInstrumentsForAsset } from "@/lib/api/studio";
 import { cn } from "@/lib/utils";
@@ -69,8 +66,12 @@ export function BacktestRunModal({
   const [asset, setAsset] = useState<AssetClass>(assetClass);
   useEffect(() => { setAsset(assetClass); }, [assetClass, open]);
 
-  const [mode, setMode] = useState<"select" | "universe">("select");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Strategies run on ONE symbol (their on_init refuses more than one — there is
+  // no capital-allocation model across a universe yet). So this picker is
+  // single-select; the old "Full universe" / multi-select options were removed
+  // because choosing them produced a run that crashed. To get more trades, users
+  // widen the date range or lower the timeframe instead.
+  const [selected, setSelected] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState("");
 
   const { data: instruments, isLoading, error } = useQuery({
@@ -87,22 +88,20 @@ export function BacktestRunModal({
     [instruments],
   );
 
-  // When the universe loads (or asset class changes), seed a default pick —
+  // When the instruments load (or asset class changes), seed a default pick —
   // restricted to symbols that actually have history, so the default run trades.
   useEffect(() => {
     setSelected((prev) => {
-      if (prev.size) return prev;
+      if (prev) return prev;
       const tradeable = symbols.filter((s) => (barsOf.get(s) ?? 0) > 0);
-      const d = defaultSymbol(asset, tradeable.length ? tradeable : symbols);
-      return d ? new Set([d]) : prev;
+      return defaultSymbol(asset, tradeable.length ? tradeable : symbols) ?? prev;
     });
   }, [symbols, asset, barsOf]);
 
   // Reset selection when the asset class changes.
   useEffect(() => {
-    setSelected(new Set());
+    setSelected(undefined);
     setSearch("");
-    setMode("select");
   }, [asset]);
 
   const filtered = useMemo(() => {
@@ -115,15 +114,7 @@ export function BacktestRunModal({
     );
   }, [symbols, search]);
 
-  const toggle = (sym: string) =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(sym)) next.delete(sym);
-      else next.add(sym);
-      return next;
-    });
-
-  const chosen = mode === "universe" ? symbols : [...selected];
+  const chosen = selected ? [selected] : [];
   const canRun = chosen.length > 0 && !running && !isLoading;
 
   const handleRun = async () => {
@@ -162,18 +153,12 @@ export function BacktestRunModal({
               </Select>
             </div>
           )}
-          <RadioGroup value={mode} onValueChange={(v) => setMode(v as "select" | "universe")} className="flex gap-6">
-            <div className="flex items-center gap-2">
-              <RadioGroupItem value="select" id="m-select" />
-              <Label htmlFor="m-select" className="cursor-pointer">Pick symbols</Label>
-            </div>
-            <div className="flex items-center gap-2">
-              <RadioGroupItem value="universe" id="m-universe" />
-              <Label htmlFor="m-universe" className="flex cursor-pointer items-center gap-1">
-                <Globe className="size-3.5" /> Full {asset} universe
-              </Label>
-            </div>
-          </RadioGroup>
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-medium">Symbol</Label>
+            <span className="text-[11px] text-muted-foreground">
+              Strategies run on one symbol — to get more trades, widen the date range or lower the timeframe.
+            </span>
+          </div>
 
           {error ? (
             <p className="text-sm text-destructive">Couldn't load instruments. {(error as Error).message}</p>
@@ -182,11 +167,6 @@ export function BacktestRunModal({
           ) : symbols.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No active {asset} instruments. Connect a market-data source for this asset class first.
-            </p>
-          ) : mode === "universe" ? (
-            <p className="text-sm text-muted-foreground">
-              Testing across <span className="font-medium text-foreground">all {symbols.length}</span> active{" "}
-              {asset} instruments. This can take a while.
             </p>
           ) : (
             <div className="space-y-2">
@@ -199,23 +179,22 @@ export function BacktestRunModal({
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-              {selected.size > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {[...selected].map((s) => (
-                    <Badge key={s} variant="secondary" className="cursor-pointer" onClick={() => toggle(s)}>
-                      {s.replace(/@.*$/, "")} ✕
-                    </Badge>
-                  ))}
-                </div>
-              )}
               <ScrollArea className="h-40 rounded-md border border-border">
                 <ul className="p-1">
                   {filtered.slice(0, 300).map((s) => {
                     const bars = barsOf.get(s) ?? 0;
+                    const isSel = selected === s;
                     return (
                       <li key={s}>
-                        <label className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-elevated">
-                          <Checkbox checked={selected.has(s)} onCheckedChange={() => toggle(s)} />
+                        <button
+                          type="button"
+                          onClick={() => setSelected(s)}
+                          className={cn(
+                            "flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-elevated",
+                            isSel && "bg-violet/10",
+                          )}
+                        >
+                          <Check className={cn("size-3.5 shrink-0", isSel ? "text-violet" : "text-transparent")} />
                           <span className="font-mono text-xs font-medium">{tickerOf(s)}</span>
                           <span className="font-mono text-[10px] text-muted-foreground">{s.split("@")[1] ?? ""}</span>
                           <span
@@ -227,7 +206,7 @@ export function BacktestRunModal({
                           >
                             {bars > 0 ? `${bars.toLocaleString()} bars` : "no history"}
                           </span>
-                        </label>
+                        </button>
                       </li>
                     );
                   })}
@@ -266,7 +245,7 @@ export function BacktestRunModal({
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={running}>Cancel</Button>
           <Button onClick={handleRun} disabled={!canRun} className="bg-violet text-violet-foreground hover:bg-violet/90">
             {running ? <><Loader2 className="mr-2 size-4 animate-spin" /> Running…</>
-              : `Run on ${chosen.length || 0} symbol${chosen.length === 1 ? "" : "s"}`}
+              : selected ? `Run on ${tickerOf(selected)}` : "Pick a symbol"}
           </Button>
         </DialogFooter>
       </DialogContent>

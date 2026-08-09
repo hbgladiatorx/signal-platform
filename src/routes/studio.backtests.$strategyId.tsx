@@ -3,16 +3,17 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
-import { getBacktestsForStrategy, getBacktest, getDevStrategy, submitStrategyToBayn, deployStrategyLive, runBacktest, saveStrategyGraph } from "@/lib/api/studio";
+import { getBacktestsForStrategy, getBacktest, getDevStrategy, submitStrategyToBayn, deployStrategyLive, runBacktest, saveStrategyGraph, certifyBacktest, getCertReportHtml, skipForwardTest, type CertResult } from "@/lib/api/studio";
 import type { StrategyGraph } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell,
   Line, LineChart,
 } from "recharts";
-import { ArrowLeft, Rocket, Send, CheckCircle2, ArrowRight, Activity, Sparkles } from "lucide-react";
+import { ArrowLeft, Rocket, Send, CheckCircle2, ArrowRight, Activity, Sparkles, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { advanceStage, getStage, nextStage, STAGE_ORDER } from "@/lib/strategy-stage";
@@ -74,6 +75,98 @@ function BacktestDetailError({ error }: { error: Error }) {
 
 const fmtPct = (n: number) => `${n >= 0 ? "+" : ""}${(n * 100).toFixed(1)}%`;
 
+// Referee verdict vocabulary (same language as the walk-forward view).
+const CERT_VERDICT_CLS: Record<string, string> = {
+  DEPLOY: "text-success",
+  HOLD_CONDITIONAL: "text-amber-400",
+  REJECT: "text-danger",
+  UNVERIFIABLE: "text-muted-foreground",
+};
+
+/**
+ * Minimal "Certify this backtest" affordance: send the backtest to the live
+ * referee engine (exposure-aware path engaged server-side) and render the signed
+ * verdict + a link to the signed report. Trials are self-declared and shown.
+ */
+function CertifyBacktestCard({ backtestId }: { backtestId: string }) {
+  const [trials, setTrials] = useState(1);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<CertResult | null>(null);
+
+  const onCertify = async () => {
+    setBusy(true);
+    toast.loading("Certifying backtest…", { id: "certify" });
+    try {
+      const r = await certifyBacktest(backtestId, Math.max(1, Math.floor(trials)));
+      setResult(r);
+      toast.success(`Signed verdict · ${r.verdict}`, { id: "certify" });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Certification failed", { id: "certify" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openReport = async () => {
+    if (!result?.verification_id) return;
+    try {
+      const html = await getCertReportHtml(result.verification_id);
+      const url = URL.createObjectURL(new Blob([html], { type: "text/html" }));
+      window.open(url, "_blank", "noopener");
+    } catch {
+      toast.error("Could not open the signed report");
+    }
+  };
+
+  return (
+    <Card className="border-border bg-elevated p-4">
+      <div className="mb-3 flex items-center gap-2 text-sm font-semibold">
+        <ShieldCheck className="size-4 text-violet" /> Certify this backtest
+      </div>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="text-xs text-muted-foreground">
+          Trials tried <span className="opacity-70">(self-declared)</span>
+          <Input
+            type="number"
+            min={1}
+            value={trials}
+            onChange={(e) => setTrials(Number(e.target.value) || 1)}
+            className="mt-1 w-28 bg-background"
+          />
+        </label>
+        <Button size="sm" disabled={busy} onClick={onCertify}>
+          {busy ? "Certifying…" : "Certify"}
+        </Button>
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">
+        Grades this backtest's net returns through the Referee gauntlet and returns an
+        Ed25519-signed verdict. The trial count you declare is fed into the deflation
+        (stamped <span className="font-mono">self_declared</span>) — the same integrity bar as every path.
+      </p>
+      {result && (
+        <div className="mt-3 rounded border border-border bg-background p-3 text-sm">
+          <div>
+            Verdict:{" "}
+            <span className={cn("font-semibold", CERT_VERDICT_CLS[result.verdict] ?? "text-foreground")}>
+              {result.verdict}
+            </span>
+            {result.insecure && <span className="ml-2 text-danger">⚠ insecure dev key — do not trust</span>}
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            ID <span className="font-mono text-foreground">{result.verification_id}</span> · trials{" "}
+            {result.n_trials_used} (declared {result.declared_trials}, self-declared)
+          </div>
+          {result.verification_id && (
+            <Button size="sm" variant="outline" className="mt-2" onClick={openReport}>
+              View signed report
+            </Button>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function BacktestDetail() {
   const { strategyId } = useParams({ from: "/studio/backtests/$strategyId" });
   const { runId } = Route.useSearch();
@@ -107,6 +200,19 @@ function BacktestDetail() {
 
   // Stage tracking — viewing a backtest run implies the strategy is at least "backtested"
   const [stage, setStageState] = useState<DeployStage>(() => getStage(strategyId));
+  // Recorded "skip forward testing" choice (honest opt-out, never a pass).
+  const [fwdSkipped, setFwdSkipped] = useState(false);
+  const onSkipForward = async () => {
+    toast.loading("Recording skip & advancing to deployable…", { id: "skipfwd" });
+    try {
+      await skipForwardTest(strategyId);
+      setFwdSkipped(true);
+      advanceStage(strategyId, "deployable");
+      toast.success("Forward testing skipped — advanced to deployable (recorded as skipped)", { id: "skipfwd" });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not skip forward testing", { id: "skipfwd" });
+    }
+  };
   useEffect(() => {
     const fn = () => setStageState(getStage(strategyId));
     window.addEventListener("bayn.stage.changed", fn);
@@ -245,15 +351,34 @@ function BacktestDetail() {
           <div className="flex items-center gap-2 text-sm font-semibold">
             <Activity className="size-4 text-violet" /> Validation pipeline
           </div>
-          {next && (
-            <Button size="sm" className="bg-violet text-violet-foreground hover:bg-violet/90"
-              onClick={() => stepFns[stage as Exclude<DeployStage, "draft">]?.()}>
-              {nextStepLabel(stage)} <ArrowRight className="ml-1 size-3.5" />
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {/* Explicit opt-out at the OOS stage: forward testing is still the
+                default (primary button); skip is a recorded, secondary choice. */}
+            {stage === "oos" && !fwdSkipped && (
+              <Button size="sm" variant="ghost" className="text-muted-foreground"
+                title="Advance toward deployable without forward testing (recorded as skipped)"
+                onClick={onSkipForward}>
+                Skip forward testing
+              </Button>
+            )}
+            {next && (
+              <Button size="sm" className="bg-violet text-violet-foreground hover:bg-violet/90"
+                onClick={() => stepFns[stage as Exclude<DeployStage, "draft">]?.()}>
+                {nextStepLabel(stage)} <ArrowRight className="ml-1 size-3.5" />
+              </Button>
+            )}
+          </div>
         </div>
+        {fwdSkipped && (
+          <div className="mb-2 inline-flex items-center gap-1.5 rounded border border-amber-400/40 bg-amber-400/10 px-2 py-1 text-xs text-amber-400">
+            <Activity className="size-3.5" /> Forward test: skipped — advanced to deployable without forward-test evidence
+          </div>
+        )}
         <Stepper current={stage} />
       </Card>
+
+      {/* Certify this backtest — door into the live referee engine */}
+      <CertifyBacktestCard backtestId={run.id} />
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">
@@ -458,10 +583,11 @@ function BacktestDetail() {
                   </p>
                 )}
                 <p className="rounded-md border border-border bg-muted/20 p-3 text-xs">
-                  To get a trustworthy result, loosen entry conditions, widen the date range, or test
-                  more symbols so the run generates at least{" "}
+                  To get a trustworthy result, loosen entry conditions, widen the date range, or use a
+                  lower timeframe so the run generates at least{" "}
                   <span className="font-mono text-foreground">{MIN_OOS_TRADES}</span> trades — then
-                  re-run the out-of-sample test.
+                  re-run the out-of-sample test. (Strategies run on one symbol, so adding symbols
+                  isn’t an option.)
                 </p>
                 <p className="text-xs">
                   You can still continue to the forward test, but treat its results with caution

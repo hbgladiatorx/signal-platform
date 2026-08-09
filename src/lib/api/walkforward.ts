@@ -21,6 +21,41 @@ export interface WalkforwardSummary {
   error_message?: string | null;
 }
 
+// Legible verdict the backend derives from the OOS metrics (presentation only).
+// Same vocabulary as the referee gauntlet and the same shape as the backtest
+// analysis, so the studio renders every validation stage uniformly.
+export type ValidationVerdict =
+  | "DEPLOY"
+  | "HOLD_CONDITIONAL"
+  | "REJECT"
+  | "UNVERIFIABLE";
+
+export interface WalkforwardFinding {
+  id: string;
+  cluster: string;
+  severity: "good" | "warn" | "bad" | "info";
+  title: string;
+  detail: string;
+  suggestion: string;
+}
+
+export interface WalkforwardNextAction {
+  action: string; // "edit_strategy" | "deploy"
+  label: string;
+  target: string; // semantic route key, e.g. "studio.strategies" | "studio.live"
+  strategy_name: string | null;
+}
+
+export interface WalkforwardAnalysis {
+  schema: string;
+  verdict: ValidationVerdict;
+  headline: string;
+  narrative: string;
+  metrics: Record<string, number | null>;
+  findings: WalkforwardFinding[];
+  next_action: WalkforwardNextAction;
+}
+
 export interface WalkforwardWindow {
   window_index: number;
   train_start_ts: string;
@@ -48,6 +83,8 @@ export interface WalkforwardDetail extends WalkforwardSummary {
   windows_result?: WalkforwardWindow[] | null;
   avg_train_sharpe?: number | null;
   overfit_drop?: number | null;
+  // The legible verdict (null until the run finishes with an OOS result).
+  analysis?: WalkforwardAnalysis | null;
   [k: string]: unknown;
 }
 

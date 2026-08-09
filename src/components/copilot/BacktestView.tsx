@@ -64,7 +64,7 @@ export function BacktestView({
       {thin && (
         <div className="rounded-lg border border-warn/30 bg-warn/10 px-3 py-2 text-xs text-warn">
           Only {s.totalTrades} closed trades — too few to trust the ratios. Ask the copilot to
-          widen the date range or add symbols.
+          widen the date range or use a lower timeframe.
         </div>
       )}
 

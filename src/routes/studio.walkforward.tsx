@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
@@ -9,14 +9,98 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { ArrowRightLeft, Plus, Loader2, ChevronDown } from "lucide-react";
+import {
+  ArrowRightLeft, Plus, Loader2, ChevronDown,
+  CheckCircle2, AlertTriangle, TrendingDown, Info, Wrench, ArrowRight,
+} from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import {
   listWalkforwards, getWalkforward, createWalkforward,
   type WalkforwardSummary, type CreateWalkforwardInput,
+  type WalkforwardAnalysis, type WalkforwardFinding, type ValidationVerdict,
 } from "@/lib/api/walkforward";
 import { getDevStrategies } from "@/lib/api/studio";
+
+// Referee verdict vocabulary → label + colour. One language across stages.
+const VERDICT_META: Record<ValidationVerdict, { label: string; cls: string; ring: string }> = {
+  DEPLOY:           { label: "Edge holds out-of-sample", cls: "text-success",          ring: "border-success/40 bg-success/10" },
+  HOLD_CONDITIONAL: { label: "Holds — with caveats",     cls: "text-amber-400",        ring: "border-amber-400/40 bg-amber-400/10" },
+  REJECT:           { label: "Fails out-of-sample",      cls: "text-danger",           ring: "border-danger/40 bg-danger/10" },
+  UNVERIFIABLE:     { label: "Couldn't be verified",     cls: "text-muted-foreground", ring: "border-border bg-muted/20" },
+};
+
+const SEV_META: Record<WalkforwardFinding["severity"], { icon: typeof Info; cls: string; chip: string }> = {
+  good: { icon: CheckCircle2,  cls: "text-success",          chip: "border-success/30 bg-success/5" },
+  warn: { icon: AlertTriangle, cls: "text-amber-400",        chip: "border-amber-400/30 bg-amber-400/5" },
+  bad:  { icon: TrendingDown,  cls: "text-danger",           chip: "border-danger/30 bg-danger/5" },
+  info: { icon: Info,          cls: "text-muted-foreground", chip: "border-border bg-muted/10" },
+};
+
+// Map the verdict's semantic route key to a real studio route. The path-back is
+// a live button, never a dead string.
+const NEXT_ROUTE: Record<string, string> = {
+  "studio.strategies": "/studio/strategies",
+  "studio.live": "/studio/live",
+};
+
+function ValidationVerdictPanel({ analysis }: { analysis: WalkforwardAnalysis }) {
+  const navigate = useNavigate();
+  const meta = VERDICT_META[analysis.verdict] ?? VERDICT_META.UNVERIFIABLE;
+  const na = analysis.next_action;
+  const route = NEXT_ROUTE[na?.target] ?? "/studio/strategies";
+  return (
+    <div className={cn("mb-3 rounded-lg border p-3", meta.ring)}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className={cn("rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide", meta.ring, meta.cls)}>
+            {analysis.verdict.replace("_", " ")}
+          </span>
+          <span className={cn("text-sm font-semibold", meta.cls)}>{meta.label}</span>
+        </div>
+        {na?.label && (
+          <Button
+            size="sm"
+            className="gap-1.5"
+            onClick={() => navigate({ to: route })}
+          >
+            {na.label} <ArrowRight className="size-4" />
+          </Button>
+        )}
+      </div>
+      <p className="mt-2 text-sm text-foreground/90">{analysis.headline}</p>
+      <p className="mt-1 text-sm text-muted-foreground">{analysis.narrative}</p>
+      {analysis.findings.length > 0 && (
+        <div className="mt-3 space-y-1.5">
+          <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            What to fix
+          </div>
+          {analysis.findings.map((f) => {
+            const sm = SEV_META[f.severity] ?? SEV_META.info;
+            const Icon = sm.icon;
+            return (
+              <div key={f.id} className={cn("rounded-md border p-2.5", sm.chip)}>
+                <div className="flex items-start gap-2">
+                  <Icon className={cn("mt-0.5 size-4 shrink-0", sm.cls)} />
+                  <div className="min-w-0 flex-1">
+                    <div className={cn("text-sm font-medium", sm.cls)}>{f.title}</div>
+                    <p className="mt-0.5 text-sm text-muted-foreground">{f.detail}</p>
+                    {f.suggestion && (
+                      <div className="mt-1.5 flex items-start gap-1.5 text-xs text-foreground/80">
+                        <Wrench className="mt-0.5 size-3 shrink-0 text-violet" />
+                        <span>{f.suggestion}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export const Route = createFileRoute("/studio/walkforward")({
   head: () => ({ meta: [{ title: "Walk-forward — Bayn Studio" }] }),
@@ -110,10 +194,20 @@ function WalkforwardDetailPanel({ id, status }: { id: string; status: string }) 
   }
   const windows = data.windows_result ?? [];
   if (windows.length === 0) {
-    return <div className="border-t border-border p-3 text-sm text-muted-foreground">No window results yet (status: {data.status}).</div>;
+    return (
+      <div className="border-t border-border p-3">
+        {/* Even with no window table (e.g. UNVERIFIABLE), still speak a verdict. */}
+        {data.analysis && <ValidationVerdictPanel analysis={data.analysis} />}
+        {!data.analysis && (
+          <div className="text-sm text-muted-foreground">No window results yet (status: {data.status}).</div>
+        )}
+      </div>
+    );
   }
   return (
     <div className="border-t border-border p-3">
+      {/* Verdict first — the plain call + narrative + what-to-fix + path back. */}
+      {data.analysis && <ValidationVerdictPanel analysis={data.analysis} />}
       <div className="mb-2 flex flex-wrap gap-4 font-mono text-[11px] text-muted-foreground">
         <span>train Sharpe <span className="text-foreground">{f2(data.avg_train_sharpe)}</span></span>
         <span>test Sharpe <span className="text-foreground">{f2(data.avg_test_sharpe)}</span></span>
