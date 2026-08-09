@@ -119,10 +119,7 @@ function DevStrategyDetail() {
                   <div>
                     <span className="font-mono text-violet">{v.id}</span> · {v.note}
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(v.createdAt), { addSuffix: true })}</span>
-                    <Button size="sm" variant="ghost">Restore</Button>
-                  </div>
+                  <span className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(v.createdAt), { addSuffix: true })}</span>
                 </div>
               ))}
             </div>

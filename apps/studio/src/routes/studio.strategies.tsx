@@ -144,7 +144,7 @@ function StrategiesList() {
               <div className="col-span-1 text-right font-mono text-muted-foreground">{st ? `${(st.maxDrawdown * 100).toFixed(0)}%` : "—"}</div>
               <div className="col-span-1 text-right font-mono text-muted-foreground">{st?.totalTrades ?? "—"}</div>
               <div className="col-span-2 flex justify-end gap-1">
-                <Button size="sm" variant="ghost" title="Backtest now (no AI)" onClick={() => setRunFor(s)}>
+                <Button size="sm" variant="ghost" title="Backtest now (no AI)" aria-label="Backtest now" onClick={() => setRunFor(s)}>
                   <Play className="size-3.5" />
                 </Button>
                 <Button size="sm" variant="ghost" asChild>
@@ -167,7 +167,7 @@ function StrategiesList() {
                       <Button size="sm" variant="ghost" onClick={() => setConfirmId(null)}>Cancel</Button>
                     </>
                   ) : (
-                    <Button size="sm" variant="ghost" title="Delete strategy" onClick={() => setConfirmId(s.id)}>
+                    <Button size="sm" variant="ghost" title="Delete strategy" aria-label="Delete strategy" onClick={() => setConfirmId(s.id)}>
                       <Trash2 className="size-3.5" />
                     </Button>
                   )
