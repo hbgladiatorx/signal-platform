@@ -116,7 +116,7 @@ function CopilotWorkspace() {
                 ))}
               </SelectContent>
             </Select>
-            <Button variant="ghost" size="icon" className="size-8" onClick={startFresh} title="Start over">
+            <Button variant="ghost" size="icon" className="size-8" onClick={startFresh} title="Start over" aria-label="Start over">
               <RotateCcw className="size-3.5" />
             </Button>
           </div>

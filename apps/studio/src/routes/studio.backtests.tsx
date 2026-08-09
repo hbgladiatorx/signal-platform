@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { AssetClassBadge } from "@/components/common/AssetClassBadge";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
+import { QueryState } from "@/components/common/QueryState";
 
 export const Route = createFileRoute("/studio/backtests")({
   head: () => ({ meta: [{ title: "Backtests — Bayn Studio" }] }),
@@ -13,7 +14,7 @@ export const Route = createFileRoute("/studio/backtests")({
 
 function BacktestsList() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const { data: strategies } = useQuery({ queryKey: ["devStrategies"], queryFn: getDevStrategies });
+  const stratQuery = useQuery({ queryKey: ["devStrategies"], queryFn: getDevStrategies });
 
   if (pathname !== "/studio/backtests") return <Outlet />;
 
@@ -23,11 +24,21 @@ function BacktestsList() {
         <h1 className="text-2xl font-semibold tracking-tight">Backtests</h1>
         <p className="text-sm text-muted-foreground">Open a strategy to view its full backtest history.</p>
       </div>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-        {(strategies ?? []).map((s) => (
-          <StrategyBacktestCard key={s.id} strategyId={s.id} name={s.name} description={s.description} assetClass={s.assetClass} />
-        ))}
-      </div>
+      <QueryState
+        query={stratQuery}
+        skeletonRows={6}
+        emptyHeadline="No strategies yet"
+        emptyBody="Build a strategy in the Copilot to run your first backtest."
+        emptyCta={<Button asChild size="sm"><Link to="/studio/copilot">Open Copilot</Link></Button>}
+      >
+        {(strategies) => (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {strategies.map((s) => (
+              <StrategyBacktestCard key={s.id} strategyId={s.id} name={s.name} description={s.description} assetClass={s.assetClass} />
+            ))}
+          </div>
+        )}
+      </QueryState>
     </div>
   );
 }

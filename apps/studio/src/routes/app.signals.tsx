@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Inbox } from "lucide-react";
 import type { SignalStatus } from "@/lib/types";
 import { MetricLabel, Term } from "@/components/common/Term";
+import { QueryState } from "@/components/common/QueryState";
 
 export const Route = createFileRoute("/app/signals")({
   head: () => ({ meta: [{ title: "Signals — Bayn" }] }),
@@ -28,7 +29,8 @@ const statusFilters: Array<{ key: "all" | SignalStatus; label: string }> = [
 function SignalsPage() {
   const { assetClass } = useAssetFilter();
   const [status, setStatus] = useState<"all" | SignalStatus>("all");
-  const { data } = useQuery({ queryKey: ["signals-all"], queryFn: () => getSignals() });
+  const sigQuery = useQuery({ queryKey: ["signals-all"], queryFn: () => getSignals() });
+  const data = sigQuery.data;
 
   const followedList = useFollowedIds();
   const followedIds = useMemo(() => new Set<string>(followedList), [followedList]);
@@ -96,6 +98,8 @@ function SignalsPage() {
         ))}
       </div>
 
+      <QueryState query={sigQuery} isEmpty={() => false} skeletonRows={4}>
+        {() => (
       <div className="space-y-6">
         {(status === "all" || status === "OPEN") && open.length > 0 && (
           <SignalGroup title="Open · live" count={open.length}>
@@ -141,6 +145,8 @@ function SignalsPage() {
         )}
 
       </div>
+        )}
+      </QueryState>
     </div>
   );
 }
