@@ -118,7 +118,7 @@ function PerformancePage() {
                   <td className="px-4 py-2"><StatusPill status={t.outcome} /></td>
                   <td className="px-4 py-2 text-right">
                     <Button asChild size="icon" variant="ghost" className="size-7">
-                      <Link to="/app/share/$cardId" params={{ cardId: t.signal.id }}>
+                      <Link to="/app/share/$cardId" params={{ cardId: t.signal.id }} aria-label="Share trade">
                         <Share2 className="size-3.5" />
                       </Link>
                     </Button>

@@ -140,7 +140,7 @@ function ShareActions() {
           <Linkedin className="size-4" />
         </a>
       </Button>
-      <Button variant="ghost" size="icon" onClick={async () => {
+      <Button variant="ghost" size="icon" aria-label="Share" onClick={async () => {
         try {
           if (navigator.share) await navigator.share({ url, title: "Bayn — verified trade" });
           else { await navigator.clipboard?.writeText(url); toast.success("Link copied"); }

@@ -17,12 +17,11 @@ import {
   useAccountSize, useRiskPerTrade, useDefaultTimeframe, useDefaultChartType,
   useNotifications, useLiveTrackingStrategy, type HomeSection,
 } from "@/lib/user-prefs";
-import { useFollowedIds, unsubscribeFromStrategy } from "@/lib/api";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useFollowedIds, unsubscribeFromStrategy, getStrategies } from "@/lib/api";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 
 import { getCurrentPlan, getTotalSlots, isFreeStrategy, formatLimit } from "@/lib/api/billing";
-import { strategies } from "@/lib/mockData";
 import type { AssetClass } from "@/lib/types";
 
 const TAB_DEFS = [
@@ -170,13 +169,13 @@ function MarketsTab() {
               <div key={sym} className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
                 <span className="font-mono font-semibold">{sym}</span>
                 <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon" className="size-7" onClick={() => move(sym, -1)}>
+                  <Button variant="ghost" size="icon" className="size-7" aria-label={`Move ${sym} up`} onClick={() => move(sym, -1)}>
                     <ArrowUp className="size-3.5" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="size-7" onClick={() => move(sym, 1)}>
+                  <Button variant="ghost" size="icon" className="size-7" aria-label={`Move ${sym} down`} onClick={() => move(sym, 1)}>
                     <ArrowDown className="size-3.5" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="size-7 text-danger" onClick={() => remove(sym)}>
+                  <Button variant="ghost" size="icon" className="size-7 text-danger" aria-label={`Remove ${sym} from watchlist`} onClick={() => remove(sym)}>
                     <X className="size-3.5" />
                   </Button>
                 </div>
@@ -260,6 +259,12 @@ function StrategiesTab() {
   const [liveId, setLiveId] = useLiveTrackingStrategy();
   const total = getTotalSlots();
   const nonFree = followedIds.filter((id: string) => !isFreeStrategy(id));
+  // Resolve followed strategies from the real catalog (same query the catalog
+  // route uses) instead of fabricated mock data.
+  const { data: allStrategies = [] } = useQuery({
+    queryKey: ["strategies"],
+    queryFn: getStrategies,
+  });
   const qc = useQueryClient();
   const unfollow = useMutation({
     mutationFn: (id: string) => unsubscribeFromStrategy(id),
@@ -283,7 +288,7 @@ function StrategiesTab() {
         ) : (
           <div className="space-y-2">
             {followedIds.map((id) => {
-              const s = strategies.find((x) => x.id === id);
+              const s = allStrategies.find((x) => x.id === id);
               if (!s) return null;
               const free = isFreeStrategy(id);
               const isLive = liveId === id;
@@ -313,8 +318,8 @@ function StrategiesTab() {
                       size="icon"
                       className="size-7 text-danger"
                       onClick={() => unfollow.mutate(id)}
-
                       title="Unfollow"
+                      aria-label="Unfollow"
                     >
                       <Trash2 className="size-3.5" />
                     </Button>
@@ -365,8 +370,8 @@ function LayoutTab() {
             <div key={s} className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
               <span className="font-medium text-foreground">{sectionLabel[s]}</span>
               <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" className="size-7" onClick={() => move(s, -1)}><ArrowUp className="size-3.5" /></Button>
-                <Button variant="ghost" size="icon" className="size-7" onClick={() => move(s, 1)}><ArrowDown className="size-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="size-7" aria-label={`Move ${sectionLabel[s]} up`} onClick={() => move(s, -1)}><ArrowUp className="size-3.5" /></Button>
+                <Button variant="ghost" size="icon" className="size-7" aria-label={`Move ${sectionLabel[s]} down`} onClick={() => move(s, 1)}><ArrowDown className="size-3.5" /></Button>
                 <Switch checked={visible} onCheckedChange={() => toggleHidden(s)} />
               </div>
             </div>
