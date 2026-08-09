@@ -1,0 +1,6120 @@
+{
+  "resolution": "4h",
+  "universe": [
+    "BTC-USDT@BINANCEUS",
+    "ETH-USDT@BINANCEUS",
+    "SOL-USDT@BINANCEUS",
+    "BNB-USDT@BINANCEUS",
+    "XRP-USDT@BINANCEUS",
+    "ADA-USDT@BINANCEUS",
+    "AVAX-USDT@BINANCEUS",
+    "LINK-USDT@BINANCEUS",
+    "DOT-USDT@BINANCEUS",
+    "LTC-USDT@BINANCEUS",
+    "DOGE-USDT@BINANCEUS",
+    "BCH-USDT@BINANCEUS",
+    "ATOM-USDT@BINANCEUS",
+    "NEAR-USDT@BINANCEUS"
+  ],
+  "n_configs": 204,
+  "n_survivors": 0,
+  "scored": [
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 10,
+        "slow": 50,
+        "trend": 100,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -58.278608079733324,
+        "med_sharpe": -0.7781770156379695,
+        "med_dd": -67.61446101733043,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 68.0
+      },
+      "h1": {
+        "med_ret": -20.457420381563935,
+        "med_sharpe": -0.2417552742115642,
+        "med_dd": -46.18357081909821,
+        "frac_profit": 0.42857142857142855,
+        "med_trades": 37.0
+      },
+      "h2": {
+        "med_ret": -40.65832180886079,
+        "med_sharpe": -1.682114594042794,
+        "med_dd": -48.932077597990684,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 32.5
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 10,
+        "slow": 50,
+        "trend": 100,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -53.689704821492086,
+        "med_sharpe": -0.8948622119044298,
+        "med_dd": -65.26484973244689,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 53.0
+      },
+      "h1": {
+        "med_ret": -25.5479116943731,
+        "med_sharpe": -0.37025257246607346,
+        "med_dd": -46.74135867420142,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 29.0
+      },
+      "h2": {
+        "med_ret": -39.42297766992648,
+        "med_sharpe": -1.6259072151254634,
+        "med_dd": -51.44787980952931,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 25.5
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 10,
+        "slow": 50,
+        "trend": 200,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -49.58843270867263,
+        "med_sharpe": -0.6459941847592932,
+        "med_dd": -58.08880066328135,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 58.5
+      },
+      "h1": {
+        "med_ret": -17.97331434485658,
+        "med_sharpe": -0.19316215068243273,
+        "med_dd": -40.841816930595286,
+        "frac_profit": 0.42857142857142855,
+        "med_trades": 35.0
+      },
+      "h2": {
+        "med_ret": -34.04482088173236,
+        "med_sharpe": -1.8607093511271624,
+        "med_dd": -43.566710746199654,
+        "frac_profit": 0.0,
+        "med_trades": 23.5
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 10,
+        "slow": 50,
+        "trend": 200,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -50.60172236299552,
+        "med_sharpe": -0.8431901116789076,
+        "med_dd": -63.10647727948233,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 45.5
+      },
+      "h1": {
+        "med_ret": -21.66409193088584,
+        "med_sharpe": -0.26974325111265096,
+        "med_dd": -45.40744402788471,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 26.0
+      },
+      "h2": {
+        "med_ret": -30.51774004219064,
+        "med_sharpe": -1.5387470927958935,
+        "med_dd": -45.9423819682041,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 18.0
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 10,
+        "slow": 100,
+        "trend": 100,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -58.608420150727724,
+        "med_sharpe": -0.9307753013083782,
+        "med_dd": -65.31424986929237,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 63.5
+      },
+      "h1": {
+        "med_ret": -23.057344512877123,
+        "med_sharpe": -0.3247394731893878,
+        "med_dd": -47.11860198697766,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 35.5
+      },
+      "h2": {
+        "med_ret": -35.58137120254145,
+        "med_sharpe": -1.4953392839549815,
+        "med_dd": -44.54243022589807,
+        "frac_profit": 0.0,
+        "med_trades": 27.5
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 10,
+        "slow": 100,
+        "trend": 100,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -52.76474073235903,
+        "med_sharpe": -0.8023564554345858,
+        "med_dd": -62.25003673160904,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 46.5
+      },
+      "h1": {
+        "med_ret": -15.39674004958922,
+        "med_sharpe": -0.06797420358331228,
+        "med_dd": -44.0587491562727,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 26.5
+      },
+      "h2": {
+        "med_ret": -32.75377686684745,
+        "med_sharpe": -1.5455994823689636,
+        "med_dd": -43.1603667642736,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 20.0
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 10,
+        "slow": 100,
+        "trend": 200,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -55.32103339626693,
+        "med_sharpe": -0.8771975618705365,
+        "med_dd": -63.06466521142185,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 59.5
+      },
+      "h1": {
+        "med_ret": -25.70052856629077,
+        "med_sharpe": -0.44959558130299593,
+        "med_dd": -45.828174543734136,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 35.5
+      },
+      "h2": {
+        "med_ret": -29.793451098858164,
+        "med_sharpe": -1.3665737099504873,
+        "med_dd": -38.75267166214687,
+        "frac_profit": 0.0,
+        "med_trades": 22.0
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 10,
+        "slow": 100,
+        "trend": 200,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -51.68573660337323,
+        "med_sharpe": -0.7640552537350498,
+        "med_dd": -62.69543644620701,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 43.0
+      },
+      "h1": {
+        "med_ret": -20.19023204050061,
+        "med_sharpe": -0.2509007501635074,
+        "med_dd": -47.36615444895533,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 25.0
+      },
+      "h2": {
+        "med_ret": -26.4423070391409,
+        "med_sharpe": -1.2740662797641233,
+        "med_dd": -41.69828825467508,
+        "frac_profit": 0.0,
+        "med_trades": 17.0
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 10,
+        "slow": 150,
+        "trend": 100,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -55.80010754995469,
+        "med_sharpe": -0.7363415812775953,
+        "med_dd": -62.37480796955184,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 56.0
+      },
+      "h1": {
+        "med_ret": -21.996369160111247,
+        "med_sharpe": -0.3356425417377993,
+        "med_dd": -38.73462074279181,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 32.5
+      },
+      "h2": {
+        "med_ret": -31.68663610233545,
+        "med_sharpe": -1.4348536851731348,
+        "med_dd": -42.45844981310349,
+        "frac_profit": 0.0,
+        "med_trades": 23.0
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 10,
+        "slow": 150,
+        "trend": 100,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -45.84583015153704,
+        "med_sharpe": -0.6460099283562927,
+        "med_dd": -60.67966749208051,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 40.5
+      },
+      "h1": {
+        "med_ret": -16.354337659680336,
+        "med_sharpe": -0.13927466777348033,
+        "med_dd": -41.17663747247961,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 22.0
+      },
+      "h2": {
+        "med_ret": -24.924582279577493,
+        "med_sharpe": -1.2388081314213402,
+        "med_dd": -42.37413548368799,
+        "frac_profit": 0.0,
+        "med_trades": 17.0
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 10,
+        "slow": 150,
+        "trend": 200,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -54.13509970995099,
+        "med_sharpe": -0.7440341349016193,
+        "med_dd": -59.30321605356831,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 57.5
+      },
+      "h1": {
+        "med_ret": -16.878230848626004,
+        "med_sharpe": -0.1690501218299722,
+        "med_dd": -39.67948742912533,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 34.0
+      },
+      "h2": {
+        "med_ret": -31.356894826347222,
+        "med_sharpe": -1.502152138175507,
+        "med_dd": -40.101118141526285,
+        "frac_profit": 0.0,
+        "med_trades": 21.5
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 10,
+        "slow": 150,
+        "trend": 200,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -49.120293850779134,
+        "med_sharpe": -0.6018352540649169,
+        "med_dd": -59.67209650885617,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 41.5
+      },
+      "h1": {
+        "med_ret": -15.818015513875654,
+        "med_sharpe": -0.10341942869910842,
+        "med_dd": -42.74696858355986,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 24.5
+      },
+      "h2": {
+        "med_ret": -25.865236663902802,
+        "med_sharpe": -1.4138311417890057,
+        "med_dd": -37.78209318892955,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 15.5
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 20,
+        "slow": 50,
+        "trend": 100,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -59.74901298114179,
+        "med_sharpe": -0.8304415669635613,
+        "med_dd": -64.71708734767215,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 62.5
+      },
+      "h1": {
+        "med_ret": -22.000106578452048,
+        "med_sharpe": -0.3159130330029519,
+        "med_dd": -44.704868456981586,
+        "frac_profit": 0.42857142857142855,
+        "med_trades": 33.0
+      },
+      "h2": {
+        "med_ret": -41.26910469745085,
+        "med_sharpe": -1.4803883816866483,
+        "med_dd": -48.54709700907464,
+        "frac_profit": 0.0,
+        "med_trades": 29.0
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 20,
+        "slow": 50,
+        "trend": 100,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -53.79270876271761,
+        "med_sharpe": -0.637783917291355,
+        "med_dd": -62.24201038953821,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 49.0
+      },
+      "h1": {
+        "med_ret": -10.098273924002822,
+        "med_sharpe": 0.03182668478847642,
+        "med_dd": -45.12365895689915,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 25.0
+      },
+      "h2": {
+        "med_ret": -40.81160731664775,
+        "med_sharpe": -1.5785904507798048,
+        "med_dd": -49.062384361980904,
+        "frac_profit": 0.0,
+        "med_trades": 22.0
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 20,
+        "slow": 50,
+        "trend": 200,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -51.505311999255895,
+        "med_sharpe": -0.8380429556031768,
+        "med_dd": -60.368070290386015,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 56.5
+      },
+      "h1": {
+        "med_ret": -26.946664957810704,
+        "med_sharpe": -0.521289256591386,
+        "med_dd": -42.6592505602697,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 32.5
+      },
+      "h2": {
+        "med_ret": -30.92109340242073,
+        "med_sharpe": -1.5045468527074366,
+        "med_dd": -40.686786643405796,
+        "frac_profit": 0.0,
+        "med_trades": 21.0
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 20,
+        "slow": 50,
+        "trend": 200,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -50.13290740360292,
+        "med_sharpe": -0.7426026897541902,
+        "med_dd": -60.817026949712115,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 41.0
+      },
+      "h1": {
+        "med_ret": -17.917609440334665,
+        "med_sharpe": -0.201756347519644,
+        "med_dd": -42.431877762846185,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 24.0
+      },
+      "h2": {
+        "med_ret": -29.153300444997885,
+        "med_sharpe": -1.4555667257515572,
+        "med_dd": -40.44680935962107,
+        "frac_profit": 0.0,
+        "med_trades": 16.5
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 20,
+        "slow": 100,
+        "trend": 100,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -53.51864337833808,
+        "med_sharpe": -0.8313411844536993,
+        "med_dd": -62.035353699383585,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 55.0
+      },
+      "h1": {
+        "med_ret": -23.379182663611424,
+        "med_sharpe": -0.4310657081897572,
+        "med_dd": -40.945999633968746,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 31.5
+      },
+      "h2": {
+        "med_ret": -33.28361590296534,
+        "med_sharpe": -1.155910169841577,
+        "med_dd": -42.92628323169623,
+        "frac_profit": 0.0,
+        "med_trades": 23.5
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 20,
+        "slow": 100,
+        "trend": 100,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -44.78269025651829,
+        "med_sharpe": -0.523019529562,
+        "med_dd": -60.12249170789907,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 38.5
+      },
+      "h1": {
+        "med_ret": -21.289526683716204,
+        "med_sharpe": -0.27470708853092995,
+        "med_dd": -38.509833240527605,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 21.5
+      },
+      "h2": {
+        "med_ret": -28.209160763481144,
+        "med_sharpe": -1.2775604463766954,
+        "med_dd": -45.78143283908103,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 16.5
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 20,
+        "slow": 100,
+        "trend": 200,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -54.494584931893066,
+        "med_sharpe": -0.785049577214357,
+        "med_dd": -60.65472076291647,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 54.5
+      },
+      "h1": {
+        "med_ret": -22.053955468642695,
+        "med_sharpe": -0.27578533242416714,
+        "med_dd": -44.71921182102642,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 32.5
+      },
+      "h2": {
+        "med_ret": -31.446994037907857,
+        "med_sharpe": -1.3077228400737295,
+        "med_dd": -40.20692626164095,
+        "frac_profit": 0.0,
+        "med_trades": 21.0
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 20,
+        "slow": 100,
+        "trend": 200,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -46.26098120758641,
+        "med_sharpe": -0.6329549476288141,
+        "med_dd": -55.79539205509143,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 39.5
+      },
+      "h1": {
+        "med_ret": -18.288101196963886,
+        "med_sharpe": -0.17945606663020214,
+        "med_dd": -43.72695367479971,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 23.5
+      },
+      "h2": {
+        "med_ret": -25.027014976677826,
+        "med_sharpe": -1.3341405152596946,
+        "med_dd": -39.90797854525488,
+        "frac_profit": 0.0,
+        "med_trades": 15.5
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 20,
+        "slow": 150,
+        "trend": 100,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -51.55862964334982,
+        "med_sharpe": -0.7310031479067169,
+        "med_dd": -58.086452138787195,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 47.5
+      },
+      "h1": {
+        "med_ret": -21.034401401949623,
+        "med_sharpe": -0.26331501113372147,
+        "med_dd": -39.966744917750034,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 30.0
+      },
+      "h2": {
+        "med_ret": -25.28535200322445,
+        "med_sharpe": -0.8952986603053383,
+        "med_dd": -36.882305539527465,
+        "frac_profit": 0.0,
+        "med_trades": 18.0
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 20,
+        "slow": 150,
+        "trend": 100,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -41.19112406466807,
+        "med_sharpe": -0.5473787284974991,
+        "med_dd": -55.600894910004186,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 33.5
+      },
+      "h1": {
+        "med_ret": -13.57846547545849,
+        "med_sharpe": -0.028300955873210902,
+        "med_dd": -38.998279973387454,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 20.5
+      },
+      "h2": {
+        "med_ret": -21.648316170094724,
+        "med_sharpe": -0.9057897344098484,
+        "med_dd": -35.939184987433364,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 12.5
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 20,
+        "slow": 150,
+        "trend": 200,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -50.42447225049925,
+        "med_sharpe": -0.6647615708072873,
+        "med_dd": -57.34241570433467,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 52.5
+      },
+      "h1": {
+        "med_ret": -23.32774436351076,
+        "med_sharpe": -0.33133614364269237,
+        "med_dd": -46.59217162433647,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 31.5
+      },
+      "h2": {
+        "med_ret": -26.308115152913246,
+        "med_sharpe": -1.1111976735038605,
+        "med_dd": -33.96677339611962,
+        "frac_profit": 0.0,
+        "med_trades": 18.5
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 20,
+        "slow": 150,
+        "trend": 200,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -47.60645965787592,
+        "med_sharpe": -0.501841767703316,
+        "med_dd": -56.550386207538494,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 35.0
+      },
+      "h1": {
+        "med_ret": -18.935127602790118,
+        "med_sharpe": -0.18757515487929777,
+        "med_dd": -41.12817668654267,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 21.5
+      },
+      "h2": {
+        "med_ret": -23.884621128696146,
+        "med_sharpe": -1.287824827713492,
+        "med_dd": -36.44801847646693,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 13.5
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 30,
+        "slow": 50,
+        "trend": 100,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -59.326343411157666,
+        "med_sharpe": -0.9229395822619771,
+        "med_dd": -66.6260583282131,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 59.5
+      },
+      "h1": {
+        "med_ret": -21.971514784115982,
+        "med_sharpe": -0.3186779399194416,
+        "med_dd": -44.57798928317587,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 31.5
+      },
+      "h2": {
+        "med_ret": -39.004430811286895,
+        "med_sharpe": -1.3313869993444851,
+        "med_dd": -45.67856450713326,
+        "frac_profit": 0.0,
+        "med_trades": 27.0
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 30,
+        "slow": 50,
+        "trend": 100,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -53.191475460075836,
+        "med_sharpe": -0.6470927303887302,
+        "med_dd": -63.0203804548118,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 43.5
+      },
+      "h1": {
+        "med_ret": -14.212514920332797,
+        "med_sharpe": -0.0735279172585356,
+        "med_dd": -43.372687609688754,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 23.0
+      },
+      "h2": {
+        "med_ret": -37.081728152799,
+        "med_sharpe": -1.56750302509067,
+        "med_dd": -45.093743167511626,
+        "frac_profit": 0.0,
+        "med_trades": 19.5
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 30,
+        "slow": 50,
+        "trend": 200,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -55.16454934830473,
+        "med_sharpe": -0.8644089278586049,
+        "med_dd": -61.424194840105315,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 56.0
+      },
+      "h1": {
+        "med_ret": -24.184514978555818,
+        "med_sharpe": -0.4047533040991726,
+        "med_dd": -46.66418488836951,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 33.0
+      },
+      "h2": {
+        "med_ret": -33.05093196074778,
+        "med_sharpe": -1.2716871138660644,
+        "med_dd": -39.80693608535664,
+        "frac_profit": 0.0,
+        "med_trades": 21.0
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 30,
+        "slow": 50,
+        "trend": 200,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -51.295058878409264,
+        "med_sharpe": -0.6849724394525873,
+        "med_dd": -59.54126620978027,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 41.5
+      },
+      "h1": {
+        "med_ret": -24.376781465052577,
+        "med_sharpe": -0.38259828403399,
+        "med_dd": -48.226852454917854,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 23.5
+      },
+      "h2": {
+        "med_ret": -28.27141110416887,
+        "med_sharpe": -1.3325798953663799,
+        "med_dd": -40.57482973684127,
+        "frac_profit": 0.0,
+        "med_trades": 15.5
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 30,
+        "slow": 100,
+        "trend": 100,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -56.09318619687639,
+        "med_sharpe": -0.8783356406900262,
+        "med_dd": -61.11702775280613,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 49.5
+      },
+      "h1": {
+        "med_ret": -22.88147695658968,
+        "med_sharpe": -0.32323378275532644,
+        "med_dd": -43.15646999502122,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 30.0
+      },
+      "h2": {
+        "med_ret": -21.601608999368473,
+        "med_sharpe": -1.0238831024787731,
+        "med_dd": -40.143346962859965,
+        "frac_profit": 0.0,
+        "med_trades": 20.5
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 30,
+        "slow": 100,
+        "trend": 100,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -45.18899519022318,
+        "med_sharpe": -0.6061008385741817,
+        "med_dd": -56.970972409849594,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 35.5
+      },
+      "h1": {
+        "med_ret": -18.888097159381918,
+        "med_sharpe": -0.2095754996626966,
+        "med_dd": -41.08870112824304,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 21.0
+      },
+      "h2": {
+        "med_ret": -20.830605959153793,
+        "med_sharpe": -0.8434981818943816,
+        "med_dd": -42.08269007062836,
+        "frac_profit": 0.0,
+        "med_trades": 14.5
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 30,
+        "slow": 100,
+        "trend": 200,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -52.90396990166976,
+        "med_sharpe": -0.7542598820405663,
+        "med_dd": -58.853876482253526,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 53.5
+      },
+      "h1": {
+        "med_ret": -23.41657729826754,
+        "med_sharpe": -0.3341586822978327,
+        "med_dd": -47.23931948098845,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 31.5
+      },
+      "h2": {
+        "med_ret": -25.637955725051363,
+        "med_sharpe": -1.2718803744527234,
+        "med_dd": -35.51272928025172,
+        "frac_profit": 0.0,
+        "med_trades": 19.5
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 30,
+        "slow": 100,
+        "trend": 200,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -49.864300945638234,
+        "med_sharpe": -0.695154472283212,
+        "med_dd": -59.08000793549059,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 37.5
+      },
+      "h1": {
+        "med_ret": -15.478748145727867,
+        "med_sharpe": -0.11135346401800444,
+        "med_dd": -46.505250580867546,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 22.0
+      },
+      "h2": {
+        "med_ret": -22.078432464393856,
+        "med_sharpe": -1.1504299013182409,
+        "med_dd": -37.267471200714546,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 14.0
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 30,
+        "slow": 150,
+        "trend": 100,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -45.63185245868742,
+        "med_sharpe": -0.7054042371444849,
+        "med_dd": -55.25776256535029,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 45.5
+      },
+      "h1": {
+        "med_ret": -19.59867470053268,
+        "med_sharpe": -0.2516757812425895,
+        "med_dd": -39.47483740299446,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 28.0
+      },
+      "h2": {
+        "med_ret": -27.36252246357519,
+        "med_sharpe": -1.1536078799033405,
+        "med_dd": -35.09645058014313,
+        "frac_profit": 0.0,
+        "med_trades": 17.5
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 30,
+        "slow": 150,
+        "trend": 100,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -39.43803100269338,
+        "med_sharpe": -0.5564390589682753,
+        "med_dd": -53.700448018859056,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 32.0
+      },
+      "h1": {
+        "med_ret": -9.906123319689868,
+        "med_sharpe": 0.031200434764494057,
+        "med_dd": -38.24219142449445,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 19.0
+      },
+      "h2": {
+        "med_ret": -24.12286891983179,
+        "med_sharpe": -1.124950484195154,
+        "med_dd": -36.33374568853853,
+        "frac_profit": 0.0,
+        "med_trades": 12.0
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 30,
+        "slow": 150,
+        "trend": 200,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -49.923641737620926,
+        "med_sharpe": -0.8012751297443867,
+        "med_dd": -57.40577010222192,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 51.0
+      },
+      "h1": {
+        "med_ret": -23.673862151426682,
+        "med_sharpe": -0.338842081680097,
+        "med_dd": -43.904839444078675,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 30.5
+      },
+      "h2": {
+        "med_ret": -28.912828248067747,
+        "med_sharpe": -1.3127728488469415,
+        "med_dd": -34.927478092203415,
+        "frac_profit": 0.0,
+        "med_trades": 18.5
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 30,
+        "slow": 150,
+        "trend": 200,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -49.63443765879238,
+        "med_sharpe": -0.5886508408859336,
+        "med_dd": -59.55224508137533,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 34.0
+      },
+      "h1": {
+        "med_ret": -18.639360009975242,
+        "med_sharpe": -0.176660444824364,
+        "med_dd": -41.81034149721997,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 21.0
+      },
+      "h2": {
+        "med_ret": -26.720731524792825,
+        "med_sharpe": -1.3865839932416122,
+        "med_dd": -34.79958553047207,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 13.0
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 50,
+        "slow": 50,
+        "trend": 100,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      },
+      "h1": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      },
+      "h2": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 50,
+        "slow": 50,
+        "trend": 100,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      },
+      "h1": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      },
+      "h2": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 50,
+        "slow": 50,
+        "trend": 200,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      },
+      "h1": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      },
+      "h2": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 50,
+        "slow": 50,
+        "trend": 200,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      },
+      "h1": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      },
+      "h2": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 50,
+        "slow": 100,
+        "trend": 100,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -48.13060600735505,
+        "med_sharpe": -0.7083059617457701,
+        "med_dd": -58.14886807449735,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 46.5
+      },
+      "h1": {
+        "med_ret": -20.144188155664832,
+        "med_sharpe": -0.2381075448442026,
+        "med_dd": -36.34974979714346,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 28.5
+      },
+      "h2": {
+        "med_ret": -29.298791723963276,
+        "med_sharpe": -1.2445603743868774,
+        "med_dd": -36.486073256786085,
+        "frac_profit": 0.0,
+        "med_trades": 18.5
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 50,
+        "slow": 100,
+        "trend": 100,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -47.21580542747573,
+        "med_sharpe": -0.5142745566262198,
+        "med_dd": -59.03218651655406,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 32.5
+      },
+      "h1": {
+        "med_ret": -13.2723758839011,
+        "med_sharpe": -0.020750359375138232,
+        "med_dd": -38.50956781684073,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 19.5
+      },
+      "h2": {
+        "med_ret": -26.604159569025132,
+        "med_sharpe": -1.1932459887102906,
+        "med_dd": -37.41238249631262,
+        "frac_profit": 0.0,
+        "med_trades": 13.5
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 50,
+        "slow": 100,
+        "trend": 200,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -51.55614431987999,
+        "med_sharpe": -0.7690277854707623,
+        "med_dd": -58.767426210099245,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 50.5
+      },
+      "h1": {
+        "med_ret": -24.775516267055675,
+        "med_sharpe": -0.3782529521735688,
+        "med_dd": -43.9345518514681,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 29.5
+      },
+      "h2": {
+        "med_ret": -31.434962211707983,
+        "med_sharpe": -1.5637598457103963,
+        "med_dd": -37.47672963582309,
+        "frac_profit": 0.0,
+        "med_trades": 18.5
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 50,
+        "slow": 100,
+        "trend": 200,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -51.01003480456797,
+        "med_sharpe": -0.6838409783329891,
+        "med_dd": -60.71698831006615,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 33.5
+      },
+      "h1": {
+        "med_ret": -18.06460082482283,
+        "med_sharpe": -0.11628097326458742,
+        "med_dd": -43.59085623588882,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 21.0
+      },
+      "h2": {
+        "med_ret": -28.51601999969413,
+        "med_sharpe": -1.5606063848211158,
+        "med_dd": -37.44294313542051,
+        "frac_profit": 0.0,
+        "med_trades": 13.0
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 50,
+        "slow": 150,
+        "trend": 100,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -45.39995355982302,
+        "med_sharpe": -0.6859228576317086,
+        "med_dd": -54.867217984200764,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 42.5
+      },
+      "h1": {
+        "med_ret": -16.995887396355194,
+        "med_sharpe": -0.15355695300517677,
+        "med_dd": -34.97951927433097,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 27.0
+      },
+      "h2": {
+        "med_ret": -29.66753712391035,
+        "med_sharpe": -1.3954597406305236,
+        "med_dd": -34.97546165273501,
+        "frac_profit": 0.0,
+        "med_trades": 16.5
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 50,
+        "slow": 150,
+        "trend": 100,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -40.62087382594242,
+        "med_sharpe": -0.5370323783791764,
+        "med_dd": -53.49093827623982,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 29.0
+      },
+      "h1": {
+        "med_ret": -5.077352896533044,
+        "med_sharpe": 0.17338849220310246,
+        "med_dd": -37.074039901708645,
+        "frac_profit": 0.42857142857142855,
+        "med_trades": 18.0
+      },
+      "h2": {
+        "med_ret": -31.362886734544247,
+        "med_sharpe": -1.340782951758344,
+        "med_dd": -35.90152227350973,
+        "frac_profit": 0.0,
+        "med_trades": 11.0
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 50,
+        "slow": 150,
+        "trend": 200,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -52.544105505258074,
+        "med_sharpe": -0.8686224358375252,
+        "med_dd": -59.32444708461763,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 47.0
+      },
+      "h1": {
+        "med_ret": -24.113674176765684,
+        "med_sharpe": -0.3557217741093498,
+        "med_dd": -43.37010099265461,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 28.0
+      },
+      "h2": {
+        "med_ret": -29.27559711042244,
+        "med_sharpe": -1.3720736713560782,
+        "med_dd": -34.48271350679636,
+        "frac_profit": 0.0,
+        "med_trades": 17.5
+      }
+    },
+    {
+      "fam": "ema_trend",
+      "params": {
+        "fast": 50,
+        "slow": 150,
+        "trend": 200,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -50.52944077583338,
+        "med_sharpe": -0.6982509100316745,
+        "med_dd": -59.705363067147324,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 33.0
+      },
+      "h1": {
+        "med_ret": -18.123324016593678,
+        "med_sharpe": -0.16983510274127495,
+        "med_dd": -41.37995587147178,
+        "frac_profit": 0.42857142857142855,
+        "med_trades": 20.0
+      },
+      "h2": {
+        "med_ret": -31.78210535675094,
+        "med_sharpe": -1.409995302840294,
+        "med_dd": -35.96419113850544,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 12.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 20,
+        "exit": 10,
+        "trend": 0,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -52.83960523769807,
+        "med_sharpe": -0.853958943328597,
+        "med_dd": -59.017128860556575,
+        "frac_profit": 0.0,
+        "med_trades": 50.0
+      },
+      "h1": {
+        "med_ret": -24.57700686011443,
+        "med_sharpe": -0.604643178833133,
+        "med_dd": -42.81326472508648,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 26.5
+      },
+      "h2": {
+        "med_ret": -33.78968121402653,
+        "med_sharpe": -1.2380022864923212,
+        "med_dd": -42.11074341712204,
+        "frac_profit": 0.0,
+        "med_trades": 24.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 20,
+        "exit": 10,
+        "trend": 0,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -50.48177424347231,
+        "med_sharpe": -0.8830393446548297,
+        "med_dd": -61.47342529777558,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 47.5
+      },
+      "h1": {
+        "med_ret": -23.360270110683867,
+        "med_sharpe": -0.5578429385328232,
+        "med_dd": -41.2032617050921,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 25.5
+      },
+      "h2": {
+        "med_ret": -33.80032492209115,
+        "med_sharpe": -1.2100122758733203,
+        "med_dd": -45.83425213519136,
+        "frac_profit": 0.0,
+        "med_trades": 23.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 20,
+        "exit": 10,
+        "trend": 100,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -38.260885330999066,
+        "med_sharpe": -0.6784099677702597,
+        "med_dd": -47.71834009988096,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 40.0
+      },
+      "h1": {
+        "med_ret": -12.181136949051302,
+        "med_sharpe": -0.19144627582812274,
+        "med_dd": -34.121203539141845,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 22.0
+      },
+      "h2": {
+        "med_ret": -26.64771308104565,
+        "med_sharpe": -1.1352151081087918,
+        "med_dd": -38.085974724644004,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 18.5
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 20,
+        "exit": 10,
+        "trend": 100,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -39.229810309799134,
+        "med_sharpe": -0.7035163852462671,
+        "med_dd": -51.959938335253526,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 39.0
+      },
+      "h1": {
+        "med_ret": -17.55783592193993,
+        "med_sharpe": -0.34661481262818294,
+        "med_dd": -36.011132657294425,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 22.0
+      },
+      "h2": {
+        "med_ret": -27.649410564435673,
+        "med_sharpe": -1.1502584467607295,
+        "med_dd": -37.549572171577196,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 18.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 20,
+        "exit": 10,
+        "trend": 200,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -31.004609908550346,
+        "med_sharpe": -0.5440544633448575,
+        "med_dd": -40.215462011467906,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 32.5
+      },
+      "h1": {
+        "med_ret": -9.249990477892943,
+        "med_sharpe": -0.08920323799836039,
+        "med_dd": -29.815107257124,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 19.5
+      },
+      "h2": {
+        "med_ret": -20.29132097229457,
+        "med_sharpe": -1.2190251437030182,
+        "med_dd": -32.33717319138207,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 14.5
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 20,
+        "exit": 10,
+        "trend": 200,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -30.114301787719967,
+        "med_sharpe": -0.49626916914192487,
+        "med_dd": -43.63368604980198,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 31.5
+      },
+      "h1": {
+        "med_ret": -12.633423928142662,
+        "med_sharpe": -0.14575087972305992,
+        "med_dd": -31.349232797089556,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 19.5
+      },
+      "h2": {
+        "med_ret": -16.62535553942192,
+        "med_sharpe": -0.9186189011061183,
+        "med_dd": -30.818785855509464,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 13.5
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 20,
+        "exit": 20,
+        "trend": 0,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -60.810227549712536,
+        "med_sharpe": -0.9016957205773086,
+        "med_dd": -66.21600105441239,
+        "frac_profit": 0.0,
+        "med_trades": 44.5
+      },
+      "h1": {
+        "med_ret": -20.96037457247302,
+        "med_sharpe": -0.2981753981223335,
+        "med_dd": -44.67670036943355,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 23.5
+      },
+      "h2": {
+        "med_ret": -39.01891747126487,
+        "med_sharpe": -1.4931114101473164,
+        "med_dd": -50.71048371865432,
+        "frac_profit": 0.0,
+        "med_trades": 23.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 20,
+        "exit": 20,
+        "trend": 0,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -61.6585239096124,
+        "med_sharpe": -0.9169714689343729,
+        "med_dd": -67.74355010085671,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 40.0
+      },
+      "h1": {
+        "med_ret": -24.580961910781795,
+        "med_sharpe": -0.3580753676470202,
+        "med_dd": -47.9992225121553,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 21.0
+      },
+      "h2": {
+        "med_ret": -44.356127676535465,
+        "med_sharpe": -1.494160284652266,
+        "med_dd": -54.7070919873631,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 20.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 20,
+        "exit": 20,
+        "trend": 100,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -41.83216371528887,
+        "med_sharpe": -0.5621629239387084,
+        "med_dd": -56.078878052718736,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 37.0
+      },
+      "h1": {
+        "med_ret": -9.116176223447736,
+        "med_sharpe": 0.05869764713627298,
+        "med_dd": -39.479281801585635,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 20.0
+      },
+      "h2": {
+        "med_ret": -35.71735691859534,
+        "med_sharpe": -1.460626892956277,
+        "med_dd": -43.32722856856204,
+        "frac_profit": 0.0,
+        "med_trades": 17.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 20,
+        "exit": 20,
+        "trend": 100,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -48.62342185959652,
+        "med_sharpe": -0.6856688435900185,
+        "med_dd": -59.434834237969476,
+        "frac_profit": 0.0,
+        "med_trades": 33.5
+      },
+      "h1": {
+        "med_ret": -16.102308164199734,
+        "med_sharpe": -0.1211346303804877,
+        "med_dd": -45.97990038343223,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 19.0
+      },
+      "h2": {
+        "med_ret": -35.68581834558756,
+        "med_sharpe": -1.4392920231170963,
+        "med_dd": -45.14495207713091,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 16.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 20,
+        "exit": 20,
+        "trend": 200,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -35.388903306932136,
+        "med_sharpe": -0.40993658413273165,
+        "med_dd": -51.70417389986855,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 29.0
+      },
+      "h1": {
+        "med_ret": -8.589891820198964,
+        "med_sharpe": 0.05554978689160827,
+        "med_dd": -35.44592124576846,
+        "frac_profit": 0.42857142857142855,
+        "med_trades": 16.5
+      },
+      "h2": {
+        "med_ret": -25.775202405184103,
+        "med_sharpe": -1.3344282002362924,
+        "med_dd": -35.9552449178208,
+        "frac_profit": 0.0,
+        "med_trades": 13.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 20,
+        "exit": 20,
+        "trend": 200,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -40.136324237283475,
+        "med_sharpe": -0.6402943036070774,
+        "med_dd": -56.38342562298806,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 27.5
+      },
+      "h1": {
+        "med_ret": -21.36381871536394,
+        "med_sharpe": -0.31713232740093833,
+        "med_dd": -41.4653179432662,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 16.5
+      },
+      "h2": {
+        "med_ret": -25.772786583503343,
+        "med_sharpe": -1.1197383421290463,
+        "med_dd": -38.12473686977999,
+        "frac_profit": 0.0,
+        "med_trades": 12.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 30,
+        "exit": 10,
+        "trend": 0,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -36.68852367887236,
+        "med_sharpe": -0.6824376424054384,
+        "med_dd": -50.36034977229579,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 39.0
+      },
+      "h1": {
+        "med_ret": -2.708903776112004,
+        "med_sharpe": 0.109294497008248,
+        "med_dd": -32.825187540746214,
+        "frac_profit": 0.5,
+        "med_trades": 21.0
+      },
+      "h2": {
+        "med_ret": -33.58012837445993,
+        "med_sharpe": -1.8952102235611523,
+        "med_dd": -43.36663502183899,
+        "frac_profit": 0.0,
+        "med_trades": 18.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 30,
+        "exit": 10,
+        "trend": 0,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -41.03397555193723,
+        "med_sharpe": -0.7445512466353486,
+        "med_dd": -54.80162343914988,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 37.0
+      },
+      "h1": {
+        "med_ret": -4.1769345662656665,
+        "med_sharpe": 0.06464768719055011,
+        "med_dd": -34.71960319187501,
+        "frac_profit": 0.5,
+        "med_trades": 20.0
+      },
+      "h2": {
+        "med_ret": -32.462686494628855,
+        "med_sharpe": -1.56691357970376,
+        "med_dd": -43.42295477430292,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 18.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 30,
+        "exit": 10,
+        "trend": 100,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -28.16242455012443,
+        "med_sharpe": -0.4707721435154295,
+        "med_dd": -46.508127349290035,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 34.5
+      },
+      "h1": {
+        "med_ret": 3.442146815514202,
+        "med_sharpe": 0.26178971452850186,
+        "med_dd": -31.99880238800761,
+        "frac_profit": 0.5,
+        "med_trades": 19.5
+      },
+      "h2": {
+        "med_ret": -30.147095475696986,
+        "med_sharpe": -1.5467361676327012,
+        "med_dd": -38.864325223584416,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 16.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 30,
+        "exit": 10,
+        "trend": 100,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -34.565573280427145,
+        "med_sharpe": -0.568760251166001,
+        "med_dd": -51.17431957186585,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 33.5
+      },
+      "h1": {
+        "med_ret": -0.43752271459949754,
+        "med_sharpe": 0.14476704137814494,
+        "med_dd": -32.59870169657275,
+        "frac_profit": 0.42857142857142855,
+        "med_trades": 19.0
+      },
+      "h2": {
+        "med_ret": -30.474105724450503,
+        "med_sharpe": -1.4416708512167744,
+        "med_dd": -37.47965683821408,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 15.5
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 30,
+        "exit": 10,
+        "trend": 200,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -15.083796974763619,
+        "med_sharpe": -0.2469254840446647,
+        "med_dd": -38.80541469705275,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 28.0
+      },
+      "h1": {
+        "med_ret": 0.5211339497960321,
+        "med_sharpe": 0.21362782898170413,
+        "med_dd": -26.17296610310254,
+        "frac_profit": 0.5,
+        "med_trades": 16.5
+      },
+      "h2": {
+        "med_ret": -21.125391439705382,
+        "med_sharpe": -1.0254103553990126,
+        "med_dd": -30.83524831427841,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 13.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 30,
+        "exit": 10,
+        "trend": 200,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -23.65378205578959,
+        "med_sharpe": -0.28086569228061886,
+        "med_dd": -40.144404120174,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 26.5
+      },
+      "h1": {
+        "med_ret": -0.991225216604491,
+        "med_sharpe": 0.1441859747027735,
+        "med_dd": -27.64920452770646,
+        "frac_profit": 0.5,
+        "med_trades": 16.0
+      },
+      "h2": {
+        "med_ret": -20.1323231900845,
+        "med_sharpe": -0.9509108097630603,
+        "med_dd": -31.147616923157223,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 12.5
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 30,
+        "exit": 20,
+        "trend": 0,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -47.64667238703011,
+        "med_sharpe": -0.7839862397167728,
+        "med_dd": -59.13138634062296,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 35.5
+      },
+      "h1": {
+        "med_ret": -9.589026285631363,
+        "med_sharpe": 0.010584601103339059,
+        "med_dd": -38.63302940062798,
+        "frac_profit": 0.42857142857142855,
+        "med_trades": 18.0
+      },
+      "h2": {
+        "med_ret": -40.14423038154917,
+        "med_sharpe": -2.226819067990469,
+        "med_dd": -49.469607308992494,
+        "frac_profit": 0.0,
+        "med_trades": 17.5
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 30,
+        "exit": 20,
+        "trend": 0,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -53.11776344453196,
+        "med_sharpe": -0.7946578355470396,
+        "med_dd": -61.92013228534449,
+        "frac_profit": 0.0,
+        "med_trades": 32.0
+      },
+      "h1": {
+        "med_ret": -10.028259409191715,
+        "med_sharpe": -0.007332200830472535,
+        "med_dd": -40.67202910924214,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 16.0
+      },
+      "h2": {
+        "med_ret": -43.01699561198345,
+        "med_sharpe": -2.0923840076090716,
+        "med_dd": -51.00504674331782,
+        "frac_profit": 0.0,
+        "med_trades": 17.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 30,
+        "exit": 20,
+        "trend": 100,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -38.2259661743479,
+        "med_sharpe": -0.5716811182371944,
+        "med_dd": -54.38508573055792,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 31.5
+      },
+      "h1": {
+        "med_ret": 1.3571759524170834,
+        "med_sharpe": 0.29352264836526654,
+        "med_dd": -35.136827874313,
+        "frac_profit": 0.5,
+        "med_trades": 16.5
+      },
+      "h2": {
+        "med_ret": -36.18768049298356,
+        "med_sharpe": -1.837693926230261,
+        "med_dd": -41.94687063809393,
+        "frac_profit": 0.0,
+        "med_trades": 15.5
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 30,
+        "exit": 20,
+        "trend": 100,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -48.33460001656391,
+        "med_sharpe": -0.6538039699839493,
+        "med_dd": -59.98450943279106,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 30.0
+      },
+      "h1": {
+        "med_ret": -4.309361015075747,
+        "med_sharpe": 0.1393088321836473,
+        "med_dd": -36.90957774254267,
+        "frac_profit": 0.42857142857142855,
+        "med_trades": 15.0
+      },
+      "h2": {
+        "med_ret": -36.03539583825865,
+        "med_sharpe": -1.6109353927985133,
+        "med_dd": -43.47963111631117,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 15.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 30,
+        "exit": 20,
+        "trend": 200,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -33.293040896261175,
+        "med_sharpe": -0.3513430561195027,
+        "med_dd": -47.493771626528,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 25.5
+      },
+      "h1": {
+        "med_ret": -1.5218154427886321,
+        "med_sharpe": 0.21895388043756703,
+        "med_dd": -31.403918556425047,
+        "frac_profit": 0.5,
+        "med_trades": 14.0
+      },
+      "h2": {
+        "med_ret": -26.605064666013146,
+        "med_sharpe": -1.2694787652308377,
+        "med_dd": -34.884863423107156,
+        "frac_profit": 0.0,
+        "med_trades": 12.5
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 30,
+        "exit": 20,
+        "trend": 200,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -35.48390365017899,
+        "med_sharpe": -0.42511524273377654,
+        "med_dd": -51.533987100071386,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 23.0
+      },
+      "h1": {
+        "med_ret": -8.71993582815318,
+        "med_sharpe": 0.02200047656042449,
+        "med_dd": -37.83190061103065,
+        "frac_profit": 0.42857142857142855,
+        "med_trades": 14.0
+      },
+      "h2": {
+        "med_ret": -23.773067374599755,
+        "med_sharpe": -1.1126510363284892,
+        "med_dd": -36.14438443760106,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 11.5
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 40,
+        "exit": 10,
+        "trend": 0,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -27.258323250586113,
+        "med_sharpe": -0.32690718362577037,
+        "med_dd": -42.82401074350611,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 31.0
+      },
+      "h1": {
+        "med_ret": 1.5215066567398572,
+        "med_sharpe": 0.24471757329099975,
+        "med_dd": -32.666327789860475,
+        "frac_profit": 0.5714285714285714,
+        "med_trades": 16.5
+      },
+      "h2": {
+        "med_ret": -18.48753051479564,
+        "med_sharpe": -0.9589580189316165,
+        "med_dd": -32.32657912594314,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 13.5
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 40,
+        "exit": 10,
+        "trend": 0,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -29.41391053669227,
+        "med_sharpe": -0.42597927328663704,
+        "med_dd": -44.56687120027681,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 29.5
+      },
+      "h1": {
+        "med_ret": -4.451798635121812,
+        "med_sharpe": 0.04541602399050032,
+        "med_dd": -34.9710073613071,
+        "frac_profit": 0.42857142857142855,
+        "med_trades": 16.0
+      },
+      "h2": {
+        "med_ret": -19.408687653621783,
+        "med_sharpe": -1.133524921501147,
+        "med_dd": -33.86756428512176,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 13.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 40,
+        "exit": 10,
+        "trend": 100,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -22.954958648178454,
+        "med_sharpe": -0.25991478255518435,
+        "med_dd": -38.9402304125162,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 29.0
+      },
+      "h1": {
+        "med_ret": 1.5215066567398572,
+        "med_sharpe": 0.24471757329099975,
+        "med_dd": -31.317600302611567,
+        "frac_profit": 0.5714285714285714,
+        "med_trades": 16.5
+      },
+      "h2": {
+        "med_ret": -20.404499373600558,
+        "med_sharpe": -1.127254010816884,
+        "med_dd": -31.930583969626994,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 12.5
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 40,
+        "exit": 10,
+        "trend": 100,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -27.2651274702176,
+        "med_sharpe": -0.37824831019082455,
+        "med_dd": -41.84725286219043,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 28.5
+      },
+      "h1": {
+        "med_ret": -1.720966812319591,
+        "med_sharpe": 0.13696876076461428,
+        "med_dd": -33.57895126045582,
+        "frac_profit": 0.5,
+        "med_trades": 16.0
+      },
+      "h2": {
+        "med_ret": -21.402056650771662,
+        "med_sharpe": -1.183459218687884,
+        "med_dd": -32.90937693372264,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 12.5
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 40,
+        "exit": 10,
+        "trend": 200,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -5.093577322877424,
+        "med_sharpe": 0.020569413031349328,
+        "med_dd": -33.05648687348268,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 24.0
+      },
+      "h1": {
+        "med_ret": 1.207767860329062,
+        "med_sharpe": 0.24799057177170608,
+        "med_dd": -28.199152068277026,
+        "frac_profit": 0.5,
+        "med_trades": 15.0
+      },
+      "h2": {
+        "med_ret": -13.851568209602117,
+        "med_sharpe": -0.8045762549210236,
+        "med_dd": -23.955082167423775,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 10.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 40,
+        "exit": 10,
+        "trend": 200,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -15.767395401702899,
+        "med_sharpe": -0.12355221746669885,
+        "med_dd": -37.68322127602008,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 23.5
+      },
+      "h1": {
+        "med_ret": 0.4316966091017116,
+        "med_sharpe": 0.2038467500056531,
+        "med_dd": -30.7910939376627,
+        "frac_profit": 0.5,
+        "med_trades": 15.0
+      },
+      "h2": {
+        "med_ret": -11.800842197564576,
+        "med_sharpe": -0.7774802992728869,
+        "med_dd": -28.287375263964805,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 9.5
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 40,
+        "exit": 20,
+        "trend": 0,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -38.984215938182686,
+        "med_sharpe": -0.4949533530920225,
+        "med_dd": -51.15298902464455,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 28.5
+      },
+      "h1": {
+        "med_ret": -6.550209888390401,
+        "med_sharpe": 0.07704324740999374,
+        "med_dd": -39.5761642363087,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 15.5
+      },
+      "h2": {
+        "med_ret": -28.31966693794876,
+        "med_sharpe": -1.346993240848173,
+        "med_dd": -37.58096349639969,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 13.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 40,
+        "exit": 20,
+        "trend": 0,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -45.438919090719196,
+        "med_sharpe": -0.6689709554689285,
+        "med_dd": -55.98944853932923,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 27.0
+      },
+      "h1": {
+        "med_ret": -10.79278200623443,
+        "med_sharpe": -0.006948672330795616,
+        "med_dd": -39.049105909008674,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 14.5
+      },
+      "h2": {
+        "med_ret": -29.99915242224549,
+        "med_sharpe": -1.6955354160474463,
+        "med_dd": -39.348735614521736,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 12.5
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 40,
+        "exit": 20,
+        "trend": 100,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -41.45613926215417,
+        "med_sharpe": -0.5481303391486929,
+        "med_dd": -50.41338723903121,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 27.0
+      },
+      "h1": {
+        "med_ret": -2.3520285735649296,
+        "med_sharpe": 0.2049753684593439,
+        "med_dd": -39.67564644048235,
+        "frac_profit": 0.42857142857142855,
+        "med_trades": 15.0
+      },
+      "h2": {
+        "med_ret": -27.343429242262843,
+        "med_sharpe": -1.2045792225009961,
+        "med_dd": -36.25238285901504,
+        "frac_profit": 0.0,
+        "med_trades": 12.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 40,
+        "exit": 20,
+        "trend": 100,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -41.306350445692516,
+        "med_sharpe": -0.596925922215471,
+        "med_dd": -53.23530335545567,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 25.5
+      },
+      "h1": {
+        "med_ret": -5.667268604390646,
+        "med_sharpe": 0.08678781834638988,
+        "med_dd": -41.698605095472615,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 14.0
+      },
+      "h2": {
+        "med_ret": -30.92828518776896,
+        "med_sharpe": -1.4525619370483898,
+        "med_dd": -36.28089578132053,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 12.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 40,
+        "exit": 20,
+        "trend": 200,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -26.129934062713478,
+        "med_sharpe": -0.19088383075101484,
+        "med_dd": -41.423436696129656,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 22.0
+      },
+      "h1": {
+        "med_ret": 0.7697782955486399,
+        "med_sharpe": 0.2754330161949983,
+        "med_dd": -30.7080359086575,
+        "frac_profit": 0.5,
+        "med_trades": 12.5
+      },
+      "h2": {
+        "med_ret": -20.883427689884076,
+        "med_sharpe": -0.8752224863434599,
+        "med_dd": -29.260402450299228,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 9.5
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 40,
+        "exit": 20,
+        "trend": 200,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -33.07419640684962,
+        "med_sharpe": -0.44148301700464987,
+        "med_dd": -45.58468023261289,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 20.5
+      },
+      "h1": {
+        "med_ret": -4.994976879152785,
+        "med_sharpe": 0.12391667336370267,
+        "med_dd": -35.37849134296001,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 12.5
+      },
+      "h2": {
+        "med_ret": -24.572376236778137,
+        "med_sharpe": -1.004993659611045,
+        "med_dd": -31.558575433872562,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 9.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 55,
+        "exit": 10,
+        "trend": 0,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -26.847364681135822,
+        "med_sharpe": -0.5615111174446146,
+        "med_dd": -40.9986526486461,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 26.5
+      },
+      "h1": {
+        "med_ret": -5.558674948008591,
+        "med_sharpe": -0.12983339287354873,
+        "med_dd": -28.63448991725287,
+        "frac_profit": 0.42857142857142855,
+        "med_trades": 15.0
+      },
+      "h2": {
+        "med_ret": -20.752006984777424,
+        "med_sharpe": -1.255647501460727,
+        "med_dd": -30.277514653237134,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 10.5
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 55,
+        "exit": 10,
+        "trend": 0,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -33.138752819978265,
+        "med_sharpe": -0.5877912166723558,
+        "med_dd": -44.228620257940975,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 26.0
+      },
+      "h1": {
+        "med_ret": -8.17624139923469,
+        "med_sharpe": -0.11302118932755201,
+        "med_dd": -32.51330855224681,
+        "frac_profit": 0.42857142857142855,
+        "med_trades": 14.5
+      },
+      "h2": {
+        "med_ret": -21.625275463100195,
+        "med_sharpe": -1.2771563349315433,
+        "med_dd": -30.25807005187746,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 10.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 55,
+        "exit": 10,
+        "trend": 100,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -25.147172308746043,
+        "med_sharpe": -0.5333518445339929,
+        "med_dd": -38.18395865747025,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 25.5
+      },
+      "h1": {
+        "med_ret": -5.558674948008591,
+        "med_sharpe": -0.12983339287354873,
+        "med_dd": -28.63448991725287,
+        "frac_profit": 0.42857142857142855,
+        "med_trades": 15.0
+      },
+      "h2": {
+        "med_ret": -17.020236663772526,
+        "med_sharpe": -1.121380080245209,
+        "med_dd": -29.063498308429544,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 10.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 55,
+        "exit": 10,
+        "trend": 100,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -27.594681570182384,
+        "med_sharpe": -0.5763110894091256,
+        "med_dd": -43.9666868557064,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 25.5
+      },
+      "h1": {
+        "med_ret": -3.7182741696570654,
+        "med_sharpe": 0.0361177308216134,
+        "med_dd": -32.513308552246855,
+        "frac_profit": 0.5,
+        "med_trades": 14.5
+      },
+      "h2": {
+        "med_ret": -17.301914089142823,
+        "med_sharpe": -1.2082095125276715,
+        "med_dd": -29.545617509498825,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 10.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 55,
+        "exit": 10,
+        "trend": 200,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -13.175631848425917,
+        "med_sharpe": -0.21899313118728395,
+        "med_dd": -29.759795487669038,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 21.5
+      },
+      "h1": {
+        "med_ret": -4.457824995558901,
+        "med_sharpe": -0.06754537041415748,
+        "med_dd": -26.144026650763237,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 14.0
+      },
+      "h2": {
+        "med_ret": -13.024103498826022,
+        "med_sharpe": -0.9135317159370162,
+        "med_dd": -23.90338039632192,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 7.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 55,
+        "exit": 10,
+        "trend": 200,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -18.865442714725855,
+        "med_sharpe": -0.29749943536332246,
+        "med_dd": -37.79929527747077,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 21.0
+      },
+      "h1": {
+        "med_ret": -8.379705974885976,
+        "med_sharpe": -0.13735489569925807,
+        "med_dd": -29.482379477861326,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 13.0
+      },
+      "h2": {
+        "med_ret": -13.288748119830663,
+        "med_sharpe": -0.8771280111363167,
+        "med_dd": -25.354689757438265,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 7.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 55,
+        "exit": 20,
+        "trend": 0,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -36.862035560174846,
+        "med_sharpe": -0.6893742018594596,
+        "med_dd": -42.16785620384961,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 24.5
+      },
+      "h1": {
+        "med_ret": -9.694270734256838,
+        "med_sharpe": -0.14661112184761052,
+        "med_dd": -33.4498012948294,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 12.5
+      },
+      "h2": {
+        "med_ret": -27.413094154757644,
+        "med_sharpe": -1.5655961597144796,
+        "med_dd": -36.09826992468094,
+        "frac_profit": 0.0,
+        "med_trades": 10.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 55,
+        "exit": 20,
+        "trend": 0,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -41.11029998646683,
+        "med_sharpe": -0.8181754132998644,
+        "med_dd": -48.05496039171294,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 22.5
+      },
+      "h1": {
+        "med_ret": -12.377674175636566,
+        "med_sharpe": -0.15089418072220734,
+        "med_dd": -34.22958984447361,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 12.0
+      },
+      "h2": {
+        "med_ret": -29.480257588609263,
+        "med_sharpe": -1.714065715706496,
+        "med_dd": -36.378460267931885,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 10.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 55,
+        "exit": 20,
+        "trend": 100,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -33.147457988036564,
+        "med_sharpe": -0.670263770976228,
+        "med_dd": -41.237225229768285,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 23.5
+      },
+      "h1": {
+        "med_ret": -8.20332710553866,
+        "med_sharpe": -0.051712181671923374,
+        "med_dd": -31.951468024040192,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 12.5
+      },
+      "h2": {
+        "med_ret": -24.7901507589427,
+        "med_sharpe": -1.4932061675035802,
+        "med_dd": -34.28368964540341,
+        "frac_profit": 0.0,
+        "med_trades": 10.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 55,
+        "exit": 20,
+        "trend": 100,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -37.77670010724495,
+        "med_sharpe": -0.7351177367917457,
+        "med_dd": -46.51744339980074,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 21.5
+      },
+      "h1": {
+        "med_ret": -10.771626008147662,
+        "med_sharpe": -0.09844748162481845,
+        "med_dd": -34.22958984447361,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 11.5
+      },
+      "h2": {
+        "med_ret": -26.554614223198076,
+        "med_sharpe": -1.723794560343643,
+        "med_dd": -35.314474395741485,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 9.5
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 55,
+        "exit": 20,
+        "trend": 200,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -24.615740279199862,
+        "med_sharpe": -0.29488198487034667,
+        "med_dd": -36.171122789416174,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 19.0
+      },
+      "h1": {
+        "med_ret": -8.357592689047793,
+        "med_sharpe": -0.060537179509159995,
+        "med_dd": -27.721609985643838,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 11.0
+      },
+      "h2": {
+        "med_ret": -17.610621431919615,
+        "med_sharpe": -1.1920815942936442,
+        "med_dd": -27.145862209927504,
+        "frac_profit": 0.0,
+        "med_trades": 7.0
+      }
+    },
+    {
+      "fam": "donchian",
+      "params": {
+        "entry": 55,
+        "exit": 20,
+        "trend": 200,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -34.683362601445715,
+        "med_sharpe": -0.5101245129265836,
+        "med_dd": -42.62313459323262,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 18.0
+      },
+      "h1": {
+        "med_ret": -16.23482768974035,
+        "med_sharpe": -0.3303513699753896,
+        "med_dd": -32.17271732710772,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 11.0
+      },
+      "h2": {
+        "med_ret": -20.107480664504195,
+        "med_sharpe": -1.3720826599876377,
+        "med_dd": -31.379981188700647,
+        "frac_profit": 0.0,
+        "med_trades": 7.0
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 14,
+        "buy_below": 25,
+        "sell_above": 50,
+        "trend": 0
+      },
+      "full": {
+        "med_ret": 18.415088500359154,
+        "med_sharpe": 0.5172962755046864,
+        "med_dd": -27.233175097111808,
+        "frac_profit": 0.6428571428571429,
+        "med_trades": 13.0
+      },
+      "h1": {
+        "med_ret": 23.608800335635348,
+        "med_sharpe": 1.087760601871714,
+        "med_dd": -19.359972683573243,
+        "frac_profit": 1.0,
+        "med_trades": 7.0
+      },
+      "h2": {
+        "med_ret": -6.549279511013939,
+        "med_sharpe": -0.14774033919629298,
+        "med_dd": -27.233175097111804,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 6.0
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 14,
+        "buy_below": 25,
+        "sell_above": 50,
+        "trend": 200
+      },
+      "full": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 0.0
+      },
+      "h1": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 0.0
+      },
+      "h2": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 0.0
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 14,
+        "buy_below": 25,
+        "sell_above": 55,
+        "trend": 0
+      },
+      "full": {
+        "med_ret": 15.429271697000534,
+        "med_sharpe": 0.4389907467237798,
+        "med_dd": -26.95714336918659,
+        "frac_profit": 0.7857142857142857,
+        "med_trades": 12.5
+      },
+      "h1": {
+        "med_ret": 25.721727955719274,
+        "med_sharpe": 1.0073553688929984,
+        "med_dd": -19.813890762843158,
+        "frac_profit": 1.0,
+        "med_trades": 7.0
+      },
+      "h2": {
+        "med_ret": -11.880880440504253,
+        "med_sharpe": -0.3598165507912717,
+        "med_dd": -26.9571433691866,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 6.0
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 14,
+        "buy_below": 25,
+        "sell_above": 55,
+        "trend": 200
+      },
+      "full": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 0.0
+      },
+      "h1": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 0.0
+      },
+      "h2": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 0.0
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 14,
+        "buy_below": 25,
+        "sell_above": 65,
+        "trend": 0
+      },
+      "full": {
+        "med_ret": 15.770418911342322,
+        "med_sharpe": 0.4486273457400243,
+        "med_dd": -39.25230853397744,
+        "frac_profit": 0.5714285714285714,
+        "med_trades": 10.0
+      },
+      "h1": {
+        "med_ret": 36.394598193283514,
+        "med_sharpe": 1.32244198142592,
+        "med_dd": -20.081834203519,
+        "frac_profit": 0.9285714285714286,
+        "med_trades": 6.0
+      },
+      "h2": {
+        "med_ret": -21.792384698062513,
+        "med_sharpe": -0.5771230110559591,
+        "med_dd": -39.252308533977484,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 4.5
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 14,
+        "buy_below": 25,
+        "sell_above": 65,
+        "trend": 200
+      },
+      "full": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 0.0
+      },
+      "h1": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 0.0
+      },
+      "h2": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 0.0
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 14,
+        "buy_below": 30,
+        "sell_above": 50,
+        "trend": 0
+      },
+      "full": {
+        "med_ret": 0.7759758891407897,
+        "med_sharpe": 0.1968881591153348,
+        "med_dd": -36.51120446098524,
+        "frac_profit": 0.5,
+        "med_trades": 25.0
+      },
+      "h1": {
+        "med_ret": 15.237020107134246,
+        "med_sharpe": 0.6759427705923191,
+        "med_dd": -25.439236034936016,
+        "frac_profit": 0.7857142857142857,
+        "med_trades": 13.0
+      },
+      "h2": {
+        "med_ret": -8.855262713376366,
+        "med_sharpe": -0.2490864115733723,
+        "med_dd": -34.6896066198418,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 12.5
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 14,
+        "buy_below": 30,
+        "sell_above": 50,
+        "trend": 200
+      },
+      "full": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 0.0
+      },
+      "h1": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 0.0
+      },
+      "h2": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 0.0
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 14,
+        "buy_below": 30,
+        "sell_above": 55,
+        "trend": 0
+      },
+      "full": {
+        "med_ret": -7.2162181210975005,
+        "med_sharpe": 0.14537671574132924,
+        "med_dd": -41.956455759357624,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 21.5
+      },
+      "h1": {
+        "med_ret": 23.44250448937092,
+        "med_sharpe": 0.8704433647398273,
+        "med_dd": -26.994856825593974,
+        "frac_profit": 0.9285714285714286,
+        "med_trades": 11.5
+      },
+      "h2": {
+        "med_ret": -22.231800247113874,
+        "med_sharpe": -0.5346345485670863,
+        "med_dd": -41.24714167429386,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 10.5
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 14,
+        "buy_below": 30,
+        "sell_above": 55,
+        "trend": 200
+      },
+      "full": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 0.0
+      },
+      "h1": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 0.0
+      },
+      "h2": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 0.0
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 14,
+        "buy_below": 30,
+        "sell_above": 65,
+        "trend": 0
+      },
+      "full": {
+        "med_ret": -17.170310489244166,
+        "med_sharpe": -0.01258483045081911,
+        "med_dd": -50.192977260001456,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 15.5
+      },
+      "h1": {
+        "med_ret": 16.505680632734354,
+        "med_sharpe": 0.6580943591514906,
+        "med_dd": -33.21672407926506,
+        "frac_profit": 0.7857142857142857,
+        "med_trades": 9.0
+      },
+      "h2": {
+        "med_ret": -23.39950551063107,
+        "med_sharpe": -0.5178976649075113,
+        "med_dd": -48.966170944634285,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 7.0
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 14,
+        "buy_below": 30,
+        "sell_above": 65,
+        "trend": 200
+      },
+      "full": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 0.0
+      },
+      "h1": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 0.0
+      },
+      "h2": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 0.0
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 14,
+        "buy_below": 35,
+        "sell_above": 50,
+        "trend": 0
+      },
+      "full": {
+        "med_ret": -19.726577764256817,
+        "med_sharpe": -0.05810169272049205,
+        "med_dd": -41.323724130585546,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 37.5
+      },
+      "h1": {
+        "med_ret": 1.47834328168579,
+        "med_sharpe": 0.2986304337129997,
+        "med_dd": -28.92897013438789,
+        "frac_profit": 0.5714285714285714,
+        "med_trades": 20.0
+      },
+      "h2": {
+        "med_ret": -21.94926163438275,
+        "med_sharpe": -0.4840804907071824,
+        "med_dd": -38.33636808328027,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 19.0
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 14,
+        "buy_below": 35,
+        "sell_above": 50,
+        "trend": 200
+      },
+      "full": {
+        "med_ret": 2.547795402884079,
+        "med_sharpe": 0.1922025583743469,
+        "med_dd": -14.709606641800432,
+        "frac_profit": 0.7142857142857143,
+        "med_trades": 5.0
+      },
+      "h1": {
+        "med_ret": 0.7745728888271852,
+        "med_sharpe": 0.18023440458989082,
+        "med_dd": -14.110950589592658,
+        "frac_profit": 0.5714285714285714,
+        "med_trades": 4.0
+      },
+      "h2": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": -2.834673353576286,
+        "frac_profit": 0.42857142857142855,
+        "med_trades": 1.0
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 14,
+        "buy_below": 35,
+        "sell_above": 55,
+        "trend": 0
+      },
+      "full": {
+        "med_ret": -26.67802348763461,
+        "med_sharpe": -0.1680777645742878,
+        "med_dd": -49.94067907521379,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 31.0
+      },
+      "h1": {
+        "med_ret": 14.884400122115949,
+        "med_sharpe": 0.624126382740483,
+        "med_dd": -28.489529022676443,
+        "frac_profit": 0.7142857142857143,
+        "med_trades": 17.0
+      },
+      "h2": {
+        "med_ret": -30.04955327519232,
+        "med_sharpe": -0.7998311328830681,
+        "med_dd": -46.16127479114961,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 15.5
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 14,
+        "buy_below": 35,
+        "sell_above": 55,
+        "trend": 200
+      },
+      "full": {
+        "med_ret": 7.935670791092142,
+        "med_sharpe": 0.48827684938829313,
+        "med_dd": -14.709606641800432,
+        "frac_profit": 0.8571428571428571,
+        "med_trades": 5.0
+      },
+      "h1": {
+        "med_ret": 2.899190916449501,
+        "med_sharpe": 0.29444607672231426,
+        "med_dd": -14.110950589592665,
+        "frac_profit": 0.7142857142857143,
+        "med_trades": 4.0
+      },
+      "h2": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": -3.09895036737507,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 1.0
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 14,
+        "buy_below": 35,
+        "sell_above": 65,
+        "trend": 0
+      },
+      "full": {
+        "med_ret": -21.88431195668946,
+        "med_sharpe": -0.03891175648094251,
+        "med_dd": -56.89370061747999,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 20.5
+      },
+      "h1": {
+        "med_ret": 3.3206485699846966,
+        "med_sharpe": 0.4053056424116558,
+        "med_dd": -40.887114202648064,
+        "frac_profit": 0.6428571428571429,
+        "med_trades": 11.5
+      },
+      "h2": {
+        "med_ret": -29.06832882815592,
+        "med_sharpe": -0.6247683101844658,
+        "med_dd": -52.562060448629666,
+        "frac_profit": 0.0,
+        "med_trades": 10.0
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 14,
+        "buy_below": 35,
+        "sell_above": 65,
+        "trend": 200
+      },
+      "full": {
+        "med_ret": 0.7574571115443351,
+        "med_sharpe": 0.13476037075682445,
+        "med_dd": -21.174659670841393,
+        "frac_profit": 0.5,
+        "med_trades": 4.5
+      },
+      "h1": {
+        "med_ret": 2.275227346511588,
+        "med_sharpe": 0.2617424386142796,
+        "med_dd": -19.12331341782857,
+        "frac_profit": 0.5714285714285714,
+        "med_trades": 3.0
+      },
+      "h2": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": -3.6999294677438357,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 1.0
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 21,
+        "buy_below": 25,
+        "sell_above": 50,
+        "trend": 0
+      },
+      "full": {
+        "med_ret": 14.410311738936166,
+        "med_sharpe": 0.5263114674091205,
+        "med_dd": -24.652309755669485,
+        "frac_profit": 0.7142857142857143,
+        "med_trades": 4.5
+      },
+      "h1": {
+        "med_ret": 17.24998852331774,
+        "med_sharpe": 1.1546570830257017,
+        "med_dd": -14.282754996351933,
+        "frac_profit": 0.9285714285714286,
+        "med_trades": 2.0
+      },
+      "h2": {
+        "med_ret": -4.473385364934135,
+        "med_sharpe": -0.09389115050207056,
+        "med_dd": -24.47909141071631,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 2.5
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 21,
+        "buy_below": 25,
+        "sell_above": 50,
+        "trend": 200
+      },
+      "full": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      },
+      "h1": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      },
+      "h2": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 21,
+        "buy_below": 25,
+        "sell_above": 55,
+        "trend": 0
+      },
+      "full": {
+        "med_ret": 19.835120650828365,
+        "med_sharpe": 0.6362709683359831,
+        "med_dd": -27.165057012159227,
+        "frac_profit": 0.7857142857142857,
+        "med_trades": 4.5
+      },
+      "h1": {
+        "med_ret": 27.286084956379966,
+        "med_sharpe": 1.3625176571786919,
+        "med_dd": -14.282754996351933,
+        "frac_profit": 0.9285714285714286,
+        "med_trades": 2.0
+      },
+      "h2": {
+        "med_ret": -4.196520443823826,
+        "med_sharpe": -0.006335028674811331,
+        "med_dd": -27.165057012159252,
+        "frac_profit": 0.42857142857142855,
+        "med_trades": 2.5
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 21,
+        "buy_below": 25,
+        "sell_above": 55,
+        "trend": 200
+      },
+      "full": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      },
+      "h1": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      },
+      "h2": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 21,
+        "buy_below": 25,
+        "sell_above": 65,
+        "trend": 0
+      },
+      "full": {
+        "med_ret": 8.697009162848923,
+        "med_sharpe": 0.3047255529546632,
+        "med_dd": -43.27394634522398,
+        "frac_profit": 0.6428571428571429,
+        "med_trades": 4.0
+      },
+      "h1": {
+        "med_ret": 20.521182212126355,
+        "med_sharpe": 0.9010319312861249,
+        "med_dd": -27.273057888497647,
+        "frac_profit": 0.9285714285714286,
+        "med_trades": 1.5
+      },
+      "h2": {
+        "med_ret": -15.600486190016865,
+        "med_sharpe": -0.3167416604443033,
+        "med_dd": -43.273946345223905,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 2.5
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 21,
+        "buy_below": 25,
+        "sell_above": 65,
+        "trend": 200
+      },
+      "full": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      },
+      "h1": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      },
+      "h2": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 21,
+        "buy_below": 30,
+        "sell_above": 50,
+        "trend": 0
+      },
+      "full": {
+        "med_ret": 18.49517131700963,
+        "med_sharpe": 0.49814841071173804,
+        "med_dd": -29.497828158482175,
+        "frac_profit": 0.8571428571428571,
+        "med_trades": 11.0
+      },
+      "h1": {
+        "med_ret": 38.056039650647094,
+        "med_sharpe": 1.4468026727632086,
+        "med_dd": -17.768806570580413,
+        "frac_profit": 0.9285714285714286,
+        "med_trades": 5.0
+      },
+      "h2": {
+        "med_ret": -10.219399023032377,
+        "med_sharpe": -0.3859990392471597,
+        "med_dd": -29.497828158482175,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 5.5
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 21,
+        "buy_below": 30,
+        "sell_above": 50,
+        "trend": 200
+      },
+      "full": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 0.0
+      },
+      "h1": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      },
+      "h2": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 0.0
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 21,
+        "buy_below": 30,
+        "sell_above": 55,
+        "trend": 0
+      },
+      "full": {
+        "med_ret": 19.127057867755738,
+        "med_sharpe": 0.47148985068241295,
+        "med_dd": -35.36994520284007,
+        "frac_profit": 0.8571428571428571,
+        "med_trades": 10.0
+      },
+      "h1": {
+        "med_ret": 39.36625160643132,
+        "med_sharpe": 1.4185192899350172,
+        "med_dd": -18.122853306529734,
+        "frac_profit": 1.0,
+        "med_trades": 5.0
+      },
+      "h2": {
+        "med_ret": -13.941429470011695,
+        "med_sharpe": -0.4968651668882765,
+        "med_dd": -35.369945202840086,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 4.5
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 21,
+        "buy_below": 30,
+        "sell_above": 55,
+        "trend": 200
+      },
+      "full": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 0.0
+      },
+      "h1": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      },
+      "h2": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 0.0
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 21,
+        "buy_below": 30,
+        "sell_above": 65,
+        "trend": 0
+      },
+      "full": {
+        "med_ret": 2.091559582974656,
+        "med_sharpe": 0.25240979953973164,
+        "med_dd": -55.387488104113615,
+        "frac_profit": 0.5,
+        "med_trades": 8.0
+      },
+      "h1": {
+        "med_ret": 44.9568871223795,
+        "med_sharpe": 1.1683306729744976,
+        "med_dd": -27.787283743825068,
+        "frac_profit": 0.8571428571428571,
+        "med_trades": 4.0
+      },
+      "h2": {
+        "med_ret": -26.362091810437825,
+        "med_sharpe": -0.7884892161766719,
+        "med_dd": -51.68082295667995,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 3.5
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 21,
+        "buy_below": 30,
+        "sell_above": 65,
+        "trend": 200
+      },
+      "full": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 0.0
+      },
+      "h1": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      },
+      "h2": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 0.0
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 21,
+        "buy_below": 35,
+        "sell_above": 50,
+        "trend": 0
+      },
+      "full": {
+        "med_ret": 3.7370083145394473,
+        "med_sharpe": 0.21011245794422365,
+        "med_dd": -37.907202921830226,
+        "frac_profit": 0.5714285714285714,
+        "med_trades": 21.5
+      },
+      "h1": {
+        "med_ret": 31.170319376585688,
+        "med_sharpe": 1.1683554746137301,
+        "med_dd": -23.508486402446987,
+        "frac_profit": 1.0,
+        "med_trades": 11.0
+      },
+      "h2": {
+        "med_ret": -14.722271281514065,
+        "med_sharpe": -0.2772814944541709,
+        "med_dd": -37.90720292183018,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 11.0
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 21,
+        "buy_below": 35,
+        "sell_above": 50,
+        "trend": 200
+      },
+      "full": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 0.0
+      },
+      "h1": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 0.0
+      },
+      "h2": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 0.0
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 21,
+        "buy_below": 35,
+        "sell_above": 55,
+        "trend": 0
+      },
+      "full": {
+        "med_ret": 1.6293510231666974,
+        "med_sharpe": 0.2620003131334703,
+        "med_dd": -39.28703957370028,
+        "frac_profit": 0.5,
+        "med_trades": 17.0
+      },
+      "h1": {
+        "med_ret": 22.40506792826278,
+        "med_sharpe": 0.7631076294667076,
+        "med_dd": -30.038930721175824,
+        "frac_profit": 0.7857142857142857,
+        "med_trades": 9.0
+      },
+      "h2": {
+        "med_ret": -18.58222222543877,
+        "med_sharpe": -0.4069995399640119,
+        "med_dd": -39.28703957370027,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 8.0
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 21,
+        "buy_below": 35,
+        "sell_above": 55,
+        "trend": 200
+      },
+      "full": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 0.0
+      },
+      "h1": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 0.0
+      },
+      "h2": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 0.0
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 21,
+        "buy_below": 35,
+        "sell_above": 65,
+        "trend": 0
+      },
+      "full": {
+        "med_ret": -19.91793846432556,
+        "med_sharpe": -0.027551590813487042,
+        "med_dd": -61.09183368692188,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 11.0
+      },
+      "h1": {
+        "med_ret": 12.001773828372897,
+        "med_sharpe": 0.5198712503633606,
+        "med_dd": -43.39422134128078,
+        "frac_profit": 0.7142857142857143,
+        "med_trades": 6.0
+      },
+      "h2": {
+        "med_ret": -37.26661886734537,
+        "med_sharpe": -0.88950646798746,
+        "med_dd": -51.493647600082525,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 5.0
+      }
+    },
+    {
+      "fam": "rsi_rev",
+      "params": {
+        "rsi_period": 21,
+        "buy_below": 35,
+        "sell_above": 65,
+        "trend": 200
+      },
+      "full": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 0.0
+      },
+      "h1": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 0.0
+      },
+      "h2": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 0.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 10,
+        "slow": 50,
+        "trend": 100,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -78.98669047227312,
+        "med_sharpe": -0.8973562815458092,
+        "med_dd": -85.56419204776505,
+        "frac_profit": 0.0,
+        "med_trades": 152.0
+      },
+      "h1": {
+        "med_ret": -50.03885840437094,
+        "med_sharpe": -0.6680580141080195,
+        "med_dd": -67.5070360752521,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 79.0
+      },
+      "h2": {
+        "med_ret": -50.996053170195175,
+        "med_sharpe": -0.8701094637246355,
+        "med_dd": -65.88006671600715,
+        "frac_profit": 0.0,
+        "med_trades": 76.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 10,
+        "slow": 50,
+        "trend": 100,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -79.32928874649332,
+        "med_sharpe": -0.7876575432445716,
+        "med_dd": -86.20723159219256,
+        "frac_profit": 0.0,
+        "med_trades": 114.5
+      },
+      "h1": {
+        "med_ret": -54.46163611167321,
+        "med_sharpe": -0.673230141540583,
+        "med_dd": -70.16267126877977,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 57.0
+      },
+      "h2": {
+        "med_ret": -46.28037798381164,
+        "med_sharpe": -0.8495612576180654,
+        "med_dd": -60.957800184326146,
+        "frac_profit": 0.0,
+        "med_trades": 56.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 10,
+        "slow": 50,
+        "trend": 200,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -69.58617155149945,
+        "med_sharpe": -0.7232250098331965,
+        "med_dd": -78.68848752437441,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 138.5
+      },
+      "h1": {
+        "med_ret": -50.133261064157324,
+        "med_sharpe": -0.6417131213905034,
+        "med_dd": -63.183058387328636,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 72.5
+      },
+      "h2": {
+        "med_ret": -31.154001433014887,
+        "med_sharpe": -0.41305817319301863,
+        "med_dd": -64.0502199272289,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 70.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 10,
+        "slow": 50,
+        "trend": 200,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -67.94839552195702,
+        "med_sharpe": -0.5516930526453486,
+        "med_dd": -79.65319791918115,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 105.0
+      },
+      "h1": {
+        "med_ret": -46.108412243686885,
+        "med_sharpe": -0.5578131167863872,
+        "med_dd": -64.77873538813256,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 53.0
+      },
+      "h2": {
+        "med_ret": -30.826749664288585,
+        "med_sharpe": -0.47241102858148193,
+        "med_dd": -58.54885473845208,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 51.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 10,
+        "slow": 100,
+        "trend": 100,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -64.00248002814067,
+        "med_sharpe": -0.4221586008411432,
+        "med_dd": -75.01520714008458,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 140.0
+      },
+      "h1": {
+        "med_ret": -42.790571006205866,
+        "med_sharpe": -0.46380717260043214,
+        "med_dd": -59.870361718295456,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 71.0
+      },
+      "h2": {
+        "med_ret": -34.42713472870348,
+        "med_sharpe": -0.37031955810392325,
+        "med_dd": -60.236826787131264,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 67.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 10,
+        "slow": 100,
+        "trend": 100,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -61.61263426174979,
+        "med_sharpe": -0.21729961051068192,
+        "med_dd": -75.73190483831232,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 101.5
+      },
+      "h1": {
+        "med_ret": -41.01917251629688,
+        "med_sharpe": -0.3270064931419047,
+        "med_dd": -58.40193624938765,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 52.5
+      },
+      "h2": {
+        "med_ret": -29.092176169646237,
+        "med_sharpe": -0.2066067839075767,
+        "med_dd": -55.74912348362106,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 50.5
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 10,
+        "slow": 100,
+        "trend": 200,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -60.50582897055976,
+        "med_sharpe": -0.3677977414595493,
+        "med_dd": -70.67323752792556,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 140.0
+      },
+      "h1": {
+        "med_ret": -40.64918984006109,
+        "med_sharpe": -0.4056796065872677,
+        "med_dd": -57.36060266862626,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 72.0
+      },
+      "h2": {
+        "med_ret": -25.99344180448375,
+        "med_sharpe": -0.1778739112189643,
+        "med_dd": -57.47542796562856,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 67.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 10,
+        "slow": 100,
+        "trend": 200,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -58.793105975211944,
+        "med_sharpe": -0.2382491163804491,
+        "med_dd": -73.27071377098122,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 99.0
+      },
+      "h1": {
+        "med_ret": -42.60576904415019,
+        "med_sharpe": -0.39404870928719693,
+        "med_dd": -59.66304781912954,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 53.5
+      },
+      "h2": {
+        "med_ret": -22.91917794963177,
+        "med_sharpe": 0.024497456483053924,
+        "med_dd": -54.05705249333798,
+        "frac_profit": 0.0,
+        "med_trades": 47.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 10,
+        "slow": 150,
+        "trend": 100,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -61.29321683612527,
+        "med_sharpe": -0.3968867338015827,
+        "med_dd": -74.97317190919539,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 129.0
+      },
+      "h1": {
+        "med_ret": -41.08496855369988,
+        "med_sharpe": -0.4518290403127294,
+        "med_dd": -53.64522662205877,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 64.5
+      },
+      "h2": {
+        "med_ret": -27.484859565765497,
+        "med_sharpe": -0.1868908296636035,
+        "med_dd": -60.96476218017324,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 62.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 10,
+        "slow": 150,
+        "trend": 100,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -53.215796746236975,
+        "med_sharpe": -0.17928879235287026,
+        "med_dd": -72.31940671391521,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 90.0
+      },
+      "h1": {
+        "med_ret": -35.336752515880384,
+        "med_sharpe": -0.16602081817021888,
+        "med_dd": -57.869958739732255,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 47.0
+      },
+      "h2": {
+        "med_ret": -18.931175881771196,
+        "med_sharpe": -0.0908222797231303,
+        "med_dd": -55.44417698541981,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 44.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 10,
+        "slow": 150,
+        "trend": 200,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -56.04313144166631,
+        "med_sharpe": -0.21920075296468078,
+        "med_dd": -71.97304460923226,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 135.0
+      },
+      "h1": {
+        "med_ret": -35.65605300831023,
+        "med_sharpe": -0.30809866784775747,
+        "med_dd": -51.301152844175895,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 69.5
+      },
+      "h2": {
+        "med_ret": -23.1764979583734,
+        "med_sharpe": -0.0454125396194153,
+        "med_dd": -56.10287049322231,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 65.5
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 10,
+        "slow": 150,
+        "trend": 200,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -48.93698825520917,
+        "med_sharpe": -0.11092240391220237,
+        "med_dd": -71.01338195275709,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 92.0
+      },
+      "h1": {
+        "med_ret": -35.06101514595671,
+        "med_sharpe": -0.14396983976889244,
+        "med_dd": -58.303456465394504,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 50.0
+      },
+      "h2": {
+        "med_ret": -13.94884199980292,
+        "med_sharpe": 0.013521462224122677,
+        "med_dd": -53.98965821451026,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 45.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 20,
+        "slow": 50,
+        "trend": 100,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -65.1342383645706,
+        "med_sharpe": -0.5063047338654366,
+        "med_dd": -80.55622687620794,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 136.5
+      },
+      "h1": {
+        "med_ret": -40.74898879692961,
+        "med_sharpe": -0.43177145834356334,
+        "med_dd": -62.420329377665865,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 69.0
+      },
+      "h2": {
+        "med_ret": -38.59307428756504,
+        "med_sharpe": -0.5979350066295857,
+        "med_dd": -61.42971735217937,
+        "frac_profit": 0.0,
+        "med_trades": 67.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 20,
+        "slow": 50,
+        "trend": 100,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -66.64374121056949,
+        "med_sharpe": -0.5177572414197573,
+        "med_dd": -82.39032010198667,
+        "frac_profit": 0.0,
+        "med_trades": 98.5
+      },
+      "h1": {
+        "med_ret": -39.95269335633614,
+        "med_sharpe": -0.4093077044369382,
+        "med_dd": -60.11400713075909,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 52.5
+      },
+      "h2": {
+        "med_ret": -41.83394916078372,
+        "med_sharpe": -0.6166201974573406,
+        "med_dd": -58.25132512866112,
+        "frac_profit": 0.0,
+        "med_trades": 49.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 20,
+        "slow": 50,
+        "trend": 200,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -63.7819966294107,
+        "med_sharpe": -0.47811368401664744,
+        "med_dd": -74.51390422959702,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 131.0
+      },
+      "h1": {
+        "med_ret": -38.220127593230885,
+        "med_sharpe": -0.38818328063596347,
+        "med_dd": -53.833314824809136,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 66.5
+      },
+      "h2": {
+        "med_ret": -30.39949773494589,
+        "med_sharpe": -0.40249822356910936,
+        "med_dd": -56.16801365389438,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 66.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 20,
+        "slow": 50,
+        "trend": 200,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -62.583733641547354,
+        "med_sharpe": -0.44394793949301636,
+        "med_dd": -78.14114189844145,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 96.5
+      },
+      "h1": {
+        "med_ret": -38.01616910056166,
+        "med_sharpe": -0.36711837477393666,
+        "med_dd": -55.6252808479055,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 50.0
+      },
+      "h2": {
+        "med_ret": -27.013967264071916,
+        "med_sharpe": -0.16946721431385758,
+        "med_dd": -53.48220959467821,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 45.5
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 20,
+        "slow": 100,
+        "trend": 100,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -50.684929009915024,
+        "med_sharpe": -0.2588751392679661,
+        "med_dd": -68.51535889755549,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 126.5
+      },
+      "h1": {
+        "med_ret": -43.1457290896745,
+        "med_sharpe": -0.501854862630556,
+        "med_dd": -53.12843184585517,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 64.5
+      },
+      "h2": {
+        "med_ret": -38.5087475913583,
+        "med_sharpe": -0.4440904685803311,
+        "med_dd": -53.855465362745704,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 62.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 20,
+        "slow": 100,
+        "trend": 100,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -45.819892837756605,
+        "med_sharpe": -0.11626175579973183,
+        "med_dd": -66.31489035625728,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 89.0
+      },
+      "h1": {
+        "med_ret": -38.82472848950711,
+        "med_sharpe": -0.3568330338538201,
+        "med_dd": -52.788890420355116,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 46.0
+      },
+      "h2": {
+        "med_ret": -28.17271588258688,
+        "med_sharpe": -0.1893501026390122,
+        "med_dd": -54.57854617659844,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 44.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 20,
+        "slow": 100,
+        "trend": 200,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -55.71765532220334,
+        "med_sharpe": -0.27163800918569236,
+        "med_dd": -69.23358300570936,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 128.0
+      },
+      "h1": {
+        "med_ret": -38.88817977572822,
+        "med_sharpe": -0.3782644738416563,
+        "med_dd": -52.99409175428101,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 67.0
+      },
+      "h2": {
+        "med_ret": -29.672653016399444,
+        "med_sharpe": -0.30574915991528206,
+        "med_dd": -54.12297200640283,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 64.5
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 20,
+        "slow": 100,
+        "trend": 200,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -53.38108340917951,
+        "med_sharpe": -0.16693100430016733,
+        "med_dd": -69.22320607497618,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 90.5
+      },
+      "h1": {
+        "med_ret": -41.642838727145104,
+        "med_sharpe": -0.34978208138296285,
+        "med_dd": -57.08174715299575,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 47.5
+      },
+      "h2": {
+        "med_ret": -22.428007050515227,
+        "med_sharpe": -0.08319675686929061,
+        "med_dd": -51.9517196211012,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 44.5
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 20,
+        "slow": 150,
+        "trend": 100,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -65.71352117682154,
+        "med_sharpe": -0.45484363392903915,
+        "med_dd": -74.23818765442803,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 119.5
+      },
+      "h1": {
+        "med_ret": -44.453370568609145,
+        "med_sharpe": -0.5797995339880628,
+        "med_dd": -59.7710658099426,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 61.5
+      },
+      "h2": {
+        "med_ret": -25.108609017182193,
+        "med_sharpe": -0.2521308518887652,
+        "med_dd": -52.44204863643729,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 57.5
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 20,
+        "slow": 150,
+        "trend": 100,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -45.500232531005814,
+        "med_sharpe": -0.045157969663669584,
+        "med_dd": -67.21031184096877,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 80.0
+      },
+      "h1": {
+        "med_ret": -33.582270660332874,
+        "med_sharpe": -0.12333106922487833,
+        "med_dd": -56.047435581787894,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 42.0
+      },
+      "h2": {
+        "med_ret": -15.470227861573864,
+        "med_sharpe": -0.08566765520491014,
+        "med_dd": -54.26178095643165,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 39.5
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 20,
+        "slow": 150,
+        "trend": 200,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -56.84352066018161,
+        "med_sharpe": -0.27176927343328516,
+        "med_dd": -71.3840071057501,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 126.0
+      },
+      "h1": {
+        "med_ret": -42.25846479848471,
+        "med_sharpe": -0.3714843069539129,
+        "med_dd": -57.5555727701753,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 66.5
+      },
+      "h2": {
+        "med_ret": -15.683415811977241,
+        "med_sharpe": -0.06537535166234261,
+        "med_dd": -47.138195542507205,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 61.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 20,
+        "slow": 150,
+        "trend": 200,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -40.7975148858225,
+        "med_sharpe": -0.09904365969564681,
+        "med_dd": -67.92394871627677,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 85.5
+      },
+      "h1": {
+        "med_ret": -35.031872273228956,
+        "med_sharpe": -0.15027867165093373,
+        "med_dd": -57.95954197786729,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 45.5
+      },
+      "h2": {
+        "med_ret": -17.642445360804302,
+        "med_sharpe": -0.006879608330415855,
+        "med_dd": -50.85461874901267,
+        "frac_profit": 0.42857142857142855,
+        "med_trades": 42.5
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 30,
+        "slow": 50,
+        "trend": 100,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -67.3057254154552,
+        "med_sharpe": -0.5770104015714409,
+        "med_dd": -79.22126517777582,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 130.0
+      },
+      "h1": {
+        "med_ret": -43.45312570815733,
+        "med_sharpe": -0.4918426503812233,
+        "med_dd": -63.4271435773731,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 64.5
+      },
+      "h2": {
+        "med_ret": -43.18419444890222,
+        "med_sharpe": -0.5895514495546715,
+        "med_dd": -56.30619506361756,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 62.5
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 30,
+        "slow": 50,
+        "trend": 100,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -66.67692252758953,
+        "med_sharpe": -0.5407297068853425,
+        "med_dd": -78.72788685078865,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 90.0
+      },
+      "h1": {
+        "med_ret": -41.994189797597585,
+        "med_sharpe": -0.47365211214615854,
+        "med_dd": -59.6066760318037,
+        "frac_profit": 0.35714285714285715,
+        "med_trades": 47.0
+      },
+      "h2": {
+        "med_ret": -36.37828202303104,
+        "med_sharpe": -0.44338467424451283,
+        "med_dd": -57.22405491494145,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 45.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 30,
+        "slow": 50,
+        "trend": 200,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -63.33102797559849,
+        "med_sharpe": -0.4916650334602424,
+        "med_dd": -76.55865699663715,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 128.0
+      },
+      "h1": {
+        "med_ret": -40.674100279018674,
+        "med_sharpe": -0.4037373296544625,
+        "med_dd": -61.38900962370842,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 65.0
+      },
+      "h2": {
+        "med_ret": -31.683199833311754,
+        "med_sharpe": -0.3822909708418884,
+        "med_dd": -55.13293238825605,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 63.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 30,
+        "slow": 50,
+        "trend": 200,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -62.59390365912297,
+        "med_sharpe": -0.4646735682999124,
+        "med_dd": -77.2820431734659,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 91.5
+      },
+      "h1": {
+        "med_ret": -39.264553033761736,
+        "med_sharpe": -0.35368362016180505,
+        "med_dd": -65.26907469289691,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 48.5
+      },
+      "h2": {
+        "med_ret": -28.54426783765775,
+        "med_sharpe": -0.32044727878949486,
+        "med_dd": -55.62825481200801,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 45.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 30,
+        "slow": 100,
+        "trend": 100,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -67.75951842087117,
+        "med_sharpe": -0.4906208395484237,
+        "med_dd": -74.33786307954585,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 118.5
+      },
+      "h1": {
+        "med_ret": -46.07290275091201,
+        "med_sharpe": -0.6029371110264053,
+        "med_dd": -54.36252524967446,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 61.5
+      },
+      "h2": {
+        "med_ret": -32.63095264430013,
+        "med_sharpe": -0.3233804137366001,
+        "med_dd": -51.81089233746416,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 58.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 30,
+        "slow": 100,
+        "trend": 100,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -54.62212355525729,
+        "med_sharpe": -0.18470615123357167,
+        "med_dd": -70.23995187656297,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 80.5
+      },
+      "h1": {
+        "med_ret": -43.35819829852589,
+        "med_sharpe": -0.35725778858622037,
+        "med_dd": -56.145627203165844,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 42.5
+      },
+      "h2": {
+        "med_ret": -21.741362732507383,
+        "med_sharpe": -0.09147738838051302,
+        "med_dd": -53.0831799035922,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 40.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 30,
+        "slow": 100,
+        "trend": 200,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -60.64636090382921,
+        "med_sharpe": -0.2828825585338184,
+        "med_dd": -72.31410445385112,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 124.0
+      },
+      "h1": {
+        "med_ret": -41.2155016932387,
+        "med_sharpe": -0.47866260445472225,
+        "med_dd": -53.609465964869,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 65.5
+      },
+      "h2": {
+        "med_ret": -16.727179196372628,
+        "med_sharpe": -0.0868072497981183,
+        "med_dd": -48.14070394623489,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 60.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 30,
+        "slow": 100,
+        "trend": 200,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -48.696350178122366,
+        "med_sharpe": -0.0916625043137364,
+        "med_dd": -69.2526638208447,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 83.0
+      },
+      "h1": {
+        "med_ret": -40.124786160214924,
+        "med_sharpe": -0.2552952210363636,
+        "med_dd": -59.13542142722056,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 45.0
+      },
+      "h2": {
+        "med_ret": -13.86080746432844,
+        "med_sharpe": 0.11375042334946242,
+        "med_dd": -49.05464980579198,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 41.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 30,
+        "slow": 150,
+        "trend": 100,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -66.34997060466691,
+        "med_sharpe": -0.5008804303812084,
+        "med_dd": -75.72635792584123,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 117.0
+      },
+      "h1": {
+        "med_ret": -45.385975150055366,
+        "med_sharpe": -0.6616906031469479,
+        "med_dd": -58.22327078343291,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 59.0
+      },
+      "h2": {
+        "med_ret": -33.525992912806885,
+        "med_sharpe": -0.36399374310288773,
+        "med_dd": -52.33014995879057,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 56.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 30,
+        "slow": 150,
+        "trend": 100,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -50.30223591194175,
+        "med_sharpe": -0.1735462536013508,
+        "med_dd": -69.20820185803792,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 76.5
+      },
+      "h1": {
+        "med_ret": -39.53064961567877,
+        "med_sharpe": -0.39840354427447233,
+        "med_dd": -55.70759581104485,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 40.5
+      },
+      "h2": {
+        "med_ret": -25.368566205482516,
+        "med_sharpe": -0.16403719389817,
+        "med_dd": -51.04187898324207,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 39.5
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 30,
+        "slow": 150,
+        "trend": 200,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -59.81652659948735,
+        "med_sharpe": -0.33529832019696976,
+        "med_dd": -70.72135859295457,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 123.5
+      },
+      "h1": {
+        "med_ret": -47.192313457164666,
+        "med_sharpe": -0.6074720849641494,
+        "med_dd": -58.33518090864746,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 63.0
+      },
+      "h2": {
+        "med_ret": -22.839841266696393,
+        "med_sharpe": -0.12084932570867177,
+        "med_dd": -49.923305350937845,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 61.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 30,
+        "slow": 150,
+        "trend": 200,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -46.282792682632405,
+        "med_sharpe": -0.11779648731142527,
+        "med_dd": -68.54443999825097,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 81.5
+      },
+      "h1": {
+        "med_ret": -41.28412366343346,
+        "med_sharpe": -0.4028400417505398,
+        "med_dd": -57.442902459785245,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 43.0
+      },
+      "h2": {
+        "med_ret": -20.065425067918333,
+        "med_sharpe": -0.09922451068863845,
+        "med_dd": -50.91928514412746,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 41.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 50,
+        "slow": 50,
+        "trend": 100,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      },
+      "h1": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      },
+      "h2": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 50,
+        "slow": 50,
+        "trend": 100,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      },
+      "h1": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      },
+      "h2": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 50,
+        "slow": 50,
+        "trend": 200,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      },
+      "h1": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      },
+      "h2": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 50,
+        "slow": 50,
+        "trend": 200,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      },
+      "h1": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      },
+      "h2": {
+        "med_ret": 0.0,
+        "med_sharpe": 0.0,
+        "med_dd": 0.0,
+        "frac_profit": 0.0,
+        "med_trades": 0.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 50,
+        "slow": 100,
+        "trend": 100,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -60.61941200881853,
+        "med_sharpe": -0.3731068242959832,
+        "med_dd": -72.10677252722823,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 116.5
+      },
+      "h1": {
+        "med_ret": -43.989089766109224,
+        "med_sharpe": -0.5722566650930727,
+        "med_dd": -55.09785165331748,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 59.0
+      },
+      "h2": {
+        "med_ret": -38.4456838973611,
+        "med_sharpe": -0.5198627931661592,
+        "med_dd": -53.975032636911166,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 57.5
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 50,
+        "slow": 100,
+        "trend": 100,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -49.38965404913108,
+        "med_sharpe": -0.1706474098293097,
+        "med_dd": -70.46316439061948,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 76.0
+      },
+      "h1": {
+        "med_ret": -40.6576347697264,
+        "med_sharpe": -0.32976285422533014,
+        "med_dd": -55.64527290181421,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 40.0
+      },
+      "h2": {
+        "med_ret": -30.865793183213952,
+        "med_sharpe": -0.21817655052374654,
+        "med_dd": -53.33647444633321,
+        "frac_profit": 0.0,
+        "med_trades": 39.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 50,
+        "slow": 100,
+        "trend": 200,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -55.959391941398316,
+        "med_sharpe": -0.2849336821402241,
+        "med_dd": -69.40848144980765,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 122.5
+      },
+      "h1": {
+        "med_ret": -45.13915373679882,
+        "med_sharpe": -0.508997147664268,
+        "med_dd": -55.3599914602444,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 62.5
+      },
+      "h2": {
+        "med_ret": -28.362948382924763,
+        "med_sharpe": -0.25697765323436234,
+        "med_dd": -52.49849868693739,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 61.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 50,
+        "slow": 100,
+        "trend": 200,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -48.15380596426039,
+        "med_sharpe": -0.19044662511969898,
+        "med_dd": -68.83873444846647,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 80.5
+      },
+      "h1": {
+        "med_ret": -39.39177154948948,
+        "med_sharpe": -0.32225884619034706,
+        "med_dd": -56.42154022001587,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 42.5
+      },
+      "h2": {
+        "med_ret": -19.284681950110826,
+        "med_sharpe": -0.12326416940041379,
+        "med_dd": -52.87317319967377,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 41.5
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 50,
+        "slow": 150,
+        "trend": 100,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -56.08829450652276,
+        "med_sharpe": -0.3257038354357826,
+        "med_dd": -68.98912164327257,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 112.0
+      },
+      "h1": {
+        "med_ret": -36.45246059959981,
+        "med_sharpe": -0.4274750914151415,
+        "med_dd": -54.44471589088917,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 56.0
+      },
+      "h2": {
+        "med_ret": -36.081947228205294,
+        "med_sharpe": -0.495751094580068,
+        "med_dd": -54.86147470942456,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 56.5
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 50,
+        "slow": 150,
+        "trend": 100,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -38.38084109531066,
+        "med_sharpe": -0.018547035706849093,
+        "med_dd": -68.25897566237268,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 73.5
+      },
+      "h1": {
+        "med_ret": -26.287097500819804,
+        "med_sharpe": -0.14193204756762556,
+        "med_dd": -52.313193084635145,
+        "frac_profit": 0.21428571428571427,
+        "med_trades": 38.5
+      },
+      "h2": {
+        "med_ret": -29.94526162027577,
+        "med_sharpe": -0.32740259563993795,
+        "med_dd": -53.112909977884115,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 37.5
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 50,
+        "slow": 150,
+        "trend": 200,
+        "atr_mult": 2.5
+      },
+      "full": {
+        "med_ret": -48.242341279175996,
+        "med_sharpe": -0.13501768173063078,
+        "med_dd": -66.88521705999392,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 117.0
+      },
+      "h1": {
+        "med_ret": -37.24832050135726,
+        "med_sharpe": -0.3547646252137298,
+        "med_dd": -55.0251206267459,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 61.0
+      },
+      "h2": {
+        "med_ret": -24.06164572725678,
+        "med_sharpe": -0.10736615010192618,
+        "med_dd": -50.58208552864491,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 60.0
+      }
+    },
+    {
+      "fam": "ema_dual",
+      "params": {
+        "fast": 50,
+        "slow": 150,
+        "trend": 200,
+        "atr_mult": 3.5
+      },
+      "full": {
+        "med_ret": -42.112755562258954,
+        "med_sharpe": -0.06880424356966006,
+        "med_dd": -69.11185621455871,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 79.0
+      },
+      "h1": {
+        "med_ret": -36.73000018920122,
+        "med_sharpe": -0.33775687932863563,
+        "med_dd": -56.186780152532705,
+        "frac_profit": 0.2857142857142857,
+        "med_trades": 41.5
+      },
+      "h2": {
+        "med_ret": -25.048094897923313,
+        "med_sharpe": -0.16355921906381624,
+        "med_dd": -47.1960980979695,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 39.5
+      }
+    },
+    {
+      "fam": "donchian_dual",
+      "params": {
+        "entry": 20,
+        "exit": 10,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -71.79971356855592,
+        "med_sharpe": -0.8664299068855517,
+        "med_dd": -77.61031635996119,
+        "frac_profit": 0.0,
+        "med_trades": 97.5
+      },
+      "h1": {
+        "med_ret": -49.87055410896731,
+        "med_sharpe": -0.8979824429844744,
+        "med_dd": -62.861185042195764,
+        "frac_profit": 0.0,
+        "med_trades": 50.5
+      },
+      "h2": {
+        "med_ret": -38.917237977106836,
+        "med_sharpe": -0.5723056097129773,
+        "med_dd": -58.723845464273516,
+        "frac_profit": 0.0,
+        "med_trades": 47.5
+      }
+    },
+    {
+      "fam": "donchian_dual",
+      "params": {
+        "entry": 20,
+        "exit": 10,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -72.90028150168393,
+        "med_sharpe": -0.8802116233095783,
+        "med_dd": -81.23509735874254,
+        "frac_profit": 0.0,
+        "med_trades": 93.5
+      },
+      "h1": {
+        "med_ret": -50.30248148996181,
+        "med_sharpe": -0.9705185361313844,
+        "med_dd": -65.18666251152545,
+        "frac_profit": 0.0,
+        "med_trades": 49.0
+      },
+      "h2": {
+        "med_ret": -38.61339379560389,
+        "med_sharpe": -0.5502808454479752,
+        "med_dd": -57.736719920617915,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 44.5
+      }
+    },
+    {
+      "fam": "donchian_dual",
+      "params": {
+        "entry": 20,
+        "exit": 20,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -70.52401015196119,
+        "med_sharpe": -0.6297870075579837,
+        "med_dd": -81.12145973019035,
+        "frac_profit": 0.0,
+        "med_trades": 76.0
+      },
+      "h1": {
+        "med_ret": -48.90470367803282,
+        "med_sharpe": -0.6486662676929539,
+        "med_dd": -64.50481343031487,
+        "frac_profit": 0.0,
+        "med_trades": 39.5
+      },
+      "h2": {
+        "med_ret": -37.547636602526936,
+        "med_sharpe": -0.7078611275119088,
+        "med_dd": -62.175682756104734,
+        "frac_profit": 0.0,
+        "med_trades": 39.0
+      }
+    },
+    {
+      "fam": "donchian_dual",
+      "params": {
+        "entry": 20,
+        "exit": 20,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -74.87883298897931,
+        "med_sharpe": -0.780003867674566,
+        "med_dd": -82.03758007855768,
+        "frac_profit": 0.0,
+        "med_trades": 67.5
+      },
+      "h1": {
+        "med_ret": -48.367054295692,
+        "med_sharpe": -0.6929199137619417,
+        "med_dd": -64.95343492917192,
+        "frac_profit": 0.0,
+        "med_trades": 35.0
+      },
+      "h2": {
+        "med_ret": -37.982152731118106,
+        "med_sharpe": -0.6077483715700169,
+        "med_dd": -59.98467368748301,
+        "frac_profit": 0.0,
+        "med_trades": 33.0
+      }
+    },
+    {
+      "fam": "donchian_dual",
+      "params": {
+        "entry": 20,
+        "exit": 30,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -61.30599400495804,
+        "med_sharpe": -0.3918948556623847,
+        "med_dd": -72.62557987935585,
+        "frac_profit": 0.0,
+        "med_trades": 59.5
+      },
+      "h1": {
+        "med_ret": -45.76635715842273,
+        "med_sharpe": -0.510227331407252,
+        "med_dd": -63.93665798652438,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 31.5
+      },
+      "h2": {
+        "med_ret": -23.9926126154459,
+        "med_sharpe": -0.25406239323694485,
+        "med_dd": -58.17798516068724,
+        "frac_profit": 0.0,
+        "med_trades": 30.0
+      }
+    },
+    {
+      "fam": "donchian_dual",
+      "params": {
+        "entry": 20,
+        "exit": 30,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -67.04445536738146,
+        "med_sharpe": -0.5455399443715232,
+        "med_dd": -77.90552232844988,
+        "frac_profit": 0.0,
+        "med_trades": 53.0
+      },
+      "h1": {
+        "med_ret": -40.640901442801564,
+        "med_sharpe": -0.5284096457903088,
+        "med_dd": -64.92344644525679,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 26.5
+      },
+      "h2": {
+        "med_ret": -32.225787059190594,
+        "med_sharpe": -0.41253135476388103,
+        "med_dd": -60.01712520749642,
+        "frac_profit": 0.0,
+        "med_trades": 26.0
+      }
+    },
+    {
+      "fam": "donchian_dual",
+      "params": {
+        "entry": 30,
+        "exit": 10,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -65.00231936792866,
+        "med_sharpe": -0.7777022910156435,
+        "med_dd": -73.53138017424311,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 78.5
+      },
+      "h1": {
+        "med_ret": -47.023877934124826,
+        "med_sharpe": -0.7759857527027121,
+        "med_dd": -59.50205741188908,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 41.5
+      },
+      "h2": {
+        "med_ret": -36.558567567364804,
+        "med_sharpe": -0.6967346751775582,
+        "med_dd": -55.21191720864627,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 40.0
+      }
+    },
+    {
+      "fam": "donchian_dual",
+      "params": {
+        "entry": 30,
+        "exit": 10,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -63.823649586904196,
+        "med_sharpe": -0.788828677047166,
+        "med_dd": -77.17318846417545,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 76.0
+      },
+      "h1": {
+        "med_ret": -46.861953044239335,
+        "med_sharpe": -0.825680908861149,
+        "med_dd": -60.07688512584106,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 40.5
+      },
+      "h2": {
+        "med_ret": -29.593307710700394,
+        "med_sharpe": -0.558285658979904,
+        "med_dd": -56.67968404602081,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 37.5
+      }
+    },
+    {
+      "fam": "donchian_dual",
+      "params": {
+        "entry": 30,
+        "exit": 20,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -65.97093140848193,
+        "med_sharpe": -0.7306062655690206,
+        "med_dd": -76.35546508230527,
+        "frac_profit": 0.0,
+        "med_trades": 66.0
+      },
+      "h1": {
+        "med_ret": -44.677908362671616,
+        "med_sharpe": -0.5999100212687156,
+        "med_dd": -62.48416055082526,
+        "frac_profit": 0.0,
+        "med_trades": 33.5
+      },
+      "h2": {
+        "med_ret": -38.21750873506662,
+        "med_sharpe": -0.7946428388354952,
+        "med_dd": -55.63862032688348,
+        "frac_profit": 0.0,
+        "med_trades": 34.5
+      }
+    },
+    {
+      "fam": "donchian_dual",
+      "params": {
+        "entry": 30,
+        "exit": 20,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -62.907915038758304,
+        "med_sharpe": -0.7105316340626748,
+        "med_dd": -74.24677217594474,
+        "frac_profit": 0.0,
+        "med_trades": 61.0
+      },
+      "h1": {
+        "med_ret": -43.58516167508655,
+        "med_sharpe": -0.5571397820391872,
+        "med_dd": -62.49447735279366,
+        "frac_profit": 0.0,
+        "med_trades": 30.5
+      },
+      "h2": {
+        "med_ret": -40.77895022651451,
+        "med_sharpe": -0.5872729537911023,
+        "med_dd": -59.16404752953396,
+        "frac_profit": 0.0,
+        "med_trades": 31.0
+      }
+    },
+    {
+      "fam": "donchian_dual",
+      "params": {
+        "entry": 30,
+        "exit": 30,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -65.50055080612717,
+        "med_sharpe": -0.6090592795429675,
+        "med_dd": -73.95064257835742,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 57.0
+      },
+      "h1": {
+        "med_ret": -45.00525787541478,
+        "med_sharpe": -0.6921361069174647,
+        "med_dd": -59.974031525570496,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 28.5
+      },
+      "h2": {
+        "med_ret": -30.784456731048948,
+        "med_sharpe": -0.5426220407159593,
+        "med_dd": -53.47777937123519,
+        "frac_profit": 0.0,
+        "med_trades": 28.5
+      }
+    },
+    {
+      "fam": "donchian_dual",
+      "params": {
+        "entry": 30,
+        "exit": 30,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -69.73956515122865,
+        "med_sharpe": -0.7540439899328804,
+        "med_dd": -77.70870133180603,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 49.5
+      },
+      "h1": {
+        "med_ret": -43.29610272296824,
+        "med_sharpe": -0.5105598194639802,
+        "med_dd": -63.28005588392519,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 25.0
+      },
+      "h2": {
+        "med_ret": -37.091363063859795,
+        "med_sharpe": -0.47145828985126703,
+        "med_dd": -60.001462349118555,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 25.0
+      }
+    },
+    {
+      "fam": "donchian_dual",
+      "params": {
+        "entry": 40,
+        "exit": 10,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -60.62778824947449,
+        "med_sharpe": -0.7390708458149267,
+        "med_dd": -72.80714591749657,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 68.0
+      },
+      "h1": {
+        "med_ret": -45.29269715483706,
+        "med_sharpe": -1.0044811813870536,
+        "med_dd": -55.75537168486245,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 34.5
+      },
+      "h2": {
+        "med_ret": -18.050151160247722,
+        "med_sharpe": -0.2541497232059643,
+        "med_dd": -45.629877851851724,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 34.0
+      }
+    },
+    {
+      "fam": "donchian_dual",
+      "params": {
+        "entry": 40,
+        "exit": 10,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -61.212267916419705,
+        "med_sharpe": -0.7261227839011142,
+        "med_dd": -74.47455380115392,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 65.5
+      },
+      "h1": {
+        "med_ret": -48.83289920772542,
+        "med_sharpe": -1.1503796698052016,
+        "med_dd": -61.173538372587615,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 34.5
+      },
+      "h2": {
+        "med_ret": -18.175976316849287,
+        "med_sharpe": -0.10308405168560619,
+        "med_dd": -47.74282782122174,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 31.5
+      }
+    },
+    {
+      "fam": "donchian_dual",
+      "params": {
+        "entry": 40,
+        "exit": 20,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -63.92591415087284,
+        "med_sharpe": -0.6457720508558362,
+        "med_dd": -74.13301254687865,
+        "frac_profit": 0.0,
+        "med_trades": 57.5
+      },
+      "h1": {
+        "med_ret": -48.36010646791731,
+        "med_sharpe": -1.058041831060947,
+        "med_dd": -62.9737924696486,
+        "frac_profit": 0.0,
+        "med_trades": 29.0
+      },
+      "h2": {
+        "med_ret": -21.3819997978006,
+        "med_sharpe": -0.1652484252499683,
+        "med_dd": -48.5028335956564,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 28.0
+      }
+    },
+    {
+      "fam": "donchian_dual",
+      "params": {
+        "entry": 40,
+        "exit": 20,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -66.24097413617484,
+        "med_sharpe": -0.7719015459919364,
+        "med_dd": -76.99702426759313,
+        "frac_profit": 0.0,
+        "med_trades": 52.0
+      },
+      "h1": {
+        "med_ret": -47.6958365832524,
+        "med_sharpe": -0.8754605282819137,
+        "med_dd": -63.70469991248797,
+        "frac_profit": 0.0,
+        "med_trades": 27.5
+      },
+      "h2": {
+        "med_ret": -25.365627569522935,
+        "med_sharpe": -0.3232103682404311,
+        "med_dd": -50.86163325278828,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 26.0
+      }
+    },
+    {
+      "fam": "donchian_dual",
+      "params": {
+        "entry": 40,
+        "exit": 30,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -61.173976515917424,
+        "med_sharpe": -0.5139151340359993,
+        "med_dd": -75.60261713944126,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 51.5
+      },
+      "h1": {
+        "med_ret": -44.3854846624488,
+        "med_sharpe": -0.7895575731533686,
+        "med_dd": -61.536056955148055,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 25.0
+      },
+      "h2": {
+        "med_ret": -27.752095191946665,
+        "med_sharpe": -0.16267841435886526,
+        "med_dd": -53.180298637419426,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 25.0
+      }
+    },
+    {
+      "fam": "donchian_dual",
+      "params": {
+        "entry": 40,
+        "exit": 30,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -73.16811504923041,
+        "med_sharpe": -0.745222092447662,
+        "med_dd": -81.31033445939194,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 47.0
+      },
+      "h1": {
+        "med_ret": -44.22825496207231,
+        "med_sharpe": -0.6460232104161885,
+        "med_dd": -62.286461777164185,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 24.0
+      },
+      "h2": {
+        "med_ret": -30.577664954086288,
+        "med_sharpe": -0.39658717141324024,
+        "med_dd": -54.464105209821014,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 23.0
+      }
+    },
+    {
+      "fam": "donchian_dual",
+      "params": {
+        "entry": 55,
+        "exit": 10,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -50.097888889604505,
+        "med_sharpe": -0.5385006361423419,
+        "med_dd": -62.13543090783472,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 57.0
+      },
+      "h1": {
+        "med_ret": -29.88468848836458,
+        "med_sharpe": -0.7379253844279734,
+        "med_dd": -47.43461183557241,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 27.5
+      },
+      "h2": {
+        "med_ret": -13.561972670793477,
+        "med_sharpe": -0.015485187778558163,
+        "med_dd": -45.03523413686948,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 27.5
+      }
+    },
+    {
+      "fam": "donchian_dual",
+      "params": {
+        "entry": 55,
+        "exit": 10,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -50.35311139865347,
+        "med_sharpe": -0.5323314342589593,
+        "med_dd": -65.06865389710126,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 55.0
+      },
+      "h1": {
+        "med_ret": -35.59348660901489,
+        "med_sharpe": -0.7693866688627672,
+        "med_dd": -50.50301894824602,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 27.5
+      },
+      "h2": {
+        "med_ret": -10.7456403684272,
+        "med_sharpe": -0.03728080775558623,
+        "med_dd": -45.07656486510753,
+        "frac_profit": 0.14285714285714285,
+        "med_trades": 26.5
+      }
+    },
+    {
+      "fam": "donchian_dual",
+      "params": {
+        "entry": 55,
+        "exit": 20,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -56.913315399210234,
+        "med_sharpe": -0.5382404332647206,
+        "med_dd": -67.23822144911898,
+        "frac_profit": 0.0,
+        "med_trades": 50.0
+      },
+      "h1": {
+        "med_ret": -47.26922413827023,
+        "med_sharpe": -0.9344999257903235,
+        "med_dd": -56.37132960490559,
+        "frac_profit": 0.0,
+        "med_trades": 25.0
+      },
+      "h2": {
+        "med_ret": -18.986521619803703,
+        "med_sharpe": -0.16795730391329172,
+        "med_dd": -50.05177272818949,
+        "frac_profit": 0.0,
+        "med_trades": 25.0
+      }
+    },
+    {
+      "fam": "donchian_dual",
+      "params": {
+        "entry": 55,
+        "exit": 20,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -60.680229513740294,
+        "med_sharpe": -0.540182823674346,
+        "med_dd": -69.58466211105983,
+        "frac_profit": 0.0,
+        "med_trades": 45.5
+      },
+      "h1": {
+        "med_ret": -50.77590132058989,
+        "med_sharpe": -0.9901114098545106,
+        "med_dd": -59.13012589001238,
+        "frac_profit": 0.0,
+        "med_trades": 24.0
+      },
+      "h2": {
+        "med_ret": -13.541261118594978,
+        "med_sharpe": -0.05037681149136093,
+        "med_dd": -48.58506844058502,
+        "frac_profit": 0.0,
+        "med_trades": 23.0
+      }
+    },
+    {
+      "fam": "donchian_dual",
+      "params": {
+        "entry": 55,
+        "exit": 30,
+        "atr_mult": 2.0
+      },
+      "full": {
+        "med_ret": -56.13866086840376,
+        "med_sharpe": -0.5697648599080517,
+        "med_dd": -71.99170048444083,
+        "frac_profit": 0.0,
+        "med_trades": 46.0
+      },
+      "h1": {
+        "med_ret": -42.86861400340486,
+        "med_sharpe": -0.7105772841298217,
+        "med_dd": -59.59481551598599,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 23.5
+      },
+      "h2": {
+        "med_ret": -20.340123411642914,
+        "med_sharpe": -0.18702786641934216,
+        "med_dd": -51.34544948636193,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 22.5
+      }
+    },
+    {
+      "fam": "donchian_dual",
+      "params": {
+        "entry": 55,
+        "exit": 30,
+        "atr_mult": 3.0
+      },
+      "full": {
+        "med_ret": -59.16449104903554,
+        "med_sharpe": -0.5619249345462732,
+        "med_dd": -72.39982386733925,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 41.5
+      },
+      "h1": {
+        "med_ret": -42.74345337395262,
+        "med_sharpe": -0.6443268138417817,
+        "med_dd": -58.42843978235939,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 21.5
+      },
+      "h2": {
+        "med_ret": -20.961566381278026,
+        "med_sharpe": -0.21309629025490368,
+        "med_dd": -52.222677970091055,
+        "frac_profit": 0.07142857142857142,
+        "med_trades": 20.0
+      }
+    }
+  ],
+  "survivors": []
+}

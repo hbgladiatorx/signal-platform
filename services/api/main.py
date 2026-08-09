@@ -20,6 +20,7 @@ from packages.data.db import dispose_engine, get_engine
 from services.api.redis_subscriber import broadcaster
 from services.api.routers import (
     backtests,
+    certify,
     copilot,
     health,
     instruments,
@@ -73,6 +74,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         log.info("api.platform_credentials_seeded", services=services)
     except Exception as e:  # noqa: BLE001
         log.error("api.platform_credentials_seed_failed", err=str(e))
+    # Referee signing posture: log loudly so a misconfigured deploy (no key, or
+    # insecure dev key) is visible rather than silent. Non-fatal.
+    try:
+        from referee import signing as referee_signing
+
+        posture = referee_signing.startup_check(
+            lambda m: log.warning("referee.signing", detail=m)
+        )
+        log.info("referee.signing.posture", **posture)
+    except Exception as e:  # noqa: BLE001
+        log.error("referee.signing.startup_check_failed", err=str(e))
     log.info("api.ready")
     yield
     log.info("api.shutting_down")
@@ -134,6 +146,7 @@ app.include_router(system.router)
 app.include_router(settings_router.router)
 app.include_router(strategies.router)
 app.include_router(backtests.router)
+app.include_router(certify.router)
 app.include_router(user_strategies.router)
 app.include_router(walkforwards.router)
 app.include_router(ml.router)

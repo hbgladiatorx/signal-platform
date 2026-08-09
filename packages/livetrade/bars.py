@@ -17,7 +17,9 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 RESOLUTION_TABLE: dict[str, str] = {
     "1m": "cagg_bars_1m",
     "5m": "cagg_bars_5m",
+    "10m": "cagg_bars_10m",
     "15m": "cagg_bars_15m",
+    "30m": "cagg_bars_30m",
     "1h": "cagg_bars_1h",
     "4h": "cagg_bars_4h",
     "1d": "cagg_bars_1d",

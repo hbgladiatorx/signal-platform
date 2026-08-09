@@ -37,7 +37,7 @@ from uuid import UUID
 
 import redis.asyncio as redis
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
-from pydantic import BaseModel, Field, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -58,6 +58,15 @@ from services.api.deps import (
     get_db_session,
 )
 from services.api.routers.strategies import get_strategy_registry
+from services.api.certify_payload import build_certify_request
+from services.api.routers.certify import (
+    CertResponse,
+    CertifyRequest,
+    _require_signing_or_503,
+    certify_submission,
+)
+from packages.data.user_strategies import get_user_strategy_by_name
+from packages.strategy.graph_intent import graph_bar_resolution, graph_symbol
 from packages.strategy.loader import StrategyLoadError
 from packages.strategy.resolver import StrategyNotFoundError, resolve_strategy
 
@@ -248,6 +257,27 @@ async def create_new_backtest(
     user: CurrentUserRecord = Depends(get_current_user_record),
 ) -> CreateBacktestResponse:
     """Create + enqueue a new backtest."""
+    # Single-symbol contract (validation-time block, before any work): compiled
+    # strategies run on ONE symbol — their on_init raises on more than one, as
+    # they have no capital-allocation model across a universe yet. Refuse
+    # multi-symbol at acceptance with a clear message rather than queueing a run
+    # that fails in the worker. The system no longer advises or offers
+    # "add symbols"/UNIVERSE, so this only guards direct API callers. Lifting it
+    # is future scope (real portfolio support).
+    if len(req.symbols) > 1:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "msg": (
+                    "This strategy runs on one symbol. Multi-symbol and "
+                    "full-universe backtests aren't supported yet — run one "
+                    "ticker at a time. To get more trades, extend the date "
+                    "range or use a lower timeframe."
+                ),
+                "symbols": req.symbols,
+            },
+        )
+
     # Resolve strategy: registry first, then this user's user_strategies
     try:
         resolved = await resolve_strategy(
@@ -273,6 +303,47 @@ async def create_new_backtest(
             },
         )
     strategy_cls = resolved.cls
+
+    # Graph is the source of truth: if this is a graph-built user strategy, the
+    # request's symbol/timeframe must match what the user wired on the canvas. A
+    # mismatch is rejected — never silently honored — so the canvas and the
+    # execution can't disagree. (Built-in / raw-code strategies have no graph and
+    # are unaffected.)
+    if resolved.source == "user":
+        srow = await get_user_strategy_by_name(
+            session, user_id=user.id, name=req.strategy_name
+        )
+        graph = (srow or {}).get("graph_json")
+        g_sym = graph_symbol(graph)
+        if g_sym and req.symbols and req.symbols[0].upper() != g_sym.upper():
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "msg": (
+                        f"This strategy's graph is wired for {g_sym}, but the "
+                        f"backtest requested {req.symbols[0]}. The graph is the "
+                        f"source of truth — change the symbol on the canvas to run "
+                        f"a different ticker."
+                    ),
+                    "graph_symbol": g_sym,
+                    "requested": req.symbols,
+                },
+            )
+        g_tf = graph_bar_resolution(graph)
+        if g_tf and req.bar_resolution.lower() != g_tf:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "msg": (
+                        f"This strategy's graph is set to the {g_tf} timeframe, "
+                        f"but the backtest requested {req.bar_resolution}. The "
+                        f"graph is the source of truth — change the timeframe on "
+                        f"the canvas."
+                    ),
+                    "graph_timeframe": g_tf,
+                    "requested": req.bar_resolution,
+                },
+            )
 
     # Validate params against the strategy's PARAMS_MODEL
     try:
@@ -466,6 +537,87 @@ async def get_backtest_equity(
         )
         for r in rows
     ]
+
+
+class CertifyBacktestRequest(BaseModel):
+    """Certify a backtest the user already ran.
+
+    The evidence (equity curve WITH per-bar exposure) is sourced server-side from
+    the backtest, so the exposure-aware integrity path engages automatically. Only
+    the honest declaration is required from the caller.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    declared_trials: int = Field(
+        ..., ge=1,
+        description="Configs/variants you tried to reach this strategy (>=1; declare "
+                    "1 if no search was run). Stamped self_declared and fed verbatim "
+                    "to the deflation — the same bar as every other certify path.",
+    )
+    cost_bps: float | None = Field(
+        default=None, ge=0,
+        description="Round-trip cost in bps. Defaults to the backtest's own "
+                    "fee + slippage so the cert matches what was actually simulated.",
+    )
+    declared_grid_size: int | None = Field(
+        default=None, ge=1,
+        description="Declared parameter-grid size, if this came from a grid/search; "
+                    "raises the provable trial floor.",
+    )
+
+
+@router.post("/{backtest_id}/certify", response_model=CertResponse)
+async def certify_backtest(
+    backtest_id: UUID = Path(...),
+    body: CertifyBacktestRequest = ...,  # noqa: B008
+    session: AsyncSession = Depends(get_db_session),
+    user: CurrentUserRecord = Depends(get_current_user_record),
+) -> CertResponse:
+    """Certify a backtest the user owns: source its equity-with-exposure, build the
+    evidence (so the exposure-aware path engages), and run the SAME referee engine
+    path as POST /referee/certify (intake -> certify -> signed report), persisting
+    the signed verdict for later retrieval by verification_id.
+
+    Nothing about grading or signing is reimplemented or loosened here — this only
+    opens the door to the existing engine for a backtest the user already ran.
+    """
+    # Refuse before any work if the production signing guard isn't satisfied:
+    # an unsigned/insecure cert must never be issued (same rule as every path).
+    _require_signing_or_503()
+
+    row = await _load_my_backtest_or_404(session, backtest_id, user)
+    if row["status"] != "completed":
+        raise HTTPException(
+            status_code=422,
+            detail={"msg": "Only a completed backtest can be certified.",
+                    "status": row["status"]},
+        )
+
+    equity_rows = await load_backtest_equity(session, backtest_id)
+    # Honest cost: default to the backtest's own simulated round-trip cost.
+    cost_bps = (body.cost_bps if body.cost_bps is not None
+                else float(row["fee_rate_bps"] + row["slippage_bps"]))
+
+    payload = build_certify_request(
+        equity_rows, declared_trials=body.declared_trials, cost_bps=cost_bps,
+    )
+    if payload is None:
+        raise HTTPException(
+            status_code=422,
+            detail={"msg": "This backtest has no equity curve to certify."},
+        )
+
+    # Hand the evidence to the unchanged certify engine path (signing guard,
+    # grading, persistence, response shaping all reused).
+    certify_req = CertifyRequest(
+        csv_text=payload["csv_text"],
+        declared_trials=payload["declared_trials"],
+        cost_bps=payload["cost_bps"],
+        fmt="equity_curve",
+        declared_grid_size=body.declared_grid_size,
+    )
+    return await certify_submission(req=certify_req, user=user)
 
 
 class NarrativeResponse(BaseModel):

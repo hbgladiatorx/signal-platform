@@ -1,0 +1,38 @@
+queued 30 backtests over 2024-06-15 -> 2026-06-15 (2.00yr)
+unfinished: 10
+
+label              tpw  trd     ret%    pf  win     dd  shrp ok stat
+BCH_2yr_LO        1.00  104     62.9  1.45   67    -19  0.83  Y  comp
+LINK_2yr_LO       1.07  112     47.6  1.34   70    -24  0.80  Y  comp
+SUI_2yr_LO        0.96  100      4.6  1.07   62    -39  0.23  .  comp
+ALGO_2yr_LO       0.97  101     -4.3  1.03   65    -36  0.10  .  comp
+HBAR_2yr_LO       0.91   95     -8.5  1.00   61    -28  0.03  .  comp
+NEAR_2yr_LO       1.14  119    -18.6  0.96   61    -39 -0.07  .  comp
+XRP_2yr_LO        0.95   99    -17.5  0.94   66    -34 -0.20  .  comp
+BNB_2yr_LO        1.14  119    -21.6  0.92   64    -37 -0.40  .  comp
+ADA_2yr_LO        0.96  100    -25.1  0.90   62    -45 -0.35  .  comp
+ATOM_2yr_LO       0.92   96    -23.5  0.90   58    -45 -0.23  .  comp
+FET_2yr_LO        0.93   97    -30.3  0.87   61    -50 -0.33  .  comp
+SHIB_2yr_LO       0.91   95    -30.8  0.85   63    -48 -0.47  .  comp
+AVAX_2yr_LO       0.95   99    -32.1  0.84   61    -47 -0.53  .  comp
+SOL_2yr_LO        0.94   98    -30.3  0.83   61    -39 -0.53  .  comp
+DOT_2yr_LO        0.89   93    -31.7  0.83   57    -41 -0.48  .  comp
+XLM_2yr_LO        0.87   91    -38.0  0.80   57    -41 -0.66  .  comp
+LTC_2yr_LO        0.96  100    -39.5  0.75   63    -46 -0.62  .  comp
+BTC_2yr_LO        1.03  107    -32.0  0.74   63    -35 -0.91  .  comp
+DOGE_2yr_LO       0.90   94    -56.3  0.71   56    -64 -1.26  .  comp
+ETH_2yr_LO        0.88   92    -59.2  0.55   54    -61 -1.81  .  comp
+ICP_2yr_LO        0.00    0      n/a   n/a  n/a    n/a   n/a  .  runn
+FIL_2yr_LO        0.00    0      n/a   n/a  n/a    n/a   n/a  .  pend
+UNI_2yr_LO        0.00    0      n/a   n/a  n/a    n/a   n/a  .  pend
+OP_2yr_LO         0.00    0      n/a   n/a  n/a    n/a   n/a  .  pend
+ARB_2yr_LO        0.00    0      n/a   n/a  n/a    n/a   n/a  .  pend
+ETC_2yr_LO        0.00    0      n/a   n/a  n/a    n/a   n/a  .  pend
+AAVE_2yr_LO       0.00    0      n/a   n/a  n/a    n/a   n/a  .  pend
+APT_2yr_LO        0.00    0      n/a   n/a  n/a    n/a   n/a  .  pend
+BTC_2yr_LS        0.00    0      n/a   n/a  n/a    n/a   n/a  .  pend
+ETH_2yr_LS        0.00    0      n/a   n/a  n/a    n/a   n/a  .  pend
+
+PROFITABLE (ret>0, pf>=1.1, >=20 trd): 2 / 30
+  WIN BCH_2yr_LO       ret=62.9% pf=1.45 tpw=1.00 dd=-19% sharpe=0.83 bt=4c98a335-dc56-4712-8fca-e76ddea4a317
+  WIN LINK_2yr_LO      ret=47.6% pf=1.34 tpw=1.07 dd=-24% sharpe=0.80 bt=b3749c22-e1c1-494a-863f-f570628d9c9a

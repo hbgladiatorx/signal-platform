@@ -197,11 +197,19 @@ async def compute_strategy_state(
 
     promoted = strategy_row.get("promoted_at") is not None
     deployed_live = strategy_row.get("deployed_live_at") is not None
+    forward_skipped = strategy_row.get("forward_test_skipped_at") is not None
+    has_forward = latest_paper is not None
+
+    # Honest forward-test record: an actual paper session ("started") is the
+    # normal path; an explicit skip is recorded as "skipped" — NEVER as passed.
+    # forward_started below stays False when skipped, so nothing reads a skip as
+    # if forward testing happened.
+    forward_test = "started" if has_forward else ("skipped" if forward_skipped else "none")
 
     stage = _derive_stage(
         has_backtest=has_bt,
         oos_passed=oos_passed,
-        has_forward=latest_paper is not None,
+        has_forward=has_forward,
         promoted=promoted,
         deployed_live=deployed_live,
     )
@@ -215,7 +223,8 @@ async def compute_strategy_state(
         "enough_trades": bool(trade_count is not None and trade_count >= MIN_TRUSTWORTHY_TRADES),
         "profitable_backtest": bool(total_return is not None and total_return > 0),
         "oos_passed": oos_passed,
-        "forward_started": latest_paper is not None,
+        "forward_started": has_forward,
+        "forward_test_skipped": forward_skipped,
         "promoted": promoted,
         "deployed_live": deployed_live,
         "submitted_to_bayn": strategy_row.get("submitted_to_bayn_at") is not None,
@@ -237,7 +246,11 @@ async def compute_strategy_state(
         "latest_oos_id": str(latest_wf["id"]) if latest_wf else None,
         "latest_oos_status": latest_wf.get("status") if latest_wf else None,
         "avg_test_sharpe": _f(latest_wf.get("avg_test_sharpe")) if latest_wf else None,
-        # Latest forward / paper session
+        # Latest forward / paper session — "started" | "skipped" | "none".
+        # "skipped" means the user explicitly advanced past forward testing; it is
+        # NOT a pass, and forward_started above stays false.
+        "forward_test": forward_test,
+        "forward_test_skipped": forward_skipped,
         "latest_forward_session_id": str(latest_paper["id"]) if latest_paper else None,
         "latest_forward_status": latest_paper.get("status") if latest_paper else None,
         "last_deploy_mode": strategy_row.get("last_deploy_mode"),

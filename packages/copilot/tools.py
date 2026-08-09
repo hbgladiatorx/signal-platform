@@ -46,6 +46,11 @@ from packages.data.user_strategies import (
 )
 from packages.livetrade import persistence as P
 from packages.strategy.graph_compiler import compile_graph_to_source
+from packages.strategy.graph_intent import (
+    VALID_BAR_RESOLUTIONS,
+    graph_bar_resolution,
+    graph_symbol,
+)
 from packages.strategy.graph_planner import plan_graph_from_nl
 from packages.strategy.llm_translator import translate_nl_to_strategy
 from packages.strategy.loader import StrategyLoadError
@@ -66,16 +71,15 @@ BACKTEST_DEFAULT_SLIPPAGE_BPS = 3
 BACKTEST_DEFAULT_LOOKBACK_DAYS = 730  # "last 2 years"
 DEFAULT_BAR_RESOLUTION = "1d"
 
-# The stocks universe the spec's symbols='UNIVERSE' option expands to
-# (mirrors scripts/universe_50.txt). Filtered to instruments that actually
-# exist before a run.
-UNIVERSE_SYMBOLS = [
-    "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "AVGO", "NFLX", "AMD",
-    "JPM", "V", "MA", "UNH", "JNJ", "WMT", "PG", "HD", "BAC", "XOM",
-    "CVX", "KO", "PEP", "COST", "DIS", "ADBE", "CRM", "INTC", "CSCO", "ORCL",
-    "QCOM", "TXN", "PFE", "MRK", "ABBV", "NKE", "MCD", "T", "VZ", "GS",
-    "CAT", "BA", "GE", "SPY", "QQQ", "IWM", "DIA", "XLF", "XLE", "GLD",
-]
+# Compiled strategies run on a SINGLE symbol (their on_init raises on more than
+# one — they have no capital-allocation model across a universe). So multi-symbol
+# and 'UNIVERSE' runs are refused with this message instead of being expanded
+# into a run that crashes. Lifting this is future scope (real portfolio support).
+SINGLE_SYMBOL_MSG = (
+    "This strategy runs on one symbol. Multi-symbol and full-universe runs "
+    "aren't supported yet — give me a single ticker. To get more trades, widen "
+    "the date range or use a lower timeframe instead of adding symbols."
+)
 
 # How long a tool call will wait for an async run before returning "running".
 # Kept well under the gunicorn worker timeout (120s).
@@ -178,7 +182,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
                 "symbols": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Tickers, or omit to reuse the strategy's last symbols. Pass ['UNIVERSE'] to run the full stocks universe.",
+                    "description": "A SINGLE ticker, or omit to reuse the strategy's last symbol. Strategies run on one symbol; multi-symbol and 'UNIVERSE' runs aren't supported yet.",
                 },
                 "start_date": {"type": "string", "description": "ISO date; defaults to 2 years ago."},
                 "end_date": {"type": "string", "description": "ISO date; defaults to now."},
@@ -380,22 +384,73 @@ async def _filter_known_symbols(session: AsyncSession, symbols: list[str]) -> li
 
 
 async def _resolve_symbols(
-    session: AsyncSession, user_id: UUID, strategy_name: str, requested: Optional[list[str]]
+    session: AsyncSession,
+    user_id: UUID,
+    strategy_name: str,
+    requested: Optional[list[str]],
+    graph: Optional[dict[str, Any]] = None,
 ) -> list[str]:
-    """Resolve the symbol list for a run: explicit list, 'UNIVERSE', or the
-    strategy's last backtest symbols. Filters to instruments that exist."""
+    """Resolve the symbol a run executes on. **The graph is the source of truth.**
+
+    The symbol the user wired into the graph's data node is authoritative:
+
+      * No explicit request  -> run the graph's symbol (NOT the last backtest's
+        symbols, which is how a run used to silently diverge from the canvas).
+      * Explicit request that AGREES with the graph -> honored (unchanged).
+      * Explicit request that DISAGREES with the graph -> rejected with a clear
+        message, never silently honored. The canvas and the execution must not
+        disagree without the user knowing.
+
+    Only when the strategy has no graph symbol (e.g. a raw-code strategy that was
+    never built from a graph) do we fall back to an explicit request, then the
+    last backtest's symbols.
+
+    Compiled strategies run on ONE symbol — they have no capital-allocation model
+    across a universe — so a multi-symbol or 'UNIVERSE' request is refused with a
+    clear message rather than expanded into a run that crashes in on_init.
+    (See SINGLE_SYMBOL_MSG / Option B.)"""
+    # Canonicalize the graph's symbol once — it's authoritative for the run.
+    graph_sym = graph_symbol(graph)
+    graph_canon: Optional[str] = None
+    if graph_sym:
+        gk = await _filter_known_symbols(session, [graph_sym])
+        graph_canon = gk[0] if gk else None
+
     if requested:
         if any(s.upper() == "UNIVERSE" for s in requested):
-            candidates = UNIVERSE_SYMBOLS
-        else:
-            candidates = [s.upper() for s in requested]
+            raise ToolError(SINGLE_SYMBOL_MSG)
+        candidates = [s.upper() for s in requested]
         known = await _filter_known_symbols(session, candidates)
         if not known:
             raise ToolError(
                 "None of those symbols exist in the platform's instrument data."
             )
-        return known
-    # Fall back to the last backtest's symbols.
+        if len(known) > 1:
+            raise ToolError(SINGLE_SYMBOL_MSG)
+        resolved = known[0]
+        # Graph is authoritative: a request that disagrees is rejected, never
+        # silently honored — otherwise the canvas (graph) and the run diverge.
+        if graph_canon and resolved != graph_canon:
+            raise ToolError(
+                f"This strategy's graph is wired for {graph_canon}, but the run "
+                f"asked for {resolved}. The graph is the source of truth — change "
+                f"the symbol on the canvas (the strategy's data node) to run a "
+                f"different ticker, or run {graph_canon}."
+            )
+        return [resolved]
+
+    # No explicit request: the graph's symbol is authoritative.
+    if graph_sym:
+        if graph_canon:
+            return [graph_canon]
+        raise ToolError(
+            f"This strategy's graph is wired for {graph_sym}, but that symbol "
+            f"isn't in the platform's instrument data. Edit the data node to a "
+            f"symbol the platform has."
+        )
+
+    # Raw-code strategy with no graph symbol: fall back to the last backtest's
+    # symbols (the only intent on record for a graph-less strategy).
     res = await session.execute(
         text(
             "SELECT symbols FROM backtests WHERE user_id = :uid AND strategy_name = :name "
@@ -428,29 +483,16 @@ async def _latest_backtest_meta(
 
 
 # Valid bar resolutions a run can execute at (mirrors
-# livetrade.bars.RESOLUTION_TABLE).
-_VALID_BAR_RESOLUTIONS = {"1m", "5m", "15m", "1h", "4h", "1d"}
+# livetrade.bars.RESOLUTION_TABLE). Re-exported from the shared graph_intent
+# extractor so the copilot and the HTTP path read intent identically.
+_VALID_BAR_RESOLUTIONS = VALID_BAR_RESOLUTIONS
 
 
 def _graph_bar_resolution(graph: Optional[dict[str, Any]]) -> Optional[str]:
-    """Pull the timeframe the user set on the graph's data (price) node.
-
-    The graph is the source of truth for a strategy's timeframe — the user edits
-    it directly (e.g. "make it 5m"), and that edit is saved to the price node's
-    ``data.timeframe``. Runs must honor it; otherwise a timeframe change silently
-    has no effect because the run inherits the *previous* backtest's resolution.
-    Returns a valid bar resolution, or None if the graph has no usable one.
-    """
-    if not graph:
-        return None
-    for node in graph.get("nodes", []) or []:
-        if not isinstance(node, dict):
-            continue
-        if node.get("type") == "price" or node.get("category") == "data":
-            tf = ((node.get("data") or {}).get("timeframe") or "").strip().lower()
-            if tf in _VALID_BAR_RESOLUTIONS:
-                return tf
-    return None
+    """The timeframe the user set on the graph's data node — graph is the source
+    of truth. Delegates to packages.strategy.graph_intent so symbol and timeframe
+    extraction live in one place and can never diverge between run paths."""
+    return graph_bar_resolution(graph)
 
 
 def _resolve_and_validate_params(cls: Any, params: dict[str, Any]) -> dict[str, Any]:
@@ -567,10 +609,12 @@ async def _tool_build_strategy(
     class_name: str | None = None
     params_schema: Any = None
     build_note: str | None = None
+    risk_flag: dict[str, Any] | None = None
 
     compiled = compile_graph_to_source(
-        name=name, asset_class=asset_class, graph=plan["graph"]
+        name=name, asset_class=asset_class, graph=plan["graph"], description=description
     )
+    risk_flag = compiled.risk_flag
     if compiled.ok and compiled.source_code:
         validation = validate_strategy_source(compiled.source_code)
         if validation.ok:
@@ -599,10 +643,19 @@ async def _tool_build_strategy(
         source_code = llm.source_code
         class_name = validation.class_name or llm.class_name
         params_schema = validation.params_schema
+        risk_flag = llm.risk_flag
         build_note = (
             "Built via the AI translator (the graph used a node the "
             "deterministic compiler doesn't cover yet)."
         )
+
+    # Assemble the build-time assumptions ONCE and persist them on the strategy,
+    # so they travel with it to every run instead of dying in this build
+    # response. This includes the planner's inferred assumptions (timeframe,
+    # symbol, missing exit) and the compiler's applied risk default.
+    assumptions = list(plan.get("assumptions", []))
+    if risk_flag and risk_flag.get("message"):
+        assumptions.append(risk_flag["message"])
 
     new_id = await create_user_strategy(
         session,
@@ -616,6 +669,7 @@ async def _tool_build_strategy(
         params_schema=params_schema,
         graph_json=plan["graph"],
         asset_class=asset_class,
+        assumptions=assumptions,
     )
     await session.commit()
     result = {
@@ -624,10 +678,14 @@ async def _tool_build_strategy(
         "name": name,
         "stage": "draft",
         "plan": plan.get("plan", []),
-        "assumptions": plan.get("assumptions", []),
+        "assumptions": assumptions,
     }
     if build_note:
         result["note"] = build_note
+    if risk_flag:
+        # Surface the ambiguous-risk clarification so the UI/agent can ask the
+        # user to confirm the applied default instead of silently shipping it.
+        result["risk_flag"] = risk_flag
     return result
 
 
@@ -704,7 +762,11 @@ async def _tool_run_backtest(
         raise ToolError(f"Strategy {name!r} failed to compile: {e}")
 
     params = _resolve_and_validate_params(resolved.cls, {})
-    symbols = await _resolve_symbols(session, user.id, name, inp.get("symbols"))
+    # The graph the user wired is the source of truth for the run's symbol; an
+    # explicit request that disagrees is rejected, not silently honored.
+    symbols = await _resolve_symbols(
+        session, user.id, name, inp.get("symbols"), graph=row.get("graph_json")
+    )
 
     # Window: explicit dates, else last 2 years.
     end = _parse_dt(inp.get("end_date")) or datetime.now(timezone.utc)
@@ -756,11 +818,17 @@ async def _tool_run_backtest(
         }
 
     status = await _poll_until_terminal("backtests", backtest_id, {"completed", "failed"})
+    # Carry the build-time assumptions (inferred timeframe/symbol, the risk
+    # default the compiler applied) through to the run result, so they're visible
+    # on the verdict rather than dropped at the build boundary.
+    assumptions = list(row.get("assumptions") or [])
     return {
         "ok": True,
         "backtest_id": str(backtest_id),
         "status": status,
         "symbols": symbols,
+        "bar_resolution": bar_resolution,
+        "assumptions": assumptions,
         "window": {"start": start.isoformat(), "end": end.isoformat()},
         "note": (
             "Completed — call get_backtest_analysis for the verdict."

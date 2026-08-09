@@ -355,6 +355,12 @@ class TranslateResponse(BaseModel):
     explanation: Optional[str] = None
     validation_errors: list[dict[str, Any]] = []
     llm_error: Optional[str] = None
+    # Machine-readable clarification flag when the description's risk language was
+    # ambiguous between position-size and stop-loss (e.g. bare "risk 2% per
+    # trade"). Same shape the copilot build tool returns, from the same shared
+    # detector — so a frontend consuming either path sees one structure. None
+    # when risk language was unambiguous or absent. See risk_language.py.
+    risk_flag: Optional[dict[str, Any]] = None
     input_tokens: int = 0
     output_tokens: int = 0
 
@@ -391,6 +397,7 @@ async def translate_endpoint(
             name=req.strategy_name or "Strategy",
             asset_class=req.asset_class or "stocks",
             graph=req.graph_json,
+            description=req.nl_description,
         )
         if compiled.ok and compiled.source_code:
             validation = validate_strategy_source(compiled.source_code)
@@ -408,6 +415,7 @@ async def translate_endpoint(
                         "entry, exit, and risk node honoured."
                         + ("\n" + "\n".join(compiled.notes) if compiled.notes else "")
                     ),
+                    risk_flag=compiled.risk_flag,
                 )
             log.warning(
                 "translate.compiled_invalid reason=%s errors=%s",
@@ -446,6 +454,7 @@ async def translate_endpoint(
         params_schema=validation.params_schema,
         explanation=llm_result.explanation,
         validation_errors=[e.as_dict() for e in validation.errors],
+        risk_flag=llm_result.risk_flag,
         input_tokens=llm_result.input_tokens,
         output_tokens=llm_result.output_tokens,
     )

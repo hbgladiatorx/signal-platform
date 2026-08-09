@@ -27,6 +27,9 @@ COPY packages ./packages
 COPY services ./services
 COPY strategies ./strategies
 COPY migrations ./migrations
+# referee/ is the certification engine; the /referee API router imports it, so it
+# must be in the image (it was previously CLI-only and uncopied).
+COPY referee ./referee
 
 # Ensure imports work from any subdirectory
 ENV PYTHONPATH=/app

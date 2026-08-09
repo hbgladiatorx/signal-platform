@@ -122,6 +122,12 @@ indicator at all.
    Do NOT invent an RSI or moving average the user never mentioned.
 6. If the idea is genuinely just an indicator rule ("buy SPY when RSI < 30"),
    build that faithfully with the right indicator + comparator.
+7. RISK LANGUAGE: a bare "risk N% per trade" is ambiguous (a stop-loss vs a
+   position size — opposite economics). Do NOT guess silently. The documented
+   default is a STOP-LOSS, so emit a `stopLoss` {{type:"percent", value:N}} node,
+   and note in `assumptions` that you read "risk N%" as an N% stop-loss and the
+   user should confirm. Only emit a `positionSize` node when the user is explicit
+   ("size N% of account", "position size N%"). A clear "N% stop" is a stopLoss.
 
 # OUTPUT FIELDS
 

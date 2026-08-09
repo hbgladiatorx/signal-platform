@@ -56,3 +56,33 @@ logs/
 # stray empty file
 /main
 scripts/.sb_orphan/
+
+# referee signing material - PRIVATE HALVES NEVER
+referee/keys/*
+!referee/keys/*.pub
+!referee/keys/published.json
+
+# venvs
+.referee_venv/
+.venv/
+venv/
+
+# secrets and state
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+credentials*.json
+*.db
+*.sqlite
+*.sqlite3
+
+# noise
+__pycache__/
+*.py[cod]
+node_modules/
+logs/
+*.log
+ls_longshort_result.txt

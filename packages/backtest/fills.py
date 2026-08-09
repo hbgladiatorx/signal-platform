@@ -123,22 +123,31 @@ def try_fill_limit_order(
     open_price = _decimal(bar["open"])
     limit = order.limit_price
 
+    # Realistic maker model knobs. At defaults (through=0, adverse=0) the
+    # behavior is byte-for-byte the legacy optimistic touch-fill.
+    through = config.through_margin
+    adverse = config.adverse_selection
+    maker_active = through > 0 or adverse > 0
+
     if order.side == OrderSide.BUY:
-        # Buy limit fills if the bar's low reached down to (or below) the limit.
-        if low > limit:
+        # Fill only if the bar trades through the limit by the through-margin
+        # (default through=0 -> the legacy "low <= limit" touch condition).
+        if low > limit * (Decimal(1) - through):
             return None
-        fill_price = min(open_price, limit)
+        # Maker model books at the limit, penalized by adverse selection (no
+        # favorable gap capture). Legacy books the better of open/limit.
+        fill_price = limit * (Decimal(1) + adverse) if maker_active else min(open_price, limit)
     else:
-        # Sell limit fills if the bar's high reached up to (or above) the limit.
-        if high < limit:
+        if high < limit * (Decimal(1) + through):
             return None
-        fill_price = max(open_price, limit)
+        fill_price = limit * (Decimal(1) - adverse) if maker_active else max(open_price, limit)
 
     fillable_qty = _apply_volume_cap(order.quantity, bar["volume"], config)
     if fillable_qty is None:
         return None  # zero-volume bar with cap; order persists
 
-    fee = config.fee_for(order.symbol, fill_price, fillable_qty)
+    # Limit orders are maker fills (maker_fee_for == fee_for when maker_fee_bps is None).
+    fee = config.maker_fee_for(order.symbol, fill_price, fillable_qty)
     remainder = order.quantity - fillable_qty
     is_partial = remainder > 0
 

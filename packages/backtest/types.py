@@ -87,6 +87,19 @@ class BacktestConfig:
     # exposure: 1.0 = fully collateralized (no leverage), 0.5 = 2:1, etc.
     allow_short: bool = True
     margin_rate: Decimal = Decimal(1)
+    # --- Realistic maker (limit) fill model ---
+    # All default to a no-op: with maker_fee_bps=None and the two margins at 0,
+    # try_fill_limit_order behaves byte-for-byte as before (optimistic touch-fill).
+    #   maker_fee_bps          : fee on limit fills (None -> fall back to fee_rate_bps).
+    #   fill_through_margin_bps : a limit fills only if the bar trades PAST it by this
+    #                             many bps (queue-position / non-fill proxy), not on a
+    #                             mere touch.
+    #   adverse_selection_bps  : book maker fills this many bps WORSE than the limit
+    #                             (you tend to get filled right before price moves
+    #                             against you).
+    maker_fee_bps: int | None = None
+    fill_through_margin_bps: int = 0
+    adverse_selection_bps: int = 0
 
     @property
     def fee_rate(self) -> Decimal:
@@ -117,6 +130,25 @@ class BacktestConfig:
         if meta is not None and meta.asset_class == "option":
             return self.option_fee_per_contract * quantity
         return fill_price * quantity * self.fee_rate
+
+    def maker_fee_for(self, symbol: str, fill_price: Decimal, quantity: Decimal) -> Decimal:
+        """Fee for a maker (limit) fill. Uses maker_fee_bps when set, else fee_rate."""
+        meta = self.meta_for(symbol)
+        if meta is not None and meta.asset_class == "option":
+            return self.option_fee_per_contract * quantity
+        rate = (Decimal(self.maker_fee_bps) / Decimal(10_000)
+                if self.maker_fee_bps is not None else self.fee_rate)
+        return fill_price * quantity * rate
+
+    @property
+    def through_margin(self) -> Decimal:
+        """Through-fill margin as a Decimal fraction."""
+        return Decimal(self.fill_through_margin_bps) / Decimal(10_000)
+
+    @property
+    def adverse_selection(self) -> Decimal:
+        """Adverse-selection penalty as a Decimal fraction."""
+        return Decimal(self.adverse_selection_bps) / Decimal(10_000)
 
 
 # ============================================================

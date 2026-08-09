@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from packages.analysis import analyze_walkforward
 from packages.backtest.walkforward_persistence import (
     create_walkforward,
     list_walkforwards_for_user,
@@ -105,6 +106,12 @@ class WalkforwardDetail(BaseModel):
     avg_test_return_pct: float | None = None
     overfit_drop: float | None = None
     win_rate_windows_pct: float | None = None
+    # Legible verdict derived from the metrics above (presentation only — no
+    # validation math): a plain DEPLOY / HOLD_CONDITIONAL / REJECT /
+    # UNVERIFIABLE call (the referee gauntlet's vocabulary), a short narrative,
+    # a ranked what-to-fix list, and a `next_action` path back into the loop.
+    # None while the run is unfinished. See packages/analysis/walkforward_analysis.py.
+    analysis: dict[str, Any] | None = None
 
 
 # ============================================================
@@ -171,6 +178,9 @@ def _row_to_detail(row: dict[str, Any]) -> WalkforwardDetail:
         avg_test_return_pct=float(row["avg_test_return_pct"]) if row.get("avg_test_return_pct") is not None else None,
         overfit_drop=float(row["overfit_drop"]) if row.get("overfit_drop") is not None else None,
         win_rate_windows_pct=float(row["win_rate_windows_pct"]) if row.get("win_rate_windows_pct") is not None else None,
+        # Derived from the already-stored metrics at read time — no engine or DB
+        # change. Returns None until the run is finished with an OOS result.
+        analysis=analyze_walkforward(row),
     )
 
 

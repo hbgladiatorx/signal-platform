@@ -18,6 +18,8 @@ import os
 from dataclasses import dataclass
 from typing import Any, Optional
 
+from packages.strategy.risk_language import detect_risk_ambiguity
+
 log = logging.getLogger(__name__)
 
 
@@ -169,6 +171,16 @@ fixed quantity like 0.01 "base units" — on a $25k account that is a few dollar
 of exposure, so every backtest returns ~0% regardless of the strategy. Use a
 `fixed_cash` param (`qty = cash / price`) only if the user asks for a fixed
 dollar amount per trade.
+
+## Ambiguous "risk N%" — apply the stop-loss default
+
+A bare phrase like "risk 2% per trade" is ambiguous: it could mean a 2% position
+size OR a 2% stop-loss — opposite economics. Do NOT guess silently. The
+DOCUMENTED DEFAULT is to treat an unclarified "risk N%" as an N% STOP-LOSS (cap
+the loss per trade), and to size normally (default 95% of equity). Only read it
+as a position size when the user is explicit ("size 2% of account", "position
+size 2%"). The platform attaches a separate clarification flag for the user; your
+job is just to make the code follow this same default so the two agree.
 
 ## Look-ahead safety
 
@@ -391,6 +403,11 @@ class TranslationResult:
     suggested_strategy_name: Optional[str] = None
     explanation: Optional[str] = None
     error: Optional[str] = None
+    # Machine-readable clarification flag when the description's risk language was
+    # ambiguous between position-size and stop-loss (e.g. bare "risk 2% per
+    # trade"). Same detector the deterministic compiler uses, so the two paths
+    # never disagree. None when risk language was unambiguous or absent.
+    risk_flag: Optional[dict[str, Any]] = None
     # For observability
     input_tokens: int = 0
     output_tokens: int = 0
@@ -418,6 +435,14 @@ def translate_nl_to_strategy(
         TranslationResult. On success, source_code and metadata are populated.
         On failure, error contains a human-readable explanation.
     """
+    # Disambiguate risk language deterministically up front, BEFORE the LLM runs,
+    # using the same detector the graph compiler uses — so whichever build path
+    # an idea falls into, the user sees the identical flag. The LLM is also told
+    # (in SYSTEM_PROMPT) to apply the documented default for the ambiguous case,
+    # keeping its generated code consistent with the flag.
+    risk_flag = detect_risk_ambiguity(nl_description)
+    risk_flag_dict = risk_flag.to_dict() if risk_flag else None
+
     # Lazy import so the module can be imported even if anthropic isn't
     # installed yet (helpful for tests / early startup)
     try:
@@ -526,6 +551,7 @@ def translate_nl_to_strategy(
         params_class_name=tool_input.get("params_class_name"),
         suggested_strategy_name=tool_input.get("suggested_strategy_name"),
         explanation=tool_input.get("explanation"),
+        risk_flag=risk_flag_dict,
         input_tokens=getattr(usage, "input_tokens", 0) if usage else 0,
         output_tokens=getattr(usage, "output_tokens", 0) if usage else 0,
     )

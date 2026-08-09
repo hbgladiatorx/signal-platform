@@ -42,12 +42,15 @@ import asyncpg
 # 1m continuous-aggregate materialized hypertable + the dependent caggs to
 # refresh (in dependency order). _materialized_hypertable_5 == cagg_bars_1m.
 MAT_1M = "_timescaledb_internal._materialized_hypertable_5"
-HIGHER_CAGGS = ["cagg_bars_5m", "cagg_bars_15m", "cagg_bars_1h", "cagg_bars_4h", "cagg_bars_1d"]
+HIGHER_CAGGS = ["cagg_bars_5m", "cagg_bars_10m", "cagg_bars_15m", "cagg_bars_30m",
+                "cagg_bars_1h", "cagg_bars_4h", "cagg_bars_1d"]
 
 # Polygon aggregate timespan per interval.
 POLY_SPAN = {"1m": ("1", "minute"), "1h": ("1", "hour"), "1d": ("1", "day")}
-# Binance.US kline interval strings.
-BINANCE_INTERVAL = {"1m": "1m", "1h": "1h", "1d": "1d"}
+# Binance.US kline interval strings. 5m gives dense-enough coverage for the
+# 5m/10m/15m/30m/1h caggs (each fetched bar lands at its start minute in the 1m
+# cagg, then rolls up correctly) at 1/5 the row count of a 1m backfill.
+BINANCE_INTERVAL = {"1m": "1m", "5m": "5m", "1h": "1h", "1d": "1d"}
 
 POLYGON_KEY = os.environ.get("POLYGON_API_KEY", "")
 
@@ -225,7 +228,7 @@ async def refresh_caggs(conn, lo: datetime, hi: datetime):
 async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--asset", choices=["equity", "crypto"], required=True)
-    ap.add_argument("--interval", choices=["1m", "1h", "1d"], default="1h")
+    ap.add_argument("--interval", choices=["1m", "5m", "1h", "1d"], default="1h")
     ap.add_argument("--start", default="2025-01-01")
     ap.add_argument("--end", default=None, help="default = now")
     ap.add_argument("--symbols", default=None, help="comma-separated canonical symbols")

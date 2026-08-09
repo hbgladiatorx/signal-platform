@@ -236,8 +236,9 @@ def analyze_backtest(
             "low-sample", "sample", "warn", f"Only {n_trades} trades",
             f"{n_trades} closed trades is too few to trust any metric — one or "
             "two outcomes swing every ratio.",
-            "Extend the date range or test across more symbols to reach "
-            f"{MIN_TRADES_CONFIDENT}+ trades before drawing conclusions.",
+            "Extend the date range or use a lower (intraday) timeframe to reach "
+            f"{MIN_TRADES_CONFIDENT}+ trades before drawing conclusions. "
+            "(Strategies run on one symbol, so adding symbols isn't an option.)",
         ))
 
     # ============================================================
@@ -380,8 +381,9 @@ def _symbol_findings(attribution: dict[str, Any]) -> list[dict[str, Any]]:
             f"Profit concentrated in {best.get('symbol')}",
             f"{best.get('symbol')} alone is {b_share:.0f}% of net P&L. The edge "
             "may not generalize beyond this one market.",
-            "Re-run across more symbols; if the edge only exists in one name, "
-            "treat the result with caution.",
+            "Backtest other names one at a time (strategies run on a single "
+            "symbol) to see whether the edge generalizes; if it only exists in "
+            "one name, treat the result with caution.",
         ))
     return out
 

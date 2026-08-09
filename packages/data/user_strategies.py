@@ -32,6 +32,7 @@ async def create_user_strategy(
     params_schema: dict[str, Any],
     graph_json: Optional[dict[str, Any]] = None,
     asset_class: Optional[str] = None,
+    assumptions: Optional[list[str]] = None,
 ) -> UUID:
     """Insert a new user_strategy row. Returns the new id."""
     result = await session.execute(
@@ -39,12 +40,14 @@ async def create_user_strategy(
             """
             INSERT INTO user_strategies (
                 user_id, org_id, name, description, nl_description,
-                class_name, source_code, params_schema, graph_json, asset_class
+                class_name, source_code, params_schema, graph_json, asset_class,
+                assumptions
             )
             VALUES (
                 :user_id, :org_id, :name, :description, :nl_description,
                 :class_name, :source_code, CAST(:params_schema AS JSONB),
-                CAST(:graph_json AS JSONB), :asset_class
+                CAST(:graph_json AS JSONB), :asset_class,
+                CAST(:assumptions AS JSONB)
             )
             RETURNING id
             """
@@ -60,6 +63,7 @@ async def create_user_strategy(
             "params_schema": _to_json(params_schema),
             "graph_json": _to_json(graph_json) if graph_json is not None else None,
             "asset_class": asset_class,
+            "assumptions": _to_json(assumptions) if assumptions is not None else None,
         },
     )
     row = result.first()
@@ -84,9 +88,10 @@ async def get_user_strategy(
             SELECT
                 id, user_id, org_id, name, description, nl_description,
                 class_name, source_code, params_schema, graph_json, asset_class,
+                assumptions,
                 is_active, created_at, updated_at,
                 promoted_at, deployed_live_at, last_deploy_mode,
-                last_deployed_at, submitted_to_bayn_at
+                last_deployed_at, submitted_to_bayn_at, forward_test_skipped_at
             FROM user_strategies
             WHERE id = :id AND user_id = :user_id
             """
@@ -110,6 +115,7 @@ async def get_user_strategy_by_name(
             SELECT
                 id, user_id, org_id, name, description, nl_description,
                 class_name, source_code, params_schema, graph_json, asset_class,
+                assumptions,
                 is_active, created_at, updated_at
             FROM user_strategies
             WHERE user_id = :user_id AND name = :name AND is_active = TRUE
@@ -236,6 +242,7 @@ async def set_strategy_lifecycle_milestone(
     promoted: bool = False,
     deployed_mode: Optional[str] = None,
     submitted: bool = False,
+    forward_skipped: bool = False,
 ) -> bool:
     """Set one or more durable lifecycle milestones on a strategy.
 
@@ -244,6 +251,8 @@ async def set_strategy_lifecycle_milestone(
       * deployed_mode="paper"    -> last_deploy_mode/last_deployed_at only
       * deployed_mode="live"     -> also deployed_live_at = now()  (stage: bayn_eligible)
       * submitted=True           -> submitted_to_bayn_at = now()
+      * forward_skipped=True     -> forward_test_skipped_at = now()  (recorded skip;
+                                    never marks forward as PASSED)
 
     All sets are NOW(); milestones are monotonic (we never clear them).
     Returns True if a row was updated.
@@ -253,6 +262,8 @@ async def set_strategy_lifecycle_milestone(
 
     if promoted:
         sets.append("promoted_at = COALESCE(promoted_at, now())")
+    if forward_skipped:
+        sets.append("forward_test_skipped_at = COALESCE(forward_test_skipped_at, now())")
     if deployed_mode is not None:
         sets.append("last_deploy_mode = :mode")
         sets.append("last_deployed_at = now()")

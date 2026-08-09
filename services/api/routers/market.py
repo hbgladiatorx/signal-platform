@@ -36,12 +36,14 @@ router = APIRouter(prefix="/market", tags=["market"])
 # Resolution → table-name mapping (whitelist; no string interpolation
 # of user input into SQL)
 # ============================================================
-BarResolution = Literal["1m", "5m", "15m", "1h", "4h", "1d"]
+BarResolution = Literal["1m", "5m", "10m", "15m", "30m", "1h", "4h", "1d"]
 
 RESOLUTION_TABLE: dict[str, str] = {
     "1m": "cagg_bars_1m",
     "5m": "cagg_bars_5m",
+    "10m": "cagg_bars_10m",
     "15m": "cagg_bars_15m",
+    "30m": "cagg_bars_30m",
     "1h": "cagg_bars_1h",
     "4h": "cagg_bars_4h",
     "1d": "cagg_bars_1d",
@@ -50,7 +52,9 @@ RESOLUTION_TABLE: dict[str, str] = {
 RESOLUTION_DEFAULT_LOOKBACK: dict[str, timedelta] = {
     "1m": timedelta(hours=2),
     "5m": timedelta(hours=8),
+    "10m": timedelta(hours=16),
     "15m": timedelta(days=1),
+    "30m": timedelta(days=2),
     "1h": timedelta(days=5),
     "4h": timedelta(days=20),
     "1d": timedelta(days=365),

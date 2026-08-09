@@ -22,7 +22,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from packages.copilot.agent import run_copilot_turn
 from packages.copilot.state import compute_strategy_state
-from packages.data.user_strategies import get_user_strategy
+from packages.data.user_strategies import (
+    get_user_strategy,
+    set_strategy_lifecycle_milestone,
+)
 from services.api.deps import (
     CurrentUserRecord,
     get_current_user_record,
@@ -89,3 +92,54 @@ async def strategy_state_endpoint(
     if row is None:
         raise HTTPException(404, "Strategy not found")
     return await compute_strategy_state(session, user_id=user.id, strategy_row=row)
+
+
+class SkipForwardTestResponse(BaseModel):
+    ok: bool
+    forward_test: str = Field(..., description='"skipped" — recorded, never "passed".')
+    state: dict[str, Any]
+
+
+@router.post("/strategies/{strategy_id}/skip-forward-test", response_model=SkipForwardTestResponse)
+async def skip_forward_test_endpoint(
+    strategy_id: UUID,
+    session: AsyncSession = Depends(get_db_session),
+    user: CurrentUserRecord = Depends(get_current_user_record),
+) -> SkipForwardTestResponse:
+    """Explicitly advance a VALIDATED strategy toward deployable WITHOUT forward
+    testing — an honest, recorded opt-out, not a silent bypass.
+
+    Requires the strategy to have passed OOS first (you can't skip a stage you
+    haven't reached). Records `forward_test_skipped_at` and promotes to
+    deployable. The state then reports forward_test="skipped" with
+    forward_started=false — it is never recorded as if forward testing passed.
+    Forward testing remains the default path; this is the user's deliberate skip.
+    """
+    row = await get_user_strategy(session, strategy_id=strategy_id, user_id=user.id)
+    if row is None:
+        raise HTTPException(404, "Strategy not found")
+
+    state = await compute_strategy_state(session, user_id=user.id, strategy_row=row)
+    if not state["gates_passed"].get("oos_passed"):
+        raise HTTPException(
+            status_code=422,
+            detail={"msg": "Validate the strategy out-of-sample (run OOS) before "
+                           "skipping forward testing.",
+                    "stage": state["stage"]},
+        )
+    if state["gates_passed"].get("forward_started"):
+        raise HTTPException(
+            status_code=409,
+            detail={"msg": "Forward testing has already started for this strategy; "
+                           "there's nothing to skip."},
+        )
+
+    await set_strategy_lifecycle_milestone(
+        session, strategy_id=strategy_id, user_id=user.id,
+        forward_skipped=True, promoted=True,
+    )
+    await session.commit()
+
+    fresh = await get_user_strategy(session, strategy_id=strategy_id, user_id=user.id)
+    new_state = await compute_strategy_state(session, user_id=user.id, strategy_row=fresh)
+    return SkipForwardTestResponse(ok=True, forward_test=new_state["forward_test"], state=new_state)

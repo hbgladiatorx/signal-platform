@@ -1,0 +1,17 @@
+=== REAL-ENGINE validation: 15m regime-MR, long-only spot, 10bps fee / 5bps slip, 2025 ===
+sym        reg  win        ret     pf  trades  win%   maxDD
+BTC        200  full    -5.28%   0.78      46    41   -5.7%
+BTC        200  IS      -3.83%   0.84      36    44   -4.2%
+BTC        200  OOS     -1.15%   0.67       9    33   -1.2%
+LINK       100  full    -1.14%   1.14      27    44   -2.8%
+LINK       100  IS       0.62%   1.49      18    50   -2.8%
+LINK       100  OOS     -1.74%   0.65       9    33   -2.1%
+LINK       200  full    -5.33%   0.89      49    37   -7.6%
+LINK       200  IS      -2.01%   1.05      31    42   -5.8%
+LINK       200  OOS     -3.38%   0.66      18    28   -4.9%
+
+VERDICT: 15m edge does NOT survive realistic fills. Fast scanner's marginal
+positives came from fill-at-close optimism; real engine fills market orders at
+next-bar open + slippage -> all configs net-negative, OOS negative in every case.
+No deployable edge at 1m/5m/15m. Only validated cost-surviving config: LINK 1h
+(+9.65%, pf1.44). See memory: no-1m-edge-cost-wall, regime-reversion-spot-edge.

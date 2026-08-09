@@ -199,7 +199,18 @@ class PaperTrader:
             )
         params = resolved.cls.PARAMS_MODEL(**(row["params_json"] or {}))
         strategy: Strategy = resolved.cls(symbols=list(row["symbols"]), params=params)
-        # Rehydrate persisted state across restarts.
+
+        # on_init runs on EVERY load, not just the first start. It sets up derived
+        # instance attributes (e.g. self.symbol) that live outside the persisted
+        # `state` dict and would otherwise be lost across a restart, crashing
+        # on_bar. Run it BEFORE rehydrating state so any persisted state
+        # (open-position entry price, counters) overrides on_init's defaults.
+        try:
+            strategy.on_init()
+        except Exception as e:  # noqa: BLE001
+            log.error("paper.runner.on_init_error", error=str(e))
+
+        # Rehydrate persisted state across restarts (wins over on_init defaults).
         if row.get("strategy_state_json"):
             strategy.state = dict(row["strategy_state_json"])
 
@@ -220,14 +231,6 @@ class PaperTrader:
             kill_switch=self._kill_switch,
             on_halt=self._halt_session,
         )
-
-        # on_init only once, ever.
-        initialized = bool(row.get("initialized"))
-        if not initialized:
-            try:
-                strategy.on_init()
-            except Exception as e:  # noqa: BLE001
-                log.error("paper.runner.on_init_error", error=str(e))
 
         await session.warm_start()
         self.registry.add(session, credential_id)

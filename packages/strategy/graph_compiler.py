@@ -25,6 +25,11 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from packages.strategy.risk_language import (
+    detect_risk_ambiguity,
+    has_unambiguous_size_language,
+)
+
 
 # Indicator node type → (BarContext method, default period). Only indicators
 # the framework actually exposes are compilable; others force LLM fallback.
@@ -49,6 +54,11 @@ class CompileResult:
     params_class_name: str | None = None
     reason: str | None = None  # why we fell back, for logging/telemetry
     notes: list[str] = field(default_factory=list)
+    # Machine-readable clarification flag when the description contained risk
+    # language that is ambiguous between position-size and stop-loss (e.g. bare
+    # "risk 2% per trade"). None when risk language was unambiguous or absent.
+    # See packages/strategy/risk_language.py for the documented default.
+    risk_flag: dict[str, Any] | None = None
 
 
 def _class_name_from(name: str) -> str:
@@ -97,9 +107,16 @@ def _nodes(graph: dict) -> list[dict]:
 
 
 def compile_graph_to_source(
-    *, name: str, asset_class: str, graph: dict | None
+    *, name: str, asset_class: str, graph: dict | None, description: str | None = None
 ) -> CompileResult:
-    """Compile a builder graph into Strategy source. ok=False ⇒ fall back to LLM."""
+    """Compile a builder graph into Strategy source. ok=False ⇒ fall back to LLM.
+
+    `description` is the original natural-language idea. When given, it is scanned
+    for risk language that is ambiguous between position-size and stop-loss (e.g.
+    bare "risk 2% per trade"); the ambiguous case applies the documented default
+    (a stop-loss) and the result carries a machine-readable `risk_flag` so the
+    UI can ask the user to confirm. Unambiguous risk language is unaffected.
+    """
     if not graph or not _nodes(graph):
         return CompileResult(ok=False, reason="empty graph")
 
@@ -321,6 +338,25 @@ def compile_graph_to_source(
             else:  # "percent_account" (or unspecified) → treat as percent
                 sizing = {"mode": "percent_account", "value": val}
 
+    # ---- ambiguous risk language: flag it, don't resolve it silently ----
+    # "risk 2% per trade" can mean a 2% stop-loss OR a 2% position size — opposite
+    # economics. We refuse to guess silently: apply the documented default (a
+    # stop-loss; see risk_language.py) and attach a machine-readable flag so the
+    # UI can ask the user to confirm. If the planner produced a positionSize node
+    # by misreading the same ambiguous phrase, undo it so the compiled strategy
+    # matches the flag — but a genuine, explicit "size N% of account" is kept.
+    risk_flag = detect_risk_ambiguity(description)
+    if risk_flag is not None:
+        if (
+            not has_unambiguous_size_language(description)
+            and sizing.get("mode") == "percent_account"
+            and _num(sizing.get("value")) == risk_flag.value
+        ):
+            sizing = {"mode": "percent_account", "value": 95.0}
+        if stop_pct is None:
+            stop_pct = risk_flag.value
+        notes.append(risk_flag.message)
+
     # ---- emit ----
     cls = _class_name_from(name)
     params_cls = f"{cls}Params"
@@ -340,6 +376,7 @@ def compile_graph_to_source(
     return CompileResult(
         ok=True, source_code=src, class_name=cls,
         params_class_name=params_cls, notes=notes,
+        risk_flag=risk_flag.to_dict() if risk_flag else None,
     )
 
 
@@ -456,10 +493,15 @@ def _emit_source(
     A(f"    PARAMS_MODEL = {params_class_name}")
     A("")
     A("    def on_init(self) -> None:")
+    A("        # Single-symbol contract: this strategy has no capital-allocation")
+    A("        # model across a universe, so it runs on exactly one symbol. The")
+    A("        # platform refuses multi-symbol before a run reaches here; this is")
+    A("        # the backstop, surfaced as a clear failed-backtest message.")
     A("        if len(self.symbols) != 1:")
     A("            raise ValueError(")
-    A(f"                f\"{class_name} supports exactly one symbol, \"")
-    A('                f"got {len(self.symbols)}: {self.symbols}"')
+    A(f"                f\"{class_name} runs on a single symbol; multi-symbol \"")
+    A('                f"isn\'t supported yet (got {len(self.symbols)}: "')
+    A('                f"{self.symbols}). Run one ticker at a time."')
     A("            )")
     A("        self.symbol: str = self.symbols[0]")
     A('        self.state["stop_price"] = None')

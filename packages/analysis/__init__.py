@@ -10,3 +10,4 @@ the deterministic findings when it is not.
 from packages.analysis.backtest_analysis import analyze_backtest  # noqa: F401
 from packages.analysis.narrate import generate_narrative  # noqa: F401
 from packages.analysis.tweak_advisor import suggest_param_tweaks  # noqa: F401
+from packages.analysis.walkforward_analysis import analyze_walkforward  # noqa: F401
