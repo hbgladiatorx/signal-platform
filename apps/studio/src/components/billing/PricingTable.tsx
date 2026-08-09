@@ -18,6 +18,11 @@ export function PricingTable({
 
   return (
     <div className="space-y-10">
+      <div className="rounded-lg border border-border bg-elevated/60 px-4 py-2.5 text-center text-xs text-muted-foreground">
+        <span className="font-medium text-foreground">Billing isn't live yet.</span>{" "}
+        Selecting a plan updates your account preferences only — no payment is taken and no card is required. Real checkout is coming soon.
+      </div>
+
       <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
         {tiers.map((t) => (
           <TierCard

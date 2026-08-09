@@ -277,8 +277,8 @@ function SignalDetail() {
           </div>
 
           {s.assetClass === "crypto" && (
-            <Button onClick={() => setShowBroker(true)} className="w-full bg-cyan text-cyan-foreground hover:bg-cyan/90">
-              <Bitcoin className="mr-2 size-4" /> Send to Coinbase
+            <Button onClick={() => setShowBroker(true)} variant="outline" className="w-full">
+              <Bitcoin className="mr-2 size-4" /> Prepare Coinbase order
             </Button>
           )}
           <Button onClick={() => setShowTaken(true)} variant="outline" className="w-full">Mark as taken manually</Button>
@@ -290,15 +290,28 @@ function SignalDetail() {
       <Dialog open={showBroker} onOpenChange={setShowBroker}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirm order on Coinbase</DialogTitle>
+            <DialogTitle>Coinbase order preview</DialogTitle>
             <DialogDescription>
-              Bayn will send a pre-filled {s.direction} order for <span className="font-mono">{positionSize}</span> {s.symbol} at <span className="font-mono">{s.entry}</span>.
-              You must confirm the order on your Coinbase account. Bayn never executes automatically.
+              Broker connections aren't live yet, so Bayn can't place this order. Here's the pre-filled ticket
+              you'll be able to send once your Coinbase agent is connected — copy it to place manually for now.
+              Bayn never executes automatically; you always confirm on your own account.
             </DialogDescription>
           </DialogHeader>
+          <div className="rounded-lg border border-border bg-background/40 p-3 font-mono text-sm">
+            {s.direction} {positionSize} {s.symbol} @ {s.entry} · stop {s.stop} · target {s.target}
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowBroker(false)}>Cancel</Button>
-            <Button onClick={() => { setShowBroker(false); toast("Order sent to Coinbase (mock)"); }} className="bg-cyan text-cyan-foreground hover:bg-cyan/90">Confirm</Button>
+            <Button variant="outline" onClick={() => setShowBroker(false)}>Close</Button>
+            <Button
+              onClick={() => {
+                navigator.clipboard?.writeText(`${s.direction} ${positionSize} ${s.symbol} @ ${s.entry} | stop ${s.stop} | target ${s.target}`);
+                setShowBroker(false);
+                toast.success("Order details copied");
+              }}
+              className="bg-cyan text-cyan-foreground hover:bg-cyan/90"
+            >
+              Copy order details
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

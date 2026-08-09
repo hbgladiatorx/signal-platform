@@ -22,6 +22,10 @@ function TraderAgent() {
         <MCPMiniStatus />
       </div>
 
+      <div className="rounded-lg border border-warn/30 bg-warn/5 px-4 py-2.5 text-xs text-foreground/80">
+        <b className="text-warn">Preview.</b> The assistant isn't connected to your live account yet, so it won't analyze real positions or invent numbers. Your real data lives in <span className="font-medium text-foreground">Signals</span> and <span className="font-medium text-foreground">Performance</span>.
+      </div>
+
       <Card className="border-border bg-elevated">
         <button onClick={() => setLoopOpen((o) => !o)} className="flex w-full items-center justify-between px-4 py-2.5 text-left">
           <div className="flex items-center gap-2 text-sm font-medium"><Workflow className="size-4 text-cyan" /> How the loop works</div>

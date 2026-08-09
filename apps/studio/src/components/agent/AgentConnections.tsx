@@ -81,7 +81,7 @@ function AgentCard() {
       <Button
         size="sm"
         variant={conn.agent ? "outline" : "default"}
-        onClick={() => { update({ agent: !conn.agent }); toast(conn.agent ? "Agent disconnected" : "Agent connected (mock)"); }}
+        onClick={() => { update({ agent: !conn.agent }); toast(conn.agent ? "Agent unmarked" : "Agent marked as connected"); }}
         className={!conn.agent ? "bg-cyan text-cyan-foreground hover:bg-cyan/90" : ""}
       >
         {conn.agent ? "Disconnect agent" : "Mark as connected"}
@@ -119,7 +119,7 @@ function BaynCard() {
         <Switch checked={conn.allowSignalRead} onCheckedChange={(v) => update({ allowSignalRead: v })} />
       </div>
       <Button size="sm" variant={conn.bayn ? "outline" : "default"}
-        onClick={() => { update({ bayn: !conn.bayn }); toast(conn.bayn ? "Bayn MCP disconnected" : "Bayn MCP connected (mock)"); }}
+        onClick={() => { update({ bayn: !conn.bayn }); toast(conn.bayn ? "Bayn MCP unmarked" : "Bayn MCP marked as connected"); }}
         className={!conn.bayn ? "bg-violet text-violet-foreground hover:bg-violet/90" : ""}>
         {conn.bayn ? "Disconnect Bayn MCP" : "Connect Bayn MCP"}
       </Button>
@@ -167,13 +167,13 @@ function BrokerageCard() {
           <Card className="m-4 max-w-md border-border bg-elevated p-5" onClick={(e) => e.stopPropagation()}>
             <div className="mb-2 text-sm font-semibold">Connect Brokerage Agent</div>
             <p className="text-xs text-muted-foreground">
-              You'll be redirected to Brokerage to authorize your agent. The agent gets read access to positions, balances, and order history, and may place trades <b>only</b> in your Agentic account. You confirm each trade unless you pre-authorize a strategy.
+              Live brokerage OAuth isn't available yet. For now this just marks the Brokerage Agent as connected on your setup checklist — no account is linked and no orders can be placed. When the integration ships, you'll authorize read access to positions, balances and order history, and the agent will place trades <b>only</b> in your Agentic account, with your confirmation on each trade.
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <Button size="sm" variant="outline" onClick={() => setOauthOpen(false)}>Cancel</Button>
               <Button size="sm" className="bg-gold text-gold-foreground hover:bg-gold/90"
-                onClick={() => { setOauthOpen(false); update({ broker: true }); toast.success("Brokerage Agent connected (mock)"); }}>
-                Authorize (mock)
+                onClick={() => { setOauthOpen(false); update({ broker: true }); toast.success("Brokerage Agent marked as connected"); }}>
+                Mark as connected
               </Button>
             </div>
           </Card>
