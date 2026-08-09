@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "catalyst-breakout"
+version = "0.1.0"
+description = "Asymmetric Catalyst Breakout Signal & Backtest System"
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.31",
+    "numpy>=1.26",
+    "python-dateutil>=2.9",
+]
+
+[project.optional-dependencies]
+# Live runtime extras (Postgres/Supabase). Offline core runs on stdlib sqlite3.
+prod = [
+    "psycopg[binary]>=3.1",
+    "pandas>=2.1",
+]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]
