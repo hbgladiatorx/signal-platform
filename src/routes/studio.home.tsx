@@ -8,14 +8,30 @@ import { Button } from "@/components/ui/button";
 import { StageBadge } from "@/components/common/StageBadge";
 import { AssetClassBadge } from "@/components/common/AssetClassBadge";
 import { formatDistanceToNow } from "date-fns";
-import { Plus, Layers, FlaskConical, Activity, Inbox, TrendingUp, Trophy } from "lucide-react";
+import { Plus, Layers, FlaskConical, Activity, Inbox, TrendingUp, Trophy, PencilRuler, Rocket, Send } from "lucide-react";
 import { CustomizeButton } from "@/components/common/CustomizeButton";
 import { cn } from "@/lib/utils";
+import type { PipelineStage } from "@/lib/types";
 
 export const Route = createFileRoute("/studio/home")({
   head: () => ({ meta: [{ title: "Overview — Bayn Studio" }] }),
   component: StudioHome,
 });
+
+// Pipeline status cards. Each links to /studio/strategies?stage=<PipelineStage>,
+// which the list reads on load (absent => "All stages").
+const STAGE_CARDS: Array<{
+  label: string;
+  stage: PipelineStage;
+  icon: typeof Layers;
+  accent: string;
+}> = [
+  { label: "Draft", stage: "Draft", icon: PencilRuler, accent: "text-muted-foreground" },
+  { label: "Backtesting", stage: "Backtested", icon: FlaskConical, accent: "text-cyan" },
+  { label: "Forward-testing", stage: "Forward Testing", icon: Activity, accent: "text-futures" },
+  { label: "Live", stage: "Live", icon: Rocket, accent: "text-emerald-500" },
+  { label: "Submitted", stage: "Submitted", icon: Send, accent: "text-violet" },
+];
 
 const fmtPct = (v?: number) =>
   v == null ? "—" : `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}%`;
@@ -122,6 +138,30 @@ function StudioHome() {
             {t.sub && <div className="font-mono text-[10px] text-futures">{t.sub}</div>}
           </Card>
         ))}
+      </div>
+
+      {/* Pipeline status — each card opens the strategy list pre-filtered */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        {STAGE_CARDS.map((c) => {
+          const count = list.filter((s) => s.stage === c.stage).length;
+          return (
+            <Link
+              key={c.stage}
+              to="/studio/strategies"
+              search={{ stage: c.stage }}
+              className="block"
+            >
+              <Card className="h-full border-border bg-elevated p-4 transition-colors hover:border-violet/40">
+                <div className="flex items-center justify-between">
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{c.label}</div>
+                  <c.icon className={cn("size-3.5", c.accent)} />
+                </div>
+                <div className="mt-1 font-mono text-3xl tabular-nums">{count}</div>
+                <div className="font-mono text-[10px] text-muted-foreground">View →</div>
+              </Card>
+            </Link>
+          );
+        })}
       </div>
 
       {/* Live sessions + Recent backtests */}
