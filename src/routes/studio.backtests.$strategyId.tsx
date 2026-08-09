@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
-import { getBacktestsForStrategy, getBacktest, getDevStrategy, submitStrategyToBayn, deployStrategyLive, runBacktest, saveStrategyGraph, certifyBacktest, getCertReportHtml, skipForwardTest, type CertResult } from "@/lib/api/studio";
+import { getBacktestsForStrategy, getBacktest, getDevStrategy, deleteBacktest, cloneBacktest, submitStrategyToBayn, deployStrategyLive, runBacktest, saveStrategyGraph, certifyBacktest, getCertReportHtml, skipForwardTest, type CertResult } from "@/lib/api/studio";
 import type { StrategyGraph } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell,
   Line, LineChart,
 } from "recharts";
-import { ArrowLeft, Rocket, Send, CheckCircle2, ArrowRight, Activity, Sparkles, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Rocket, Send, CheckCircle2, ArrowRight, Activity, Sparkles, ShieldCheck, Copy, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { advanceStage, getStage, nextStage, STAGE_ORDER } from "@/lib/strategy-stage";
@@ -179,6 +179,11 @@ function BacktestDetail() {
   const [selectedId, setSelectedId] = useState<string | undefined>(runId);
   useEffect(() => { if (runId) setSelectedId(runId); }, [runId]);
 
+  // Run-level actions: inline-confirmed delete, and clone-and-re-run.
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [cloning, setCloning] = useState(false);
+
   // When OOS doesn't cleanly pass (negative return, or too few trades to judge)
   // we don't dead-end — we open this gate so the user can continue regardless.
   const [oosGate, setOosGate] = useState<
@@ -227,6 +232,43 @@ function BacktestDetail() {
   if (!run) return <div className="p-6 text-muted-foreground">No backtest runs yet.</div>;
 
   const stats = run.stats;
+
+  const onDeleteRun = async () => {
+    setDeleting(true);
+    try {
+      await deleteBacktest(run.id);
+      const remaining = (runs ?? []).filter((r) => r.id !== run.id);
+      await qc.invalidateQueries({ queryKey: ["bts", strategyId] });
+      toast.success("Backtest deleted");
+      setSelectedId(remaining[0]?.id);
+      navigate({
+        to: "/studio/backtests/$strategyId",
+        params: { strategyId },
+        search: (remaining[0] ? { runId: remaining[0].id } : {}) as never,
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't delete that backtest");
+    } finally {
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
+  };
+
+  const onCloneRun = async () => {
+    setCloning(true);
+    toast.loading("Re-running this backtest…", { id: "clone" });
+    try {
+      const r = await cloneBacktest(run.id);
+      await qc.invalidateQueries({ queryKey: ["bts", strategyId] });
+      toast.success(`Re-run complete · ${fmtPct(r.stats.totalReturn)}`, { id: "clone" });
+      navigate({ to: "/studio/backtests/$strategyId", params: { strategyId }, search: { runId: r.id } as never });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Re-run failed", { id: "clone" });
+    } finally {
+      setCloning(false);
+    }
+  };
+
   const stepFns: Record<Exclude<DeployStage, "draft">, () => Promise<void>> = {
     backtested: async () => {
       // Out-of-sample = re-run the strategy on a *held-out recent window* it
@@ -343,6 +385,23 @@ function BacktestDetail() {
             {(runs ?? []).map((r) => <SelectItem key={r.id} value={r.id}>Run · {new Date(r.ranAt).toLocaleString()}</SelectItem>)}
           </SelectContent>
         </Select>
+        {/* A completed run is immutable: "editing" it means re-running the same
+            config as a new run. */}
+        <Button size="sm" variant="outline" className="gap-1.5" disabled={cloning} onClick={onCloneRun}>
+          <Copy className="size-3.5" /> {cloning ? "Re-running…" : "Re-run"}
+        </Button>
+        {confirmDelete ? (
+          <div className="flex items-center gap-1">
+            <Button size="sm" variant="ghost" className="text-danger hover:text-danger" disabled={deleting} onClick={onDeleteRun}>
+              {deleting ? "Deleting…" : "Confirm delete"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+          </div>
+        ) : (
+          <Button size="sm" variant="ghost" title="Delete this run" onClick={() => setConfirmDelete(true)}>
+            <Trash2 className="size-3.5" />
+          </Button>
+        )}
       </div>
 
       {/* Validation pipeline stepper */}
