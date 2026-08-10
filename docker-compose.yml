@@ -331,6 +331,11 @@ services:
     environment:
       PORT: "3000"
       HOST: 0.0.0.0
+      # Runtime key for the frontend's server functions (Finnhub ticker
+      # validation + news wire). Interpolated from /home/signal/app/.env at
+      # `docker compose up`. Only the frontend-needed key is passed here — the
+      # rest of .env stays with the backend containers, not the web process.
+      FINNHUB_API_KEY: "${FINNHUB_API_KEY:-}"
     networks:
       - signal_net
     depends_on:
