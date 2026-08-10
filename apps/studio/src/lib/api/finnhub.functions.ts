@@ -230,3 +230,12 @@ export const searchSymbols = createServerFn({ method: "POST" })
       }
     });
   });
+
+/* -------------------- Config status -------------------- */
+
+/** Whether FINNHUB_API_KEY is present in the frontend container (no value leaked). */
+export const getFinnhubStatus = createServerFn({ method: "GET" }).handler(
+  async (): Promise<{ configured: boolean }> => ({
+    configured: !!process.env.FINNHUB_API_KEY,
+  }),
+);

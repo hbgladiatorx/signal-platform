@@ -329,3 +329,26 @@ async def system_health_detail(
         persistence_pending_total=persistence_pending_total,
         ws_broadcast_pending_total=ws_broadcast_pending_total,
     )
+
+
+@router.get("/connections")
+async def connections(_user=Depends(get_current_user)) -> dict[str, bool]:
+    """Which platform integrations are configured.
+
+    Booleans only — never the key values — so this is safe to surface in the UI.
+    FINNHUB lives in the frontend container and is checked by the web app itself.
+    """
+
+    def has(*keys: str) -> bool:
+        return all(bool(os.environ.get(k, "").strip()) for k in keys)
+
+    return {
+        "ai_copilot": has("ANTHROPIC_API_KEY"),
+        "crypto_data": has("BINANCEUS_API_KEY", "BINANCEUS_API_SECRET"),
+        "stock_data_alpaca": has("ALPACA_DATA_KEY_ID", "ALPACA_DATA_SECRET"),
+        "stock_data_polygon": has("POLYGON_API_KEY")
+        and bool(os.environ.get("INGESTION_POLYGON_SYMBOLS", "").strip()),
+        "trading_alpaca_paper": has("ALPACA_API_KEY_ID", "ALPACA_SECRET_KEY"),
+        "trading_binanceus": has("BINANCEUS_API_KEY", "BINANCEUS_API_SECRET"),
+        "key_encryption": has("SETTINGS_ENCRYPTION_KEY"),
+    }

@@ -72,3 +72,18 @@ export interface SystemHealthDetail {
 
 export const getSystemHealth = () =>
   api.get<SystemHealthDetail>("/system/health/detail");
+
+// ---- Connections / config status ----------------------------------------
+
+export interface ConnectionsStatus {
+  ai_copilot: boolean;
+  crypto_data: boolean;
+  stock_data_alpaca: boolean;
+  stock_data_polygon: boolean;
+  trading_alpaca_paper: boolean;
+  trading_binanceus: boolean;
+  key_encryption: boolean;
+}
+
+/** Which platform integrations are configured on the server (booleans only). */
+export const getConnections = () => api.get<ConnectionsStatus>("/system/connections");

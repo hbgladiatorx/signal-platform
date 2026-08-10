@@ -7,14 +7,19 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sparkles, Settings as SettingsIcon, FlaskConical, ArrowRight } from "lucide-react";
+import { Sparkles, Settings as SettingsIcon, FlaskConical, ArrowRight, Plug, CheckCircle2, Circle } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { MCPConnectionSection } from "@/components/agent/AgentConnections";
 import { ApiCredentialsCard } from "@/components/settings/ApiCredentialsCard";
 import { PlanBadge } from "@/components/billing/PlanBadge";
 import { getCurrentPlan, getTier, setCurrentPlan } from "@/lib/api/billing";
+import { getConnections } from "@/lib/api/system";
+import { getFinnhubStatus } from "@/lib/api/finnhub.functions";
 import { useAccountSize, useIdentity, useNotifications } from "@/lib/user-prefs";
 import { useAuth } from "@/hooks/use-auth";
+import { cn } from "@/lib/utils";
 
 
 
@@ -59,7 +64,12 @@ function SettingsPage() {
           <TabsTrigger value="general"><SettingsIcon className="mr-1.5 size-3.5" /> General</TabsTrigger>
           <TabsTrigger value="plan"><Sparkles className="mr-1.5 size-3.5 text-cyan" /> Plan</TabsTrigger>
           <TabsTrigger value="agent"><Sparkles className="mr-1.5 size-3.5 text-violet" /> AI Agent</TabsTrigger>
+          <TabsTrigger value="connections"><Plug className="mr-1.5 size-3.5 text-emerald-500" /> Connections</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="connections" className="mt-4">
+          <ConnectionsPanel />
+        </TabsContent>
 
         <TabsContent value="plan" className="mt-4 space-y-4">
           <Card className="border-border bg-elevated p-5">
@@ -185,5 +195,78 @@ function SettingsPage() {
   );
 }
 
+
+function ConnectionsPanel() {
+  const conn = useQuery({ queryKey: ["connections"], queryFn: getConnections });
+  const finnhubFn = useServerFn(getFinnhubStatus);
+  const finnhub = useQuery({ queryKey: ["finnhub-status"], queryFn: () => finnhubFn() });
+  const c = conn.data;
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        What's configured on the server. Green = ready; grey = not set. Values are never shown here —
+        keys live in the server <code className="font-mono text-xs">.env</code> and in your API credentials.
+      </p>
+
+      <Card className="border-border bg-elevated p-5">
+        <h2 className="font-semibold">Data &amp; AI</h2>
+        <Separator className="my-3" />
+        <div className="divide-y divide-border">
+          <StatusRow ok label="Sign-in & data (Supabase)" hint="Built in — always on." />
+          <StatusRow ok={c?.ai_copilot} loading={conn.isLoading} label="AI Copilot (Anthropic)" hint="Studio strategy builder + analysis." />
+          <StatusRow ok={c?.crypto_data} loading={conn.isLoading} label="Crypto market data (Binance.US)" hint="Live crypto prices for charts, signals, backtests." />
+          <StatusRow ok={c?.stock_data_alpaca} loading={conn.isLoading} label="Stock market data (Alpaca IEX)" hint="Free stock feed — powers stock charts + paper trading." />
+          <StatusRow ok={c?.stock_data_polygon} loading={conn.isLoading} optional label="Stock market data (Polygon)" hint="Optional paid real-time feed. Not needed if Alpaca is on." />
+          <StatusRow ok={finnhub.data?.configured} loading={finnhub.isLoading} label="News & ticker lookup (Finnhub)" hint="News wire + 'add ticker' validation." />
+        </div>
+      </Card>
+
+      <Card className="border-border bg-elevated p-5">
+        <h2 className="font-semibold">Trading &amp; security</h2>
+        <Separator className="my-3" />
+        <div className="divide-y divide-border">
+          <StatusRow ok={c?.trading_alpaca_paper} loading={conn.isLoading} label="Shared paper trading (Alpaca)" hint="Lets you paper-trade stocks without your own key." />
+          <StatusRow ok={c?.trading_binanceus} loading={conn.isLoading} label="Live crypto trading (Binance.US)" hint="Real-money crypto execution." />
+          <StatusRow ok={c?.key_encryption} loading={conn.isLoading} label="Key encryption" hint="Required before you can save your own broker keys." />
+        </div>
+      </Card>
+
+      {conn.isError && (
+        <p className="text-sm text-danger">
+          Couldn't load connection status{conn.error instanceof Error ? `: ${conn.error.message}` : ""}.
+        </p>
+      )}
+      <p className="text-xs text-muted-foreground">
+        Your personal broker keys are managed under the <b>General</b> tab (API credentials).
+      </p>
+    </div>
+  );
+}
+
+function StatusRow({ ok, loading, label, hint, optional }: { ok?: boolean; loading?: boolean; label: string; hint: string; optional?: boolean }) {
+  return (
+    <div className="flex items-center gap-3 py-3">
+      <span className="shrink-0">
+        {loading ? <Circle className="size-4 animate-pulse text-muted-foreground" />
+          : ok ? <CheckCircle2 className="size-4 text-emerald-500" />
+          : <Circle className="size-4 text-muted-foreground" />}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium">{label}</div>
+        <div className="text-xs text-muted-foreground">{hint}</div>
+      </div>
+      <span className={cn(
+        "shrink-0 rounded-full border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide",
+        loading ? "border-border text-muted-foreground"
+          : ok ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-500"
+          : optional ? "border-border text-muted-foreground"
+          : "border-amber-500/40 bg-amber-500/10 text-amber-500",
+      )}>
+        {loading ? "…" : ok ? "Configured" : optional ? "Optional" : "Not set"}
+      </span>
+    </div>
+  );
+}
 
 export default SettingsPage;
