@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { AssetFilterProvider, useAssetFilter, ASSET_OPTIONS } from "@/lib/asset-filter";
-import { TVTickerTape } from "@/components/common/TVTickerTape";
 
 import { PlanBadge } from "@/components/billing/PlanBadge";
 import { getCurrentPlan } from "@/lib/api/billing";
@@ -20,13 +19,14 @@ import { useAuth } from "@/hooks/use-auth";
 
 type NavItem = { to: string; label: string; icon: typeof Home };
 
+// Trader dock is the core loop only — Today → Catalog → Signals → Perf.
+// Secondary surfaces (Markets, Agent, Settings) live in the account menu so the
+// dock stays uncluttered and every screen has an obvious place in the flow.
 const traderNav: NavItem[] = [
-  { to: "/app/home", label: "Home", icon: Home },
+  { to: "/app/home", label: "Today", icon: Home },
   { to: "/app/catalog", label: "Catalog", icon: BookOpen },
   { to: "/app/signals", label: "Signals", icon: SignalIcon },
   { to: "/app/performance", label: "Perf", icon: BarChart3 },
-  { to: "/app/agent", label: "Agent", icon: Sparkles },
-  { to: "/app/settings", label: "Settings", icon: Settings },
 ];
 
 // Studio is copilot-first: the copilot drives build → backtest → validate →
@@ -135,6 +135,16 @@ function Shell({ mode }: { mode: "trader" | "studio" }) {
                   <ArrowRightLeft className="mr-2 size-4 text-cyan" /> Back to Trader
                 </DropdownMenuItem>
               )}
+              {!isStudio && (
+                <>
+                  <DropdownMenuItem asChild>
+                    <Link to="/app/markets">Markets &amp; news</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/app/agent">AI Agent (preview)</Link>
+                  </DropdownMenuItem>
+                </>
+              )}
               <DropdownMenuItem asChild>
                 <Link to={isStudio ? "/studio/pricing" : "/app/pricing"}>Plan & billing</Link>
               </DropdownMenuItem>
@@ -159,10 +169,9 @@ function Shell({ mode }: { mode: "trader" | "studio" }) {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        {/* TradingView ticker tape — trader only, above asset filter on /app/* */}
-        {!isStudio && <TVTickerTape />}
-
-        {/* Asset-class filter — trader only, cascades through context */}
+        {/* Asset-class filter — trader only, cascades through context.
+            The always-scrolling ticker tape moved to the Markets tab to keep
+            every screen calm. */}
         {!isStudio && <AssetChipRow />}
 
       </header>
