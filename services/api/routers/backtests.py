@@ -315,7 +315,14 @@ async def create_new_backtest(
         )
         graph = (srow or {}).get("graph_json")
         g_sym = graph_symbol(graph)
-        if g_sym and req.symbols and req.symbols[0].upper() != g_sym.upper():
+
+        # Compare tickers venue-insensitively: the graph stores a human ticker
+        # ("SPY") while the execution symbol is canonical ("SPY@ALPACA"). They
+        # name the same instrument, so match on the ticker before the "@".
+        def _ticker(s: str) -> str:
+            return s.split("@", 1)[0].strip().upper()
+
+        if g_sym and req.symbols and _ticker(req.symbols[0]) != _ticker(g_sym):
             raise HTTPException(
                 status_code=422,
                 detail={
