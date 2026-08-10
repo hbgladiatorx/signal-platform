@@ -1,236 +1,128 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
-import {
-  getFollowedStrategies, getRecentSignals, getUserPerformance,
-} from "@/lib/api";
-
+import { useMemo } from "react";
+import { getRecentSignals, getUserPerformance, useFollowedIds } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AssetClassBadge } from "@/components/common/AssetClassBadge";
 import { DirectionPill } from "@/components/common/DirectionPill";
 import { StatusPill } from "@/components/common/StatusPill";
-import { Sparkline } from "@/components/common/Sparkline";
-import { PipelineBadge } from "@/components/common/PipelineBadge";
-import { formatDistanceToNow } from "date-fns";
-import {
-  Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid,
-} from "recharts";
-import { TrendingUp, Inbox } from "lucide-react";
-import { useAssetFilter } from "@/lib/asset-filter";
 import { LiveTrackerChart } from "@/components/common/LiveTrackerChart";
-import { MyStrategyCharts } from "@/components/common/MyStrategyCharts";
-import { NewsTicker } from "@/components/common/NewsTicker";
-import { TVMarketOverview } from "@/components/common/TVMarketOverview";
 import { CustomizeButton } from "@/components/common/CustomizeButton";
-import { GetStartedChecklist } from "@/components/common/GetStartedChecklist";
+import { NextStep } from "@/components/common/NextStep";
 import { MetricLabel } from "@/components/common/Term";
-
+import { useAssetFilter } from "@/lib/asset-filter";
+import { formatDistanceToNow } from "date-fns";
+import { ArrowRight, BarChart3, LineChart } from "lucide-react";
 
 export const Route = createFileRoute("/app/home")({
-  head: () => ({ meta: [{ title: "Home — Bayn" }] }),
+  head: () => ({ meta: [{ title: "Today — Bayn" }] }),
   component: HomePage,
 });
 
-const fmtMoney = (n: number) => n.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: n > 1000 ? 0 : 2 });
-const fmtPct = (n: number) => `${n >= 0 ? "+" : ""}${(n * 100).toFixed(2)}%`;
+const fmtPct = (n: number) => `${(n * 100).toFixed(0)}%`;
 
 function HomePage() {
-  const [days, setDays] = useState(30);
   const { assetClass } = useAssetFilter();
+  const followed = useFollowedIds();
+  const followedSet = useMemo(() => new Set(followed), [followed]);
 
-  const followed = useQuery({ queryKey: ["followed"], queryFn: getFollowedStrategies });
   const recent = useQuery({ queryKey: ["recent"], queryFn: () => getRecentSignals(20) });
-  const perf = useQuery({ queryKey: ["perf", days], queryFn: () => getUserPerformance(days) });
+  const perf = useQuery({ queryKey: ["perf", 30], queryFn: () => getUserPerformance(30) });
 
+  // Only signals that need attention: OPEN, from a strategy you follow.
+  const openSignals = useMemo(() => {
+    return (recent.data ?? [])
+      .filter((s) => followedSet.has(s.strategyId) && s.status === "OPEN")
+      .filter((s) => assetClass === "all" || s.assetClass === assetClass)
+      .slice(0, 4);
+  }, [recent.data, followedSet, assetClass]);
 
-
-
-  const followedFiltered = useMemo(() => {
-    const all = followed.data ?? [];
-    return assetClass === "all" ? all : all.filter((s) => s.assetClass === assetClass);
-  }, [followed.data, assetClass]);
-
-  const recentFiltered = useMemo(() => {
-    const all = recent.data ?? [];
-    const followedSet = new Set((followed.data ?? []).map((s) => s.id));
-    return (assetClass === "all" ? all : all.filter((s) => s.assetClass === assetClass))
-      .filter((s) => followedSet.has(s.strategyId))
-      .slice(0, 10);
-  }, [recent.data, assetClass, followed.data]);
-
+  const k = perf.data?.kpis;
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
+    <div className="mx-auto max-w-4xl space-y-8 p-4 md:p-8">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Home</h1>
-          <p className="text-xs text-muted-foreground">Live data from your chosen tickers and news sources.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Today</h1>
+          <p className="text-sm text-muted-foreground">Your one place to see what needs doing.</p>
         </div>
         <CustomizeButton mode="trader" />
       </div>
 
-      {/* Onboarding soft-prompt — auto-hides once steps are done or dismissed */}
-      <GetStartedChecklist />
+      {/* 1 — the single next action */}
+      <NextStep />
 
-      {/* Hero: live tracking of subscribed strategy with drawings */}
-      <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
-            Live tracking
-          </h2>
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/app/signals">All signals →</Link>
-          </Button>
-        </div>
+      {/* 2 — needs your attention: open signals */}
+      {openSignals.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium uppercase tracking-[0.16em] text-muted-foreground">Needs your attention</h2>
+            <Button variant="ghost" size="sm" asChild><Link to="/app/signals">All signals <ArrowRight className="ml-1 size-3.5" /></Link></Button>
+          </div>
+          <Card className="divide-y divide-border border-border bg-elevated">
+            {openSignals.map((sig) => (
+              <Link
+                key={sig.id}
+                to="/app/signal/$id"
+                params={{ id: sig.id }}
+                className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/30"
+              >
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-cyan/10 text-cyan">
+                  <LineChart className="size-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">{sig.symbol} · {sig.strategyName}</div>
+                  <div className="text-xs text-muted-foreground">Fired {formatDistanceToNow(new Date(sig.firedAt), { addSuffix: true })}</div>
+                </div>
+                <DirectionPill direction={sig.direction} />
+                <StatusPill status={sig.status} />
+                <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
+              </Link>
+            ))}
+          </Card>
+        </section>
+      )}
+
+      {/* 3 — one live chart (your top signal, or a watchlist ticker) */}
+      <section className="space-y-3">
+        <h2 className="text-sm font-medium uppercase tracking-[0.16em] text-muted-foreground">Live tracking</h2>
         <LiveTrackerChart />
       </section>
 
-      {/* Market wire ticker */}
-      <NewsTicker />
-
-      {/* Market overview — TradingView widget with stocks/crypto/futures/vol tabs */}
-      <section>
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
-          Market overview {assetClass !== "all" && <span className="text-foreground">· {assetClass}</span>}
-        </h2>
-        <Card className="overflow-hidden border-border bg-elevated p-0">
-          <TVMarketOverview height={460} />
-        </Card>
-      </section>
-
-
-
-
-      {/* My strategies */}
-      <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">My strategies</h2>
-          <Button variant="ghost" size="sm" asChild><Link to="/app/catalog">Browse catalog →</Link></Button>
+      {/* 4 — compact performance snapshot */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-medium uppercase tracking-[0.16em] text-muted-foreground">Your snapshot · 30d</h2>
+          <Button variant="ghost" size="sm" asChild><Link to="/app/performance">Full performance <ArrowRight className="ml-1 size-3.5" /></Link></Button>
         </div>
-        {followedFiltered.length === 0 ? (
-          <EmptyState
-            icon={Inbox}
-            title={assetClass === "all" ? "You're not following any strategies yet" : `No followed ${assetClass} strategies`}
-            cta={<Button asChild><Link to="/app/catalog">Explore catalog</Link></Button>}
-          />
-        ) : (
-          <MyStrategyCharts />
-        )}
-      </section>
-
-      {/* Recent signals */}
-      <section>
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wider text-muted-foreground">Recent signals</h2>
-        <Card className="border-border bg-elevated">
-          <div className="divide-y divide-border">
-            {recentFiltered.map((sig) => (
-              <Link key={sig.id} to="/app/signal/$id" params={{ id: sig.id }} className="grid grid-cols-12 items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30">
-                <div className="col-span-2 text-xs text-muted-foreground">
-                  {formatDistanceToNow(new Date(sig.firedAt), { addSuffix: true })}
-                </div>
-                <div className="col-span-3 truncate">
-                  <div className="truncate text-sm font-medium">{sig.strategyName}</div>
-                  <div className="text-xs text-muted-foreground">{sig.symbol}</div>
-                </div>
-                <div className="col-span-1"><DirectionPill direction={sig.direction} /></div>
-                <div className="col-span-3 font-mono text-xs text-muted-foreground">
-                  <span className="text-foreground">{sig.entry}</span> · stop {sig.stop} · tgt {sig.target}
-                </div>
-                <div className="col-span-1"><StatusPill status={sig.status} /></div>
-                <div className="col-span-2 h-8">
-                  <Sparkline data={sig.priceSeries.slice(-30).map((p: { price: number }) => p.price)} positive={sig.direction === "LONG"} />
-
-                </div>
-              </Link>
-            ))}
-            {!recent.data && Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-12 animate-pulse bg-muted/20" />
-            ))}
-            {recent.data && recentFiltered.length === 0 && (
-              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-                <p>No recent {assetClass === "all" ? "" : assetClass + " "}signals yet.</p>
-                <p className="mx-auto mt-1 max-w-md text-xs">
-                  A signal fires when a strategy you follow meets its conditions on live market data — it arrives with an entry, a stop, and a target.{" "}
-                  {(followed.data?.length ?? 0) === 0 ? (
-                    <Link to="/app/catalog" className="text-cyan hover:underline">Follow a strategy</Link>
-                  ) : (
-                    "Yours will show up here as soon as they trigger."
-                  )}
-                </p>
-              </div>
-            )}
-          </div>
-        </Card>
-      </section>
-
-      {/* Performance */}
-      <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">My performance</h2>
-          <Tabs value={String(days)} onValueChange={(v) => setDays(Number(v))}>
-            <TabsList>
-              {[7, 30, 90, 365].map((d) => (
-                <TabsTrigger key={d} value={String(d)}>{d === 365 ? "All" : `${d}D`}</TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+        <div className="grid grid-cols-3 gap-3">
+          <Kpi label={<MetricLabel term="winRate" />} value={k ? fmtPct(k.winRate) : "—"} accent="cyan" />
+          <Kpi label={<MetricLabel term="avgR">Avg R</MetricLabel>} value={k ? `${k.avgR.toFixed(2)}R` : "—"} />
+          <Kpi label={<MetricLabel term="signal">Taken</MetricLabel>} value={k?.totalTaken ?? "—"} />
         </div>
-        <Card className="border-border bg-elevated p-4">
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={perf.data?.equity ?? []}>
-                <defs>
-                  <linearGradient id="eqg" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="var(--cyan)" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="var(--cyan)" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="oklch(1 0 0 / 8%)" vertical={false} />
-                <XAxis dataKey="t" tickFormatter={(v) => new Date(v).toLocaleDateString(undefined, { month: "short", day: "numeric" })} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-                <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} labelFormatter={(v) => new Date(v).toLocaleString()} formatter={(v: number) => fmtMoney(v)} />
-                <Area type="monotone" dataKey="equity" stroke="var(--cyan)" strokeWidth={2} fill="url(#eqg)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-            <Kpi label={<MetricLabel term="signal">Total signals taken</MetricLabel>} value={perf.data?.kpis.totalTaken ?? "—"} />
-            <Kpi label={<MetricLabel term="winRate" />} value={perf.data ? `${(perf.data.kpis.winRate * 100).toFixed(0)}%` : "—"} accent="cyan" />
-            <Kpi label={<MetricLabel term="avgR">Avg R-multiple</MetricLabel>} value={perf.data ? perf.data.kpis.avgR.toFixed(2) + "R" : "—"} />
-            <Kpi label={<MetricLabel term="maxDrawdown" />} value={perf.data ? fmtPct(perf.data.kpis.maxDrawdown) : "—"} accent="danger" />
-          </div>
-        </Card>
       </section>
+
+      {/* 5 — everything non-urgent, one tap away */}
+      <Link
+        to="/app/markets"
+        className="flex items-center gap-3 rounded-xl border border-border bg-elevated/60 p-4 transition-colors hover:border-cyan/30 hover:bg-elevated"
+      >
+        <span className="grid size-9 place-items-center rounded-lg bg-muted/40 text-muted-foreground"><BarChart3 className="size-4" /></span>
+        <div className="flex-1">
+          <div className="text-sm font-medium">Markets &amp; news</div>
+          <div className="text-xs text-muted-foreground">Market overview and your news wire.</div>
+        </div>
+        <ArrowRight className="size-4 text-muted-foreground" />
+      </Link>
     </div>
   );
 }
 
-function Kpi({ label, value, accent }: { label: React.ReactNode; value: React.ReactNode; accent?: "cyan" | "danger" }) {
+function Kpi({ label, value, accent }: { label: React.ReactNode; value: React.ReactNode; accent?: "cyan" }) {
   return (
-    <div className="rounded-lg border border-border bg-background/40 p-3">
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className={`mt-1 font-mono text-2xl ${accent === "cyan" ? "text-cyan" : accent === "danger" ? "text-danger" : ""}`}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function StatusChip({ status }: { status: string }) {
-  const c = status === "In Position" ? "text-cyan border-cyan/30 bg-cyan/10"
-          : status === "Cooldown"    ? "text-muted-foreground border-border bg-muted/30"
-                                     : "text-gold border-gold/30 bg-gold/10";
-  return <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${c}`}>{status}</span>;
-}
-
-function EmptyState({ icon: Icon, title, cta }: { icon: typeof TrendingUp; title: string; cta?: React.ReactNode }) {
-  return (
-    <Card className="grid place-items-center gap-3 border-dashed border-border bg-elevated/40 p-10 text-center">
-      <Icon className="size-8 text-muted-foreground" />
-      <div className="text-sm text-muted-foreground">{title}</div>
-      {cta}
+    <Card className="border-border bg-elevated p-4">
+      <div className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">{label}</div>
+      <div className={`mt-1 font-mono text-2xl ${accent === "cyan" ? "text-cyan" : ""}`}>{value}</div>
     </Card>
   );
 }
