@@ -86,10 +86,18 @@ async function request<T>(
       data && typeof data === "object" && "detail" in data
         ? (data as { detail: unknown }).detail
         : data;
+    // Surface the backend's real reason. FastAPI validation/business errors
+    // send `detail` either as a string or as an object like {msg, ...}; show
+    // that human message instead of a generic "Request failed" so the UI is
+    // self-diagnosing.
+    const detailMsg =
+      detail && typeof detail === "object" && "msg" in detail && typeof (detail as { msg: unknown }).msg === "string"
+        ? (detail as { msg: string }).msg
+        : null;
     const message =
       typeof detail === "string"
         ? detail
-        : `Request failed (${res.status}) ${method} ${path}`;
+        : detailMsg ?? `Request failed (${res.status}) ${method} ${path}`;
     throw new ApiError(res.status, message, detail);
   }
 
