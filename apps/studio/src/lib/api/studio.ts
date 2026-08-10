@@ -397,9 +397,8 @@ function graphToNL(name: string, assetClass: AssetClass, graph: StrategyGraph): 
 // ============================================================
 
 export async function getDevStrategies(): Promise<DevStrategy[]> {
-  const [users, builtins, backtests] = await Promise.all([
+  const [users, backtests] = await Promise.all([
     api.get<ApiUserStrategy[]>("/user-strategies", { limit: 200 }),
-    api.get<ApiStrategyInfo[]>("/strategies").catch(() => [] as ApiStrategyInfo[]),
     api.get<ApiBacktestSummary[]>("/backtests", { limit: 100 }).catch(() => [] as ApiBacktestSummary[]),
   ]);
   const byName = new Map<string, ApiBacktestSummary[]>();
@@ -408,11 +407,9 @@ export async function getDevStrategies(): Promise<DevStrategy[]> {
     if (arr) arr.push(b);
     else byName.set(b.strategy_name, [b]);
   }
-  const userDevs = users.map((u) => userToDev(u, byName.get(u.name) ?? []));
-  const builtinDevs = builtins
-    .filter((s) => s.source === "built-in")
-    .map(builtinToDev);
-  return [...userDevs, ...builtinDevs];
+  // Built-in example strategies are intentionally excluded — Studio lists only
+  // the user's own strategies.
+  return users.map((u) => userToDev(u, byName.get(u.name) ?? []));
 }
 
 export async function getDevStrategy(id: string): Promise<DevStrategy | undefined> {
