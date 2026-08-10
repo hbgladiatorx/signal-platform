@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { getRecentSignals, getUserPerformance, useFollowedIds } from "@/lib/api";
+import { getSignals, getUserPerformance, useFollowedIds } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DirectionPill } from "@/components/common/DirectionPill";
@@ -26,7 +26,7 @@ function HomePage() {
   const followed = useFollowedIds();
   const followedSet = useMemo(() => new Set(followed), [followed]);
 
-  const recent = useQuery({ queryKey: ["recent"], queryFn: () => getRecentSignals(20) });
+  const recent = useQuery({ queryKey: ["recent"], queryFn: () => getSignals({ limit: 30 }) });
   const perf = useQuery({ queryKey: ["perf", 30], queryFn: () => getUserPerformance(30) });
 
   // Only signals that need attention: OPEN, from a strategy you follow.

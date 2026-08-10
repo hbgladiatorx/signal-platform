@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { getFollowedStrategies, getSignals } from "@/lib/api";
+import { useFollowedIds, getSignals } from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Activity, ArrowUpRight } from "lucide-react";
@@ -31,16 +31,16 @@ const TIMEFRAMES: Array<{ key: string; label: string }> = [
 export function LiveTrackerChart() {
   const { assetClass } = useAssetFilter();
   const [watchlist] = useWatchlist();
-  const followed = useQuery({ queryKey: ["followed"], queryFn: getFollowedStrategies });
+  const followedIdList = useFollowedIds();
   const signals  = useQuery({ queryKey: ["recent"], queryFn: () => getSignals({ limit: 30 }) });
 
   const candidates = useMemo(() => {
-    const followedIds = new Set((followed.data ?? []).map((s) => s.id));
+    const followedIds = new Set(followedIdList);
     return (signals.data ?? [])
       .filter((s) => followedIds.has(s.strategyId))
       .filter((s) => assetClass === "all" || s.assetClass === assetClass)
       .slice(0, 4);
-  }, [followed.data, signals.data, assetClass]);
+  }, [followedIdList, signals.data, assetClass]);
 
   const [activeId, setActiveId] = useState<string | null>(null);
   // Reset active selection whenever the asset filter changes so symbol updates instantly.
@@ -108,7 +108,7 @@ export function LiveTrackerChart() {
 
 
 
-  const series = active.priceSeries;
+  const series = active.priceSeries ?? [];
   const last = series[series.length - 1]?.price ?? active.entry;
   const isLong = active.direction === "LONG";
   const inWinDir = isLong ? last >= active.entry : last <= active.entry;

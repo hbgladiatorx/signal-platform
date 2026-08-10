@@ -4,7 +4,7 @@ import { ArrowRight, Check, Rocket, PartyPopper, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useFollowedIds, getUserPerformance, getRecentSignals } from "@/lib/api";
+import { useFollowedIds, getUserPerformance, getSignals } from "@/lib/api";
 import { useAccountSize, useDismissedChecklistItems } from "@/lib/user-prefs";
 
 /**
@@ -24,7 +24,7 @@ export function useJourney() {
   const followed = useFollowedIds();
   const [accountSize] = useAccountSize();
   const perf = useQuery({ queryKey: ["perf", 365], queryFn: () => getUserPerformance(365) });
-  const recent = useQuery({ queryKey: ["recent"], queryFn: () => getRecentSignals(20) });
+  const recent = useQuery({ queryKey: ["recent"], queryFn: () => getSignals({ limit: 30 }) });
 
   const followedSet = new Set(followed);
   const hasSignal = (recent.data ?? []).some((s) => followedSet.has(s.strategyId));
