@@ -9,66 +9,47 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as StudioRouteImport } from './routes/studio'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as PricingRouteImport } from './routes/pricing'
-import { Route as OnboardingRouteImport } from './routes/onboarding'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as StudioWalkforwardRouteImport } from './routes/studio.walkforward'
-import { Route as StudioSubmissionsRouteImport } from './routes/studio.submissions'
-import { Route as StudioStrategiesRouteImport } from './routes/studio.strategies'
-import { Route as StudioSignalsRouteImport } from './routes/studio.signals'
-import { Route as StudioSettingsRouteImport } from './routes/studio.settings'
-import { Route as StudioPricingRouteImport } from './routes/studio.pricing'
-import { Route as StudioMlRouteImport } from './routes/studio.ml'
-import { Route as StudioLiveRouteImport } from './routes/studio.live'
-import { Route as StudioInstrumentsRouteImport } from './routes/studio.instruments'
-import { Route as StudioHomeRouteImport } from './routes/studio.home'
-import { Route as StudioHealthRouteImport } from './routes/studio.health'
-import { Route as StudioEarningsRouteImport } from './routes/studio.earnings'
-import { Route as StudioDocsRouteImport } from './routes/studio.docs'
-import { Route as StudioCopilotRouteImport } from './routes/studio.copilot'
-import { Route as StudioBacktestsRouteImport } from './routes/studio.backtests'
-import { Route as AppSignalsRouteImport } from './routes/app.signals'
-import { Route as AppSettingsRouteImport } from './routes/app.settings'
-import { Route as AppPricingRouteImport } from './routes/app.pricing'
-import { Route as AppPerformanceRouteImport } from './routes/app.performance'
-import { Route as AppHomeRouteImport } from './routes/app.home'
-import { Route as AppCustomizeRouteImport } from './routes/app.customize'
-import { Route as AppCatalogRouteImport } from './routes/app.catalog'
+import { Route as AppRouteImport } from './routes/app'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
+import { Route as PricingRouteImport } from './routes/pricing'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as StudioRouteImport } from './routes/studio'
 import { Route as AppAgentRouteImport } from './routes/app.agent'
-import { Route as StudioStrategyIdRouteImport } from './routes/studio.strategy.$id'
-import { Route as StudioBuilderIdRouteImport } from './routes/studio.builder.$id'
-import { Route as StudioBacktestsStrategyIdRouteImport } from './routes/studio.backtests.$strategyId'
-import { Route as AppStrategyIdRouteImport } from './routes/app.strategy.$id'
-import { Route as AppSignalIdRouteImport } from './routes/app.signal.$id'
+import { Route as AppCatalogRouteImport } from './routes/app.catalog'
+import { Route as AppCustomizeRouteImport } from './routes/app.customize'
+import { Route as AppHomeRouteImport } from './routes/app.home'
+import { Route as AppMarketsRouteImport } from './routes/app.markets'
+import { Route as AppPerformanceRouteImport } from './routes/app.performance'
+import { Route as AppPricingRouteImport } from './routes/app.pricing'
+import { Route as AppSettingsRouteImport } from './routes/app.settings'
+import { Route as AppSignalsRouteImport } from './routes/app.signals'
+import { Route as StudioBacktestsRouteImport } from './routes/studio.backtests'
+import { Route as StudioCopilotRouteImport } from './routes/studio.copilot'
+import { Route as StudioDocsRouteImport } from './routes/studio.docs'
+import { Route as StudioEarningsRouteImport } from './routes/studio.earnings'
+import { Route as StudioHealthRouteImport } from './routes/studio.health'
+import { Route as StudioHomeRouteImport } from './routes/studio.home'
+import { Route as StudioInstrumentsRouteImport } from './routes/studio.instruments'
+import { Route as StudioLiveRouteImport } from './routes/studio.live'
+import { Route as StudioMlRouteImport } from './routes/studio.ml'
+import { Route as StudioPricingRouteImport } from './routes/studio.pricing'
+import { Route as StudioSettingsRouteImport } from './routes/studio.settings'
+import { Route as StudioSignalsRouteImport } from './routes/studio.signals'
+import { Route as StudioStrategiesRouteImport } from './routes/studio.strategies'
+import { Route as StudioSubmissionsRouteImport } from './routes/studio.submissions'
+import { Route as StudioWalkforwardRouteImport } from './routes/studio.walkforward'
 import { Route as AppShareCardIdRouteImport } from './routes/app.share.$cardId'
+import { Route as AppSignalIdRouteImport } from './routes/app.signal.$id'
+import { Route as AppStrategyIdRouteImport } from './routes/app.strategy.$id'
+import { Route as StudioBacktestsStrategyIdRouteImport } from './routes/studio.backtests.$strategyId'
+import { Route as StudioBuilderIdRouteImport } from './routes/studio.builder.$id'
+import { Route as StudioStrategyIdRouteImport } from './routes/studio.strategy.$id'
 
-const StudioRoute = StudioRouteImport.update({
-  id: '/studio',
-  path: '/studio',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PricingRoute = PricingRouteImport.update({
-  id: '/pricing',
-  path: '/pricing',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OnboardingRoute = OnboardingRouteImport.update({
-  id: '/onboarding',
-  path: '/onboarding',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRoute = AppRouteImport.update({
@@ -76,114 +57,34 @@ const AppRoute = AppRouteImport.update({
   path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const StudioWalkforwardRoute = StudioWalkforwardRouteImport.update({
-  id: '/walkforward',
-  path: '/walkforward',
-  getParentRoute: () => StudioRoute,
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const StudioSubmissionsRoute = StudioSubmissionsRouteImport.update({
-  id: '/submissions',
-  path: '/submissions',
-  getParentRoute: () => StudioRoute,
-} as any)
-const StudioStrategiesRoute = StudioStrategiesRouteImport.update({
-  id: '/strategies',
-  path: '/strategies',
-  getParentRoute: () => StudioRoute,
-} as any)
-const StudioSignalsRoute = StudioSignalsRouteImport.update({
-  id: '/signals',
-  path: '/signals',
-  getParentRoute: () => StudioRoute,
-} as any)
-const StudioSettingsRoute = StudioSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => StudioRoute,
-} as any)
-const StudioPricingRoute = StudioPricingRouteImport.update({
+const PricingRoute = PricingRouteImport.update({
   id: '/pricing',
   path: '/pricing',
-  getParentRoute: () => StudioRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
-const StudioMlRoute = StudioMlRouteImport.update({
-  id: '/ml',
-  path: '/ml',
-  getParentRoute: () => StudioRoute,
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const StudioLiveRoute = StudioLiveRouteImport.update({
-  id: '/live',
-  path: '/live',
-  getParentRoute: () => StudioRoute,
+const StudioRoute = StudioRouteImport.update({
+  id: '/studio',
+  path: '/studio',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const StudioInstrumentsRoute = StudioInstrumentsRouteImport.update({
-  id: '/instruments',
-  path: '/instruments',
-  getParentRoute: () => StudioRoute,
-} as any)
-const StudioHomeRoute = StudioHomeRouteImport.update({
-  id: '/home',
-  path: '/home',
-  getParentRoute: () => StudioRoute,
-} as any)
-const StudioHealthRoute = StudioHealthRouteImport.update({
-  id: '/health',
-  path: '/health',
-  getParentRoute: () => StudioRoute,
-} as any)
-const StudioEarningsRoute = StudioEarningsRouteImport.update({
-  id: '/earnings',
-  path: '/earnings',
-  getParentRoute: () => StudioRoute,
-} as any)
-const StudioDocsRoute = StudioDocsRouteImport.update({
-  id: '/docs',
-  path: '/docs',
-  getParentRoute: () => StudioRoute,
-} as any)
-const StudioCopilotRoute = StudioCopilotRouteImport.update({
-  id: '/copilot',
-  path: '/copilot',
-  getParentRoute: () => StudioRoute,
-} as any)
-const StudioBacktestsRoute = StudioBacktestsRouteImport.update({
-  id: '/backtests',
-  path: '/backtests',
-  getParentRoute: () => StudioRoute,
-} as any)
-const AppSignalsRoute = AppSignalsRouteImport.update({
-  id: '/signals',
-  path: '/signals',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppSettingsRoute = AppSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppPricingRoute = AppPricingRouteImport.update({
-  id: '/pricing',
-  path: '/pricing',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppPerformanceRoute = AppPerformanceRouteImport.update({
-  id: '/performance',
-  path: '/performance',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppHomeRoute = AppHomeRouteImport.update({
-  id: '/home',
-  path: '/home',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppCustomizeRoute = AppCustomizeRouteImport.update({
-  id: '/customize',
-  path: '/customize',
+const AppAgentRoute = AppAgentRouteImport.update({
+  id: '/agent',
+  path: '/agent',
   getParentRoute: () => AppRoute,
 } as any)
 const AppCatalogRoute = AppCatalogRouteImport.update({
@@ -191,30 +92,119 @@ const AppCatalogRoute = AppCatalogRouteImport.update({
   path: '/catalog',
   getParentRoute: () => AppRoute,
 } as any)
-const AppAgentRoute = AppAgentRouteImport.update({
-  id: '/agent',
-  path: '/agent',
+const AppCustomizeRoute = AppCustomizeRouteImport.update({
+  id: '/customize',
+  path: '/customize',
   getParentRoute: () => AppRoute,
 } as any)
-const StudioStrategyIdRoute = StudioStrategyIdRouteImport.update({
-  id: '/strategy/$id',
-  path: '/strategy/$id',
+const AppHomeRoute = AppHomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppMarketsRoute = AppMarketsRouteImport.update({
+  id: '/markets',
+  path: '/markets',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPerformanceRoute = AppPerformanceRouteImport.update({
+  id: '/performance',
+  path: '/performance',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPricingRoute = AppPricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSignalsRoute = AppSignalsRouteImport.update({
+  id: '/signals',
+  path: '/signals',
+  getParentRoute: () => AppRoute,
+} as any)
+const StudioBacktestsRoute = StudioBacktestsRouteImport.update({
+  id: '/backtests',
+  path: '/backtests',
   getParentRoute: () => StudioRoute,
 } as any)
-const StudioBuilderIdRoute = StudioBuilderIdRouteImport.update({
-  id: '/builder/$id',
-  path: '/builder/$id',
+const StudioCopilotRoute = StudioCopilotRouteImport.update({
+  id: '/copilot',
+  path: '/copilot',
   getParentRoute: () => StudioRoute,
 } as any)
-const StudioBacktestsStrategyIdRoute =
-  StudioBacktestsStrategyIdRouteImport.update({
-    id: '/$strategyId',
-    path: '/$strategyId',
-    getParentRoute: () => StudioBacktestsRoute,
-  } as any)
-const AppStrategyIdRoute = AppStrategyIdRouteImport.update({
-  id: '/strategy/$id',
-  path: '/strategy/$id',
+const StudioDocsRoute = StudioDocsRouteImport.update({
+  id: '/docs',
+  path: '/docs',
+  getParentRoute: () => StudioRoute,
+} as any)
+const StudioEarningsRoute = StudioEarningsRouteImport.update({
+  id: '/earnings',
+  path: '/earnings',
+  getParentRoute: () => StudioRoute,
+} as any)
+const StudioHealthRoute = StudioHealthRouteImport.update({
+  id: '/health',
+  path: '/health',
+  getParentRoute: () => StudioRoute,
+} as any)
+const StudioHomeRoute = StudioHomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => StudioRoute,
+} as any)
+const StudioInstrumentsRoute = StudioInstrumentsRouteImport.update({
+  id: '/instruments',
+  path: '/instruments',
+  getParentRoute: () => StudioRoute,
+} as any)
+const StudioLiveRoute = StudioLiveRouteImport.update({
+  id: '/live',
+  path: '/live',
+  getParentRoute: () => StudioRoute,
+} as any)
+const StudioMlRoute = StudioMlRouteImport.update({
+  id: '/ml',
+  path: '/ml',
+  getParentRoute: () => StudioRoute,
+} as any)
+const StudioPricingRoute = StudioPricingRouteImport.update({
+  id: '/pricing',
+  path: '/pricing',
+  getParentRoute: () => StudioRoute,
+} as any)
+const StudioSettingsRoute = StudioSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => StudioRoute,
+} as any)
+const StudioSignalsRoute = StudioSignalsRouteImport.update({
+  id: '/signals',
+  path: '/signals',
+  getParentRoute: () => StudioRoute,
+} as any)
+const StudioStrategiesRoute = StudioStrategiesRouteImport.update({
+  id: '/strategies',
+  path: '/strategies',
+  getParentRoute: () => StudioRoute,
+} as any)
+const StudioSubmissionsRoute = StudioSubmissionsRouteImport.update({
+  id: '/submissions',
+  path: '/submissions',
+  getParentRoute: () => StudioRoute,
+} as any)
+const StudioWalkforwardRoute = StudioWalkforwardRouteImport.update({
+  id: '/walkforward',
+  path: '/walkforward',
+  getParentRoute: () => StudioRoute,
+} as any)
+const AppShareCardIdRoute = AppShareCardIdRouteImport.update({
+  id: '/share/$cardId',
+  path: '/share/$cardId',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSignalIdRoute = AppSignalIdRouteImport.update({
@@ -222,10 +212,26 @@ const AppSignalIdRoute = AppSignalIdRouteImport.update({
   path: '/signal/$id',
   getParentRoute: () => AppRoute,
 } as any)
-const AppShareCardIdRoute = AppShareCardIdRouteImport.update({
-  id: '/share/$cardId',
-  path: '/share/$cardId',
+const AppStrategyIdRoute = AppStrategyIdRouteImport.update({
+  id: '/strategy/$id',
+  path: '/strategy/$id',
   getParentRoute: () => AppRoute,
+} as any)
+const StudioBacktestsStrategyIdRoute =
+  StudioBacktestsStrategyIdRouteImport.update({
+    id: '/$strategyId',
+    path: '/$strategyId',
+    getParentRoute: () => StudioBacktestsRoute,
+  } as any)
+const StudioBuilderIdRoute = StudioBuilderIdRouteImport.update({
+  id: '/builder/$id',
+  path: '/builder/$id',
+  getParentRoute: () => StudioRoute,
+} as any)
+const StudioStrategyIdRoute = StudioStrategyIdRouteImport.update({
+  id: '/strategy/$id',
+  path: '/strategy/$id',
+  getParentRoute: () => StudioRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -240,6 +246,7 @@ export interface FileRoutesByFullPath {
   '/app/catalog': typeof AppCatalogRoute
   '/app/customize': typeof AppCustomizeRoute
   '/app/home': typeof AppHomeRoute
+  '/app/markets': typeof AppMarketsRoute
   '/app/performance': typeof AppPerformanceRoute
   '/app/pricing': typeof AppPricingRoute
   '/app/settings': typeof AppSettingsRoute
@@ -278,6 +285,7 @@ export interface FileRoutesByTo {
   '/app/catalog': typeof AppCatalogRoute
   '/app/customize': typeof AppCustomizeRoute
   '/app/home': typeof AppHomeRoute
+  '/app/markets': typeof AppMarketsRoute
   '/app/performance': typeof AppPerformanceRoute
   '/app/pricing': typeof AppPricingRoute
   '/app/settings': typeof AppSettingsRoute
@@ -317,6 +325,7 @@ export interface FileRoutesById {
   '/app/catalog': typeof AppCatalogRoute
   '/app/customize': typeof AppCustomizeRoute
   '/app/home': typeof AppHomeRoute
+  '/app/markets': typeof AppMarketsRoute
   '/app/performance': typeof AppPerformanceRoute
   '/app/pricing': typeof AppPricingRoute
   '/app/settings': typeof AppSettingsRoute
@@ -357,6 +366,7 @@ export interface FileRouteTypes {
     | '/app/catalog'
     | '/app/customize'
     | '/app/home'
+    | '/app/markets'
     | '/app/performance'
     | '/app/pricing'
     | '/app/settings'
@@ -395,6 +405,7 @@ export interface FileRouteTypes {
     | '/app/catalog'
     | '/app/customize'
     | '/app/home'
+    | '/app/markets'
     | '/app/performance'
     | '/app/pricing'
     | '/app/settings'
@@ -433,6 +444,7 @@ export interface FileRouteTypes {
     | '/app/catalog'
     | '/app/customize'
     | '/app/home'
+    | '/app/markets'
     | '/app/performance'
     | '/app/pricing'
     | '/app/settings'
@@ -472,39 +484,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/studio': {
-      id: '/studio'
-      path: '/studio'
-      fullPath: '/studio'
-      preLoaderRoute: typeof StudioRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/pricing': {
-      id: '/pricing'
-      path: '/pricing'
-      fullPath: '/pricing'
-      preLoaderRoute: typeof PricingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/onboarding': {
-      id: '/onboarding'
-      path: '/onboarding'
-      fullPath: '/onboarding'
-      preLoaderRoute: typeof OnboardingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app': {
@@ -514,158 +498,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/studio/walkforward': {
-      id: '/studio/walkforward'
-      path: '/walkforward'
-      fullPath: '/studio/walkforward'
-      preLoaderRoute: typeof StudioWalkforwardRouteImport
-      parentRoute: typeof StudioRoute
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/studio/submissions': {
-      id: '/studio/submissions'
-      path: '/submissions'
-      fullPath: '/studio/submissions'
-      preLoaderRoute: typeof StudioSubmissionsRouteImport
-      parentRoute: typeof StudioRoute
-    }
-    '/studio/strategies': {
-      id: '/studio/strategies'
-      path: '/strategies'
-      fullPath: '/studio/strategies'
-      preLoaderRoute: typeof StudioStrategiesRouteImport
-      parentRoute: typeof StudioRoute
-    }
-    '/studio/signals': {
-      id: '/studio/signals'
-      path: '/signals'
-      fullPath: '/studio/signals'
-      preLoaderRoute: typeof StudioSignalsRouteImport
-      parentRoute: typeof StudioRoute
-    }
-    '/studio/settings': {
-      id: '/studio/settings'
-      path: '/settings'
-      fullPath: '/studio/settings'
-      preLoaderRoute: typeof StudioSettingsRouteImport
-      parentRoute: typeof StudioRoute
-    }
-    '/studio/pricing': {
-      id: '/studio/pricing'
+    '/pricing': {
+      id: '/pricing'
       path: '/pricing'
-      fullPath: '/studio/pricing'
-      preLoaderRoute: typeof StudioPricingRouteImport
-      parentRoute: typeof StudioRoute
+      fullPath: '/pricing'
+      preLoaderRoute: typeof PricingRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/studio/ml': {
-      id: '/studio/ml'
-      path: '/ml'
-      fullPath: '/studio/ml'
-      preLoaderRoute: typeof StudioMlRouteImport
-      parentRoute: typeof StudioRoute
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/studio/live': {
-      id: '/studio/live'
-      path: '/live'
-      fullPath: '/studio/live'
-      preLoaderRoute: typeof StudioLiveRouteImport
-      parentRoute: typeof StudioRoute
+    '/studio': {
+      id: '/studio'
+      path: '/studio'
+      fullPath: '/studio'
+      preLoaderRoute: typeof StudioRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/studio/instruments': {
-      id: '/studio/instruments'
-      path: '/instruments'
-      fullPath: '/studio/instruments'
-      preLoaderRoute: typeof StudioInstrumentsRouteImport
-      parentRoute: typeof StudioRoute
-    }
-    '/studio/home': {
-      id: '/studio/home'
-      path: '/home'
-      fullPath: '/studio/home'
-      preLoaderRoute: typeof StudioHomeRouteImport
-      parentRoute: typeof StudioRoute
-    }
-    '/studio/health': {
-      id: '/studio/health'
-      path: '/health'
-      fullPath: '/studio/health'
-      preLoaderRoute: typeof StudioHealthRouteImport
-      parentRoute: typeof StudioRoute
-    }
-    '/studio/earnings': {
-      id: '/studio/earnings'
-      path: '/earnings'
-      fullPath: '/studio/earnings'
-      preLoaderRoute: typeof StudioEarningsRouteImport
-      parentRoute: typeof StudioRoute
-    }
-    '/studio/docs': {
-      id: '/studio/docs'
-      path: '/docs'
-      fullPath: '/studio/docs'
-      preLoaderRoute: typeof StudioDocsRouteImport
-      parentRoute: typeof StudioRoute
-    }
-    '/studio/copilot': {
-      id: '/studio/copilot'
-      path: '/copilot'
-      fullPath: '/studio/copilot'
-      preLoaderRoute: typeof StudioCopilotRouteImport
-      parentRoute: typeof StudioRoute
-    }
-    '/studio/backtests': {
-      id: '/studio/backtests'
-      path: '/backtests'
-      fullPath: '/studio/backtests'
-      preLoaderRoute: typeof StudioBacktestsRouteImport
-      parentRoute: typeof StudioRoute
-    }
-    '/app/signals': {
-      id: '/app/signals'
-      path: '/signals'
-      fullPath: '/app/signals'
-      preLoaderRoute: typeof AppSignalsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/settings': {
-      id: '/app/settings'
-      path: '/settings'
-      fullPath: '/app/settings'
-      preLoaderRoute: typeof AppSettingsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/pricing': {
-      id: '/app/pricing'
-      path: '/pricing'
-      fullPath: '/app/pricing'
-      preLoaderRoute: typeof AppPricingRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/performance': {
-      id: '/app/performance'
-      path: '/performance'
-      fullPath: '/app/performance'
-      preLoaderRoute: typeof AppPerformanceRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/home': {
-      id: '/app/home'
-      path: '/home'
-      fullPath: '/app/home'
-      preLoaderRoute: typeof AppHomeRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/customize': {
-      id: '/app/customize'
-      path: '/customize'
-      fullPath: '/app/customize'
-      preLoaderRoute: typeof AppCustomizeRouteImport
+    '/app/agent': {
+      id: '/app/agent'
+      path: '/agent'
+      fullPath: '/app/agent'
+      preLoaderRoute: typeof AppAgentRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/catalog': {
@@ -675,39 +547,165 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCatalogRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/agent': {
-      id: '/app/agent'
-      path: '/agent'
-      fullPath: '/app/agent'
-      preLoaderRoute: typeof AppAgentRouteImport
+    '/app/customize': {
+      id: '/app/customize'
+      path: '/customize'
+      fullPath: '/app/customize'
+      preLoaderRoute: typeof AppCustomizeRouteImport
       parentRoute: typeof AppRoute
     }
-    '/studio/strategy/$id': {
-      id: '/studio/strategy/$id'
-      path: '/strategy/$id'
-      fullPath: '/studio/strategy/$id'
-      preLoaderRoute: typeof StudioStrategyIdRouteImport
+    '/app/home': {
+      id: '/app/home'
+      path: '/home'
+      fullPath: '/app/home'
+      preLoaderRoute: typeof AppHomeRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/markets': {
+      id: '/app/markets'
+      path: '/markets'
+      fullPath: '/app/markets'
+      preLoaderRoute: typeof AppMarketsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/performance': {
+      id: '/app/performance'
+      path: '/performance'
+      fullPath: '/app/performance'
+      preLoaderRoute: typeof AppPerformanceRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/pricing': {
+      id: '/app/pricing'
+      path: '/pricing'
+      fullPath: '/app/pricing'
+      preLoaderRoute: typeof AppPricingRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/settings': {
+      id: '/app/settings'
+      path: '/settings'
+      fullPath: '/app/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/signals': {
+      id: '/app/signals'
+      path: '/signals'
+      fullPath: '/app/signals'
+      preLoaderRoute: typeof AppSignalsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/studio/backtests': {
+      id: '/studio/backtests'
+      path: '/backtests'
+      fullPath: '/studio/backtests'
+      preLoaderRoute: typeof StudioBacktestsRouteImport
       parentRoute: typeof StudioRoute
     }
-    '/studio/builder/$id': {
-      id: '/studio/builder/$id'
-      path: '/builder/$id'
-      fullPath: '/studio/builder/$id'
-      preLoaderRoute: typeof StudioBuilderIdRouteImport
+    '/studio/copilot': {
+      id: '/studio/copilot'
+      path: '/copilot'
+      fullPath: '/studio/copilot'
+      preLoaderRoute: typeof StudioCopilotRouteImport
       parentRoute: typeof StudioRoute
     }
-    '/studio/backtests/$strategyId': {
-      id: '/studio/backtests/$strategyId'
-      path: '/$strategyId'
-      fullPath: '/studio/backtests/$strategyId'
-      preLoaderRoute: typeof StudioBacktestsStrategyIdRouteImport
-      parentRoute: typeof StudioBacktestsRoute
+    '/studio/docs': {
+      id: '/studio/docs'
+      path: '/docs'
+      fullPath: '/studio/docs'
+      preLoaderRoute: typeof StudioDocsRouteImport
+      parentRoute: typeof StudioRoute
     }
-    '/app/strategy/$id': {
-      id: '/app/strategy/$id'
-      path: '/strategy/$id'
-      fullPath: '/app/strategy/$id'
-      preLoaderRoute: typeof AppStrategyIdRouteImport
+    '/studio/earnings': {
+      id: '/studio/earnings'
+      path: '/earnings'
+      fullPath: '/studio/earnings'
+      preLoaderRoute: typeof StudioEarningsRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/studio/health': {
+      id: '/studio/health'
+      path: '/health'
+      fullPath: '/studio/health'
+      preLoaderRoute: typeof StudioHealthRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/studio/home': {
+      id: '/studio/home'
+      path: '/home'
+      fullPath: '/studio/home'
+      preLoaderRoute: typeof StudioHomeRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/studio/instruments': {
+      id: '/studio/instruments'
+      path: '/instruments'
+      fullPath: '/studio/instruments'
+      preLoaderRoute: typeof StudioInstrumentsRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/studio/live': {
+      id: '/studio/live'
+      path: '/live'
+      fullPath: '/studio/live'
+      preLoaderRoute: typeof StudioLiveRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/studio/ml': {
+      id: '/studio/ml'
+      path: '/ml'
+      fullPath: '/studio/ml'
+      preLoaderRoute: typeof StudioMlRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/studio/pricing': {
+      id: '/studio/pricing'
+      path: '/pricing'
+      fullPath: '/studio/pricing'
+      preLoaderRoute: typeof StudioPricingRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/studio/settings': {
+      id: '/studio/settings'
+      path: '/settings'
+      fullPath: '/studio/settings'
+      preLoaderRoute: typeof StudioSettingsRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/studio/signals': {
+      id: '/studio/signals'
+      path: '/signals'
+      fullPath: '/studio/signals'
+      preLoaderRoute: typeof StudioSignalsRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/studio/strategies': {
+      id: '/studio/strategies'
+      path: '/strategies'
+      fullPath: '/studio/strategies'
+      preLoaderRoute: typeof StudioStrategiesRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/studio/submissions': {
+      id: '/studio/submissions'
+      path: '/submissions'
+      fullPath: '/studio/submissions'
+      preLoaderRoute: typeof StudioSubmissionsRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/studio/walkforward': {
+      id: '/studio/walkforward'
+      path: '/walkforward'
+      fullPath: '/studio/walkforward'
+      preLoaderRoute: typeof StudioWalkforwardRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/app/share/$cardId': {
+      id: '/app/share/$cardId'
+      path: '/share/$cardId'
+      fullPath: '/app/share/$cardId'
+      preLoaderRoute: typeof AppShareCardIdRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/signal/$id': {
@@ -717,12 +715,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSignalIdRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/share/$cardId': {
-      id: '/app/share/$cardId'
-      path: '/share/$cardId'
-      fullPath: '/app/share/$cardId'
-      preLoaderRoute: typeof AppShareCardIdRouteImport
+    '/app/strategy/$id': {
+      id: '/app/strategy/$id'
+      path: '/strategy/$id'
+      fullPath: '/app/strategy/$id'
+      preLoaderRoute: typeof AppStrategyIdRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/studio/backtests/$strategyId': {
+      id: '/studio/backtests/$strategyId'
+      path: '/$strategyId'
+      fullPath: '/studio/backtests/$strategyId'
+      preLoaderRoute: typeof StudioBacktestsStrategyIdRouteImport
+      parentRoute: typeof StudioBacktestsRoute
+    }
+    '/studio/builder/$id': {
+      id: '/studio/builder/$id'
+      path: '/builder/$id'
+      fullPath: '/studio/builder/$id'
+      preLoaderRoute: typeof StudioBuilderIdRouteImport
+      parentRoute: typeof StudioRoute
+    }
+    '/studio/strategy/$id': {
+      id: '/studio/strategy/$id'
+      path: '/strategy/$id'
+      fullPath: '/studio/strategy/$id'
+      preLoaderRoute: typeof StudioStrategyIdRouteImport
+      parentRoute: typeof StudioRoute
     }
   }
 }
@@ -732,6 +751,7 @@ interface AppRouteChildren {
   AppCatalogRoute: typeof AppCatalogRoute
   AppCustomizeRoute: typeof AppCustomizeRoute
   AppHomeRoute: typeof AppHomeRoute
+  AppMarketsRoute: typeof AppMarketsRoute
   AppPerformanceRoute: typeof AppPerformanceRoute
   AppPricingRoute: typeof AppPricingRoute
   AppSettingsRoute: typeof AppSettingsRoute
@@ -746,6 +766,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppCatalogRoute: AppCatalogRoute,
   AppCustomizeRoute: AppCustomizeRoute,
   AppHomeRoute: AppHomeRoute,
+  AppMarketsRoute: AppMarketsRoute,
   AppPerformanceRoute: AppPerformanceRoute,
   AppPricingRoute: AppPricingRoute,
   AppSettingsRoute: AppSettingsRoute,
