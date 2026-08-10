@@ -637,6 +637,9 @@ function Landing() {
             </div>
             © {new Date().getFullYear()} Bayn · Strategies that survived the filter
           </div>
+          <a href="/about.html" className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+            How it works
+          </a>
           <Disclaimer />
         </div>
       </footer>
