@@ -80,12 +80,13 @@ function StudioHome() {
     valueClass?: string;
     icon: typeof Layers;
     accent: string;
+    to: "/studio/strategies" | "/studio/backtests" | "/studio/live";
   }> = [
-    { label: "Strategies", value: String(summary.total), icon: Layers, accent: "text-violet" },
-    { label: "Backtested", value: String(summary.backtested), icon: FlaskConical, accent: "text-cyan" },
-    { label: "Live / paper", value: String(summary.sessions), sub: summary.liveCount ? `${summary.liveCount} running` : undefined, icon: Activity, accent: "text-futures" },
-    { label: "Best return", value: fmtPct(summary.bestReturn), valueClass: pctClass(summary.bestReturn), icon: TrendingUp, accent: "text-emerald-500" },
-    { label: "Backtests run", value: String(runs.length >= 12 ? "12+" : runs.length), icon: Trophy, accent: "text-gold" },
+    { label: "Strategies", value: String(summary.total), icon: Layers, accent: "text-violet", to: "/studio/strategies" },
+    { label: "Backtested", value: String(summary.backtested), icon: FlaskConical, accent: "text-cyan", to: "/studio/backtests" },
+    { label: "Live / paper", value: String(summary.sessions), sub: summary.liveCount ? `${summary.liveCount} running` : undefined, icon: Activity, accent: "text-futures", to: "/studio/live" },
+    { label: "Best return", value: fmtPct(summary.bestReturn), valueClass: pctClass(summary.bestReturn), icon: TrendingUp, accent: "text-emerald-500", to: "/studio/strategies" },
+    { label: "Backtests run", value: String(runs.length >= 12 ? "12+" : runs.length), icon: Trophy, accent: "text-gold", to: "/studio/backtests" },
   ];
 
   return (
@@ -129,14 +130,16 @@ function StudioHome() {
       {/* Summary tiles */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         {tiles.map((t) => (
-          <Card key={t.label} className="border-border bg-elevated p-4 transition-colors hover:border-violet/30">
-            <div className="flex items-center justify-between">
-              <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{t.label}</div>
-              <t.icon className={cn("size-3.5", t.accent)} />
-            </div>
-            <div className={cn("mt-1 font-mono text-3xl tabular-nums", t.valueClass)}>{t.value}</div>
-            {t.sub && <div className="font-mono text-[10px] text-futures">{t.sub}</div>}
-          </Card>
+          <Link key={t.label} to={t.to} className="block">
+            <Card className="h-full border-border bg-elevated p-4 transition-colors hover:border-violet/40">
+              <div className="flex items-center justify-between">
+                <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{t.label}</div>
+                <t.icon className={cn("size-3.5", t.accent)} />
+              </div>
+              <div className={cn("mt-1 font-mono text-3xl tabular-nums", t.valueClass)}>{t.value}</div>
+              {t.sub ? <div className="font-mono text-[10px] text-futures">{t.sub}</div> : <div className="font-mono text-[10px] text-muted-foreground">View →</div>}
+            </Card>
+          </Link>
         ))}
       </div>
 
