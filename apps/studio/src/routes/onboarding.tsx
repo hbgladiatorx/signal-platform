@@ -215,45 +215,18 @@ type StepKey =
   | "studioPlan" | "workspace" | "firstStrategy" | "defaultMode" | "done";
 
 
-function buildSteps(path: Path): { key: StepKey; label: string }[] {
-  const shared: { key: StepKey; label: string }[] = [
+function buildSteps(_path: Path): { key: StepKey; label: string }[] {
+  // Slim, just-in-time onboarding: ask only what personalizes the app right
+  // away — your path, your markets, and your account size + risk (which powers
+  // signal sizing). Everything else (watchlist, news, brokers, notifications,
+  // plan, Studio defaults) surfaces contextually via the guided "next step"
+  // journey and Settings the moment it's first needed, instead of a 20-step wall.
+  return [
     { key: "path", label: "Choose your path" },
-    { key: "identity", label: "Identity" },
-    { key: "experience", label: "Experience profile" },
-  ];
-  const trader: { key: StepKey; label: string }[] = [
     { key: "markets", label: "Markets you trade" },
-    { key: "tickers", label: "Watched tickers" },
-    { key: "news", label: "News sources" },
-    { key: "risk", label: "Risk &amp; sizing" },
-    { key: "brokers", label: "Broker connections" },
-    { key: "agent", label: "AI agent" },
-    { key: "notifications", label: "Notifications" },
-    { key: "plan", label: "Plan" },
+    { key: "risk", label: "Account & risk" },
+    { key: "done", label: "Finish" },
   ];
-  const studio: { key: StepKey; label: string }[] = [
-    { key: "studioMarkets", label: "Build for which markets" },
-    { key: "builderExp", label: "Builder experience" },
-    { key: "backtestDefaults", label: "Backtest defaults" },
-    { key: "forwardTest", label: "Forward-test defaults" },
-    { key: "studioAi", label: "Studio AI" },
-    { key: "studioPlan", label: "Studio plan" },
-    { key: "workspace", label: "Workspace defaults" },
-    { key: "firstStrategy", label: "First strategy" },
-  ];
-
-  const studioCondensed: { key: StepKey; label: string }[] = [
-    { key: "studioMarkets", label: "Build for which markets" },
-    { key: "builderExp", label: "Builder experience" },
-    { key: "studioAi", label: "Studio AI" },
-    { key: "studioPlan", label: "Studio plan" },
-    { key: "firstStrategy", label: "First strategy" },
-    { key: "defaultMode", label: "Default landing surface" },
-  ];
-
-  if (path === "trader") return [...shared, ...trader, { key: "done", label: "Finish" }];
-  if (path === "developer") return [...shared, ...studio, { key: "done", label: "Finish" }];
-  return [...shared, ...trader, ...studioCondensed, { key: "done", label: "Finish" }];
 }
 
 /* ---------------- Step components ---------------- */
