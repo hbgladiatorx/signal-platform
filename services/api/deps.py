@@ -73,6 +73,42 @@ async def get_current_user_record(
     sub = claims.get("sub")
     if not sub:
         raise HTTPException(401, "Token missing 'sub' claim")
+    email = claims.get("email")
+    name = _claim_name(claims)
+
+    # Email-stable identity. Matching by subject is the primary, unchanged path.
+    # But if this subject has NO row yet and its email already owns an account
+    # (e.g. the same person after an Auth0 -> Supabase migration, where the token
+    # `sub` changed), adopt the existing account onto the new subject instead of
+    # silently creating a duplicate. This keeps one email = one user_id and
+    # prevents the account fragmentation that scatters strategies/sessions.
+    if email:
+        has_sub = await session.execute(
+            text("SELECT 1 FROM users WHERE auth0_sub = :sub"), {"sub": sub}
+        )
+        if has_sub.first() is None:
+            adopted = await session.execute(
+                text(
+                    """
+                    UPDATE users
+                       SET auth0_sub = :sub,
+                           name = COALESCE(:name, name),
+                           updated_at = NOW()
+                     WHERE id = (
+                         SELECT id FROM users
+                          WHERE email = :email
+                          ORDER BY created_at
+                          LIMIT 1
+                     )
+                    RETURNING id, org_id, email, role
+                    """
+                ),
+                {"sub": sub, "email": email, "name": name},
+            )
+            arow = adopted.mappings().first()
+            if arow is not None:
+                return CurrentUserRecord(**dict(arow))
+
     result = await session.execute(
         text(
             """
@@ -82,11 +118,7 @@ async def get_current_user_record(
             RETURNING id, org_id, email, role
             """
         ),
-        {
-            "sub": sub,
-            "email": claims.get("email"),
-            "name": _claim_name(claims),
-        },
+        {"sub": sub, "email": email, "name": name},
     )
     row = result.mappings().first()
     if row is None:
