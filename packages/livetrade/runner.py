@@ -231,6 +231,7 @@ class PaperTrader:
             max_order_notional=_dec(row.get("max_order_notional")),
             bar_count=int(row.get("last_bar_count") or 0),
             last_processed_bar_ts=row.get("last_processed_bar_ts"),
+            starting_cash=_dec(row.get("starting_cash")) or Decimal(0),
             mode=row.get("mode") or "paper",
             max_daily_loss=_dec(row.get("max_daily_loss")),
             kill_switch=self._kill_switch,
@@ -389,20 +390,27 @@ class PaperTrader:
                     pass
                 try:
                     async with session.lock:
+                        # Keep the broker snapshot fresh for order sizing
+                        # (BarContext.cash), but plot the curve from THIS
+                        # session's own fills, not the shared account equity.
                         await session.refresh_account_snapshot()
-                        equity = getattr(session, "_last_equity", session._cash)
-                        cash = getattr(session, "_last_cash", session._cash)
+                        cash, pv, equity, realized = (
+                            await session.compute_isolated_equity()
+                        )
                     async with self.engine.begin() as conn:
                         await P.insert_equity_point(
                             conn,
                             session_id=session.session_id,
                             ts=_now(),
                             cash=cash,
-                            positions_value=equity - cash,
+                            positions_value=pv,
                             total_equity=equity,
                         )
                         await P.update_session_summary(
-                            conn, session.session_id, current_equity=equity
+                            conn,
+                            session.session_id,
+                            current_equity=equity,
+                            realized_pnl=realized,
                         )
                 except IntegrityError:
                     # The session's paper_sessions row is gone (deleted out from

@@ -62,6 +62,34 @@ class PendingOrder:
     broker_order_id: str | None = None
 
 
+def isolated_equity_from_positions(
+    rows: list[dict[str, Any]],
+    mark: Callable[[str], Decimal | None],
+    starting_cash: Decimal,
+    multiplier: Decimal = Decimal(1),
+) -> tuple[Decimal, Decimal, Decimal, Decimal]:
+    """Pure equity accounting for a single session (no IO, unit-tested).
+
+    equity = starting_cash + Σ realized_pnl + Σ unrealized on open positions,
+    marked at `mark(symbol)` (falling back to a position's avg_cost when no price
+    is available). Returns (cash, positions_value, total_equity, realized_pnl).
+    """
+    realized = Decimal(0)
+    positions_value = Decimal(0)
+    unrealized = Decimal(0)
+    for r in rows:
+        realized += r.get("realized_pnl") or Decimal(0)
+        qty = r.get("quantity") or Decimal(0)
+        if qty == 0:
+            continue
+        avg = r.get("avg_cost") or Decimal(0)
+        px = mark(r["symbol"]) or avg
+        positions_value += qty * px * multiplier
+        unrealized += qty * (px - avg) * multiplier
+    equity = starting_cash + realized + unrealized
+    return equity - positions_value, positions_value, equity, realized
+
+
 class LiveSession:
     def __init__(
         self,
@@ -78,6 +106,7 @@ class LiveSession:
         bar_count: int,
         last_processed_bar_ts: datetime | None,
         history_bars: int = DEFAULT_HISTORY_BARS,
+        starting_cash: Decimal = Decimal(0),
         mode: str = "paper",
         max_daily_loss: Decimal | None = None,
         kill_switch: KillSwitch | None = None,
@@ -93,6 +122,7 @@ class LiveSession:
         self.engine = engine
         self.max_order_notional = max_order_notional
         self.history_bars = history_bars
+        self.starting_cash = starting_cash
 
         # Live-trading guardrails (no-ops for mode='paper').
         self.mode = mode
@@ -414,6 +444,23 @@ class LiveSession:
         if df is None or df.empty:
             return None
         return Decimal(str(df["close"].iloc[-1]))
+
+    async def compute_isolated_equity(self) -> tuple[Decimal, Decimal, Decimal, Decimal]:
+        """Equity from THIS session's own fills — starting cash + realized P&L +
+        unrealized on its own open positions — marked at the latest bar close.
+
+        Unlike the broker account snapshot, this ignores positions held in the
+        shared brokerage account by other sessions, so the curve, Open positions,
+        and Recent orders all describe this one session. An untraded session
+        returns a flat line at its starting cash.
+
+        Returns (cash, positions_value, total_equity, realized_pnl).
+        """
+        async with self.engine.connect() as conn:
+            rows = await P.load_positions(conn, self.session_id)
+        return isolated_equity_from_positions(
+            rows, self._last_close, self.starting_cash, self._contract_multiplier()
+        )
 
     def _time_in_force(self, order: Order) -> str:
         if self.asset_class == _CRYPTO_ASSET:
