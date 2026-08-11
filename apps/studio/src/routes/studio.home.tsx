@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { getDevStrategies, getRecentBacktests, graphTimeframe, deleteBacktest } from "@/lib/api/studio";
+import { getDevStrategies, getRecentBacktests, graphTimeframe, deleteBacktest, getBuiltinStrategyNames } from "@/lib/api/studio";
 import { listSessions } from "@/lib/api/sessions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,17 +45,22 @@ function StudioHome() {
   const strategies = useQuery({ queryKey: ["devStrategies"], queryFn: getDevStrategies });
   const backtests = useQuery({ queryKey: ["recentBacktests", 12], queryFn: () => getRecentBacktests(12) });
   const sessions = useQuery({ queryKey: ["sessions"], queryFn: listSessions, refetchInterval: 15000 });
+  const builtinNamesQuery = useQuery({ queryKey: ["builtinNames"], queryFn: getBuiltinStrategyNames });
 
   const list = strategies.data ?? [];
   const runs = backtests.data ?? [];
   const sess = sessions.data ?? [];
 
-  // A run is "orphaned" when its strategy is no longer one of your active
-  // strategies (deleted, or a built-in) — so it's stranded on this per-run panel
-  // with no per-strategy page to manage it. Offer an inline delete for those.
+  // A run is "orphaned" when its strategy was truly DELETED — not an active user
+  // strategy and not a built-in (built-ins are shown on the Backtests page, so
+  // they're manageable there). Only orphans get the "deleted" tag + inline delete.
   const activeStrategyNames = useMemo(
     () => new Set(list.map((s) => s.name)),
     [list],
+  );
+  const builtinStrategyNames = useMemo(
+    () => new Set(builtinNamesQuery.data ?? []),
+    [builtinNamesQuery.data],
   );
   const [confirmDelId, setConfirmDelId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -267,9 +272,11 @@ function StudioHome() {
                 {meaningfulRuns.slice(0, 6).map((b) => {
                   const gTf = graphTfByName.get(b.strategyName);
                   const stale = !!b.barResolution && !!gTf && gTf !== b.barResolution;
-                  // Orphan = its strategy isn't one of your active strategies, so
-                  // it can't be managed from the per-strategy "View all" page.
-                  const orphan = !activeStrategyNames.has(b.strategyName);
+                  // Orphan = a truly deleted strategy: not an active user strategy
+                  // and not a built-in. Built-ins are managed on the Backtests page.
+                  const orphan =
+                    !activeStrategyNames.has(b.strategyName) &&
+                    !builtinStrategyNames.has(b.strategyName);
                   return (
                   <div key={b.id} className="group relative grid grid-cols-12 items-center gap-2 px-4 py-3 text-sm">
                     <div className="col-span-5 truncate">

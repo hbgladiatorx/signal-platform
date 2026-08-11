@@ -415,6 +415,41 @@ export async function getDevStrategies(): Promise<DevStrategy[]> {
   return users.map((u) => userToDev(u, byName.get(u.name) ?? []));
 }
 
+// Like getDevStrategies, but ALSO includes built-in strategies that have backtest
+// runs — so the Backtests "View all" page shows every strategy with history, not
+// only the user's own (built-in rows are read-only there). Keeps the per-run
+// dashboard and the per-strategy page consistent.
+export async function getBacktestStrategies(): Promise<DevStrategy[]> {
+  const [users, builtins, backtests] = await Promise.all([
+    api.get<ApiUserStrategy[]>("/user-strategies", { limit: 200 }),
+    api.get<ApiStrategyInfo[]>("/strategies").catch(() => [] as ApiStrategyInfo[]),
+    api.get<ApiBacktestSummary[]>("/backtests", { limit: 100 }).catch(() => [] as ApiBacktestSummary[]),
+  ]);
+  const byName = new Map<string, ApiBacktestSummary[]>();
+  for (const b of backtests) {
+    const arr = byName.get(b.strategy_name);
+    if (arr) arr.push(b);
+    else byName.set(b.strategy_name, [b]);
+  }
+  const userNames = new Set(users.map((u) => u.name));
+  const userDevs = users.map((u) => userToDev(u, byName.get(u.name) ?? []));
+  // Built-ins that actually have runs and aren't shadowed by a same-named user
+  // strategy. Rendered read-only (no edit/delete) on the Backtests page.
+  const builtinDevs = builtins
+    .filter((s) => s.source === "built-in" && byName.has(s.name) && !userNames.has(s.name))
+    .map((s) => builtinToDev(s));
+  return [...userDevs, ...builtinDevs];
+}
+
+// Names of built-in strategies, so callers can tell a built-in run apart from a
+// run whose (user) strategy was truly deleted.
+export async function getBuiltinStrategyNames(): Promise<string[]> {
+  const b = await api
+    .get<ApiStrategyInfo[]>("/strategies")
+    .catch(() => [] as ApiStrategyInfo[]);
+  return b.filter((s) => s.source === "built-in").map((s) => s.name);
+}
+
 export async function getDevStrategy(id: string): Promise<DevStrategy | undefined> {
   if (!id || id === "new") return undefined;
   if (id.startsWith(BUILTIN_PREFIX)) {

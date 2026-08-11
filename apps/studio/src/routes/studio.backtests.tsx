@@ -2,7 +2,7 @@ import { createFileRoute, Link, Outlet, useRouterState, useNavigate } from "@tan
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import {
-  getDevStrategies, getBacktestsForStrategy, deleteUserStrategy, isBuiltinStrategy,
+  getBacktestStrategies, getBacktestsForStrategy, deleteUserStrategy, isBuiltinStrategy,
 } from "@/lib/api/studio";
 import { Card } from "@/components/ui/card";
 import { AssetClassBadge } from "@/components/common/AssetClassBadge";
@@ -24,7 +24,9 @@ const VIEW_KEY = "studio.backtests.view";
 
 function BacktestsList() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const stratQuery = useQuery({ queryKey: ["devStrategies"], queryFn: getDevStrategies });
+  // Includes built-in strategies that have runs (read-only rows), so this page
+  // matches the dashboard's per-run list instead of hiding built-in history.
+  const stratQuery = useQuery({ queryKey: ["backtestStrategies"], queryFn: getBacktestStrategies });
   const [view, setView] = useState<View>(() => {
     if (typeof window === "undefined") return "grid";
     return (window.localStorage.getItem(VIEW_KEY) as View) || "grid";
@@ -116,6 +118,7 @@ function RowActions({ strategyId, name }: { strategyId: string; name: string }) 
     setDeleting(true);
     try {
       await deleteUserStrategy(strategyId);
+      await qc.invalidateQueries({ queryKey: ["backtestStrategies"] });
       await qc.invalidateQueries({ queryKey: ["devStrategies"] });
       toast.success(`Deleted "${name}"`);
     } catch (err) {
@@ -156,6 +159,7 @@ function StrategyBacktestCard({ strategyId, name, description, nlDescription, as
   const navigate = useNavigate();
   const { data } = useQuery({ queryKey: ["bts", strategyId], queryFn: () => getBacktestsForStrategy(strategyId) });
   const latest = data?.[0];
+  const builtin = isBuiltinStrategy(strategyId);
   const open = () =>
     navigate({ to: "/studio/backtests/$strategyId", params: { strategyId }, search: latest ? { runId: latest.id } : {} });
 
@@ -170,6 +174,7 @@ function StrategyBacktestCard({ strategyId, name, description, nlDescription, as
       <div className="mb-1 flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-1">
           <h3 className="truncate font-semibold">{name}</h3>
+          {builtin && <span className="shrink-0 rounded bg-muted px-1 py-0.5 text-[10px] text-muted-foreground">built-in</span>}
           <WhatItDoes text={nlDescription || description} />
         </div>
         <div className="flex shrink-0 items-center gap-1">
@@ -197,6 +202,7 @@ function StrategyBacktestRow({ strategyId, name, description, nlDescription, ass
   const { data } = useQuery({ queryKey: ["bts", strategyId], queryFn: () => getBacktestsForStrategy(strategyId) });
   const latest = data?.[0];
   const runs = data?.length ?? 0;
+  const builtin = isBuiltinStrategy(strategyId);
   const open = () =>
     navigate({ to: "/studio/backtests/$strategyId", params: { strategyId }, search: latest ? { runId: latest.id } : {} });
 
@@ -211,6 +217,7 @@ function StrategyBacktestRow({ strategyId, name, description, nlDescription, ass
       <div className="col-span-4 flex min-w-0 items-center gap-1.5">
         <AssetClassBadge assetClass={assetClass} hideIcon />
         <span className="truncate font-medium">{name}</span>
+        {builtin && <span className="shrink-0 rounded bg-muted px-1 py-0.5 text-[10px] text-muted-foreground">built-in</span>}
         <WhatItDoes text={nlDescription || description} />
       </div>
       <div className={cn("col-span-2 text-right font-mono", returnClass(latest?.stats.totalReturn))}>
