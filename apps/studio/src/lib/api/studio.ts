@@ -905,8 +905,9 @@ const LIVE_MAX_ORDER_NOTIONAL = 500;
 const LIVE_MAX_DAILY_LOSS = 250;
 
 // Start a trading session for a strategy via /paper-sessions. Routes by asset
-// class to the right venue, preferring the user's OWN broker key and falling
-// back to the shared PLATFORM key so anyone can deploy without connecting one.
+// class to the right venue using the user's OWN broker key — every user trades
+// on their own broker account. (A shared platform key is used only if the
+// server has ALLOW_PLATFORM_CREDENTIALS enabled for a demo deployment.)
 //
 // The venue determines the mode: Alpaca → paper (safe), Binance.US → live (real
 // money). `opts.mode: "live"` is the caller's acknowledgement that a real-money
@@ -931,7 +932,9 @@ export async function deployStrategyLive(
 
   const wantService = serviceForAsset(assetClass);
 
-  // Personal keys first, then shared platform keys.
+  // Use the user's OWN broker key. The shared platform key is offered only when
+  // the server enables it (demo mode); listPlatformCredentials returns [] by
+  // default, so in the normal secure posture this resolves to a personal key.
   const [personal, platform] = await Promise.all([
     listApiCredentials().catch(() => []),
     listPlatformCredentials().catch(() => []),
@@ -944,12 +947,12 @@ export async function deployStrategyLive(
     if (wantService === "alpaca") {
       throw new ApiError(
         400,
-        "Stocks/options need an Alpaca key. None is connected and no shared platform Alpaca key is configured yet — connect one in Settings.",
+        "Stocks/options need your own Alpaca key. Connect one in Settings → Broker API keys to run a paper forward test.",
       );
     }
     throw new ApiError(
       400,
-      "Crypto needs a Binance.US key. None is connected and no shared platform key is available — connect one in Settings.",
+      "Crypto needs your own Binance.US key. Connect one in Settings → Broker API keys before deploying.",
     );
   }
 

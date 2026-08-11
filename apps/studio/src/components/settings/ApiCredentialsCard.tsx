@@ -78,8 +78,10 @@ export function ApiCredentialsCard() {
         <h2 className="font-semibold">Broker API keys</h2>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">
-        Connect a broker to run strategies on live data. Alpaca runs paper
-        sessions; Binance.US trades real money. Keys are encrypted server-side.
+        Connect your own broker to run strategies on live data — every strategy
+        you deploy trades on your account, using your key. Alpaca runs paper
+        sessions; Binance.US trades real money. Keys are encrypted at rest,
+        private to you, and only the last four characters are ever shown back.
       </p>
       <Separator className="my-4" />
 

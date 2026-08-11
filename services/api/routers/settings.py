@@ -21,7 +21,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,9 +29,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from packages.core.encryption import encrypt_json
 from packages.data.platform_credentials import (
     list_platform_credentials as _list_platform_credentials,
+    platform_fallback_enabled,
 )
 from services.api.auth import get_current_user
-from services.api.deps import get_db_session
+from services.api.deps import get_db_session, provision_user_record
 
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -64,39 +65,17 @@ SERVICE_FIELDS: dict[str, dict[str, Any]] = {
 # ============================================================
 
 async def _ensure_user(claims: dict, session: AsyncSession) -> UUID:
-    """
-    Upsert the user keyed by Auth0 sub. Returns the platform user UUID.
-    Pure SQL upsert with RETURNING for atomicity.
-    """
-    sub = claims.get("sub")
-    if not sub:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="JWT missing 'sub' claim",
-        )
+    """Resolve (and lazily provision) the caller's platform user UUID.
 
-    result = await session.execute(
-        text(
-            """
-            INSERT INTO users (auth0_sub, email, name)
-            VALUES (:sub, :email, :name)
-            ON CONFLICT (auth0_sub) DO UPDATE
-                SET updated_at = NOW()
-            RETURNING id
-            """
-        ),
-        {
-            "sub": sub,
-            "email": claims.get("email"),
-            "name": claims.get("name"),
-        },
-    )
+    Delegates to the shared, email-stable `provision_user_record` so the
+    settings endpoints provision users identically to the trading routers —
+    one email always maps to one `user_id`, preventing the account
+    fragmentation that scatters a person's strategies and credentials across
+    duplicate rows after an IdP subject change.
+    """
+    record = await provision_user_record(claims, session)
     await session.commit()
-    row = result.first()
-    if row is None:
-        # Should not happen with the ON CONFLICT DO UPDATE clause; defensive.
-        raise HTTPException(status_code=500, detail="Failed to upsert user")
-    return row.id
+    return record.id
 
 
 # ============================================================
@@ -344,11 +323,14 @@ async def list_platform_credentials_endpoint(
 ) -> list[dict]:
     """Shared platform broker credentials available to every user.
 
-    Lets the deploy path fall back to a platform key (crypto via Binance.US,
-    stocks/options via Alpaca) when the user hasn't connected their own. Secrets
-    are never returned — only id, service, and a masked last-four.
+    Empty by default: each user must connect their OWN broker key. Only when
+    ALLOW_PLATFORM_CREDENTIALS is enabled (demo mode) does this expose the
+    shared keys the deploy path may fall back to. Secrets are never returned —
+    only id, service, and a masked last-four.
     """
     await _ensure_user(claims, session)
+    if not platform_fallback_enabled():
+        return []
     creds = await _list_platform_credentials(session)
     return [
         {

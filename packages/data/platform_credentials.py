@@ -41,6 +41,26 @@ PLATFORM_USER_ID = UUID("22222222-2222-2222-2222-222222222222")
 PLATFORM_USER_SUB = "platform|system"
 
 
+def platform_fallback_enabled() -> bool:
+    """Whether users may trade on the SHARED platform broker keys.
+
+    Default OFF: each user must connect their OWN broker key to place any
+    trade. This is the secure, isolated posture — no user ever routes orders
+    through the platform's (or another user's) broker account.
+
+    Set ALLOW_PLATFORM_CREDENTIALS=true only for a demo deployment where a
+    zero-setup shared *paper* account is acceptable. Note the shared key
+    commingles every user's activity on ONE broker account, so it must never
+    be enabled with a real-money (Binance.US) key in production.
+    """
+    return os.environ.get("ALLOW_PLATFORM_CREDENTIALS", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
 def _cred_id(service: str) -> UUID:
     """Deterministic, stable credential id per service."""
     return uuid5(PLATFORM_USER_ID, f"platform-credential:{service}")

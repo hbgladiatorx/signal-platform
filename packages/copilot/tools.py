@@ -36,7 +36,10 @@ from packages.data.messagebus import (
     QUEUE_PAPER_CONTROL,
     QUEUE_WALKFORWARD_JOBS,
 )
-from packages.data.platform_credentials import PLATFORM_USER_ID
+from packages.data.platform_credentials import (
+    PLATFORM_USER_ID,
+    platform_fallback_enabled,
+)
 from packages.data.user_strategies import (
     create_user_strategy,
     get_user_strategy,
@@ -960,16 +963,29 @@ async def _tool_run_oos_test(
 async def _platform_or_user_credential(
     session: AsyncSession, user_id: UUID, services: list[str]
 ) -> Optional[tuple[UUID, str]]:
-    """Find a usable trading credential (the user's or a shared platform one)
-    for one of the given venue services. Returns (credential_id, service)."""
-    res = await session.execute(
-        text(
-            "SELECT id, service FROM api_credentials "
-            "WHERE service = ANY(:svcs) AND user_id IN (:uid, :platform) "
-            "ORDER BY (user_id = :uid) DESC LIMIT 1"
-        ),
-        {"svcs": services, "uid": user_id, "platform": PLATFORM_USER_ID},
-    )
+    """Find a usable trading credential for one of the given venue services.
+
+    Returns (credential_id, service). By default only the user's OWN key is
+    eligible; the shared platform key is considered only when
+    ALLOW_PLATFORM_CREDENTIALS is enabled (demo mode)."""
+    if platform_fallback_enabled():
+        res = await session.execute(
+            text(
+                "SELECT id, service FROM api_credentials "
+                "WHERE service = ANY(:svcs) AND user_id IN (:uid, :platform) "
+                "ORDER BY (user_id = :uid) DESC LIMIT 1"
+            ),
+            {"svcs": services, "uid": user_id, "platform": PLATFORM_USER_ID},
+        )
+    else:
+        res = await session.execute(
+            text(
+                "SELECT id, service FROM api_credentials "
+                "WHERE service = ANY(:svcs) AND user_id = :uid "
+                "LIMIT 1"
+            ),
+            {"svcs": services, "uid": user_id},
+        )
     r = res.first()
     return (r[0], r[1]) if r else None
 
@@ -1041,8 +1057,8 @@ async def _tool_start_forward_test(
     cred = await _platform_or_user_credential(session, user.id, ["alpaca"])
     if cred is None:
         raise ToolError(
-            "No paper-trading credential is available. Connect an Alpaca paper "
-            "key (or have the platform Alpaca key configured)."
+            "You haven't connected an Alpaca paper key yet. Add your own Alpaca "
+            "API key in Settings → Broker API keys, then start the forward test."
         )
     session_id = await _start_session(
         session, user=user, strategy_row=row, credential_id=cred[0], mode="paper"
@@ -1101,9 +1117,11 @@ async def _tool_deploy_strategy(
     cred = await _platform_or_user_credential(session, user.id, services)
     if cred is None:
         raise ToolError(
-            "No paper-trading credential is available." if mode == "paper"
-            else "No live trading credential is available — connect an Alpaca "
-            "live or Binance.US key before going live."
+            "You haven't connected an Alpaca paper key yet. Add your own key in "
+            "Settings → Broker API keys, then deploy." if mode == "paper"
+            else "You haven't connected a live trading key yet. Add your own "
+            "Alpaca live or Binance.US key in Settings → Broker API keys before "
+            "going live."
         )
     session_id = await _start_session(
         session, user=user, strategy_row=row, credential_id=cred[0], mode=mode

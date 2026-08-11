@@ -57,18 +57,18 @@ def _claim_name(claims: dict[str, Any]) -> str | None:
     return meta.get("name") or meta.get("full_name")
 
 
-async def get_current_user_record(
-    claims: dict[str, Any] = Depends(get_current_user),
-    session: AsyncSession = Depends(get_db_session),
+async def provision_user_record(
+    claims: dict[str, Any],
+    session: AsyncSession,
 ) -> CurrentUserRecord:
-    """Resolve the platform `users` row for the JWT's `sub`, provisioning it
-    on first sight.
+    """Resolve (and lazily provision) the platform `users` row for a JWT's
+    claims, using email-stable identity.
 
-    The subject is opaque — an Auth0 sub or a Supabase user UUID — and is
-    stored in `users.auth0_sub`. Lazy provisioning means a freshly signed-up
-    Supabase user gets a platform row on their very first authenticated
-    request, with no separate sync job. M2M tokens without a `sub` are
-    rejected (401).
+    Shared by `get_current_user_record` (the trading routers) and the settings
+    router's `_ensure_user`, so every entry point provisions users identically
+    and one email always maps to one `user_id` — no matter which endpoint a
+    freshly-signed-in user hits first. Does not commit; the caller's session
+    context is responsible for that.
     """
     sub = claims.get("sub")
     if not sub:
@@ -124,3 +124,16 @@ async def get_current_user_record(
     if row is None:
         raise HTTPException(status_code=500, detail="Failed to provision user")
     return CurrentUserRecord(**dict(row))
+
+
+async def get_current_user_record(
+    claims: dict[str, Any] = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db_session),
+) -> CurrentUserRecord:
+    """FastAPI dependency: the platform `users` row for the caller's JWT.
+
+    Thin wrapper over `provision_user_record` so routers can `Depends(...)` on
+    it directly. The subject is opaque — an Auth0 sub or a Supabase user UUID.
+    M2M tokens without a `sub` are rejected (401).
+    """
+    return await provision_user_record(claims, session)

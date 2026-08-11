@@ -66,13 +66,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     log.info("api.starting", env=os.environ.get("ENV", "unknown"))
     get_engine()
     await broadcaster.start(REDIS_URL)
-    # Seed shared platform broker credentials from env so any user can deploy
-    # without first connecting their own key. Idempotent; non-fatal on error.
+    # Shared platform broker credentials. OFF by default: each user must
+    # connect their OWN broker key (secure, fully isolated). Only seeded when
+    # ALLOW_PLATFORM_CREDENTIALS is explicitly enabled for a demo deployment.
     try:
-        from packages.data.platform_credentials import seed_platform_credentials
+        from packages.data.platform_credentials import (
+            platform_fallback_enabled,
+            seed_platform_credentials,
+        )
 
-        services = await seed_platform_credentials(get_engine())
-        log.info("api.platform_credentials_seeded", services=services)
+        if platform_fallback_enabled():
+            services = await seed_platform_credentials(get_engine())
+            log.warning("api.platform_credentials_seeded", services=services)
+        else:
+            log.info("api.platform_credentials_disabled")
     except Exception as e:  # noqa: BLE001
         log.error("api.platform_credentials_seed_failed", err=str(e))
     # Referee signing posture: log loudly so a misconfigured deploy (no key, or
