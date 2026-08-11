@@ -19,6 +19,7 @@ import { Route as StudioRouteImport } from './routes/studio'
 import { Route as AppAgentRouteImport } from './routes/app.agent'
 import { Route as AppCatalogRouteImport } from './routes/app.catalog'
 import { Route as AppCustomizeRouteImport } from './routes/app.customize'
+import { Route as AppHelpRouteImport } from './routes/app.help'
 import { Route as AppHomeRouteImport } from './routes/app.home'
 import { Route as AppMarketsRouteImport } from './routes/app.markets'
 import { Route as AppPerformanceRouteImport } from './routes/app.performance'
@@ -95,6 +96,11 @@ const AppCatalogRoute = AppCatalogRouteImport.update({
 const AppCustomizeRoute = AppCustomizeRouteImport.update({
   id: '/customize',
   path: '/customize',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppHelpRoute = AppHelpRouteImport.update({
+  id: '/help',
+  path: '/help',
   getParentRoute: () => AppRoute,
 } as any)
 const AppHomeRoute = AppHomeRouteImport.update({
@@ -245,6 +251,7 @@ export interface FileRoutesByFullPath {
   '/app/agent': typeof AppAgentRoute
   '/app/catalog': typeof AppCatalogRoute
   '/app/customize': typeof AppCustomizeRoute
+  '/app/help': typeof AppHelpRoute
   '/app/home': typeof AppHomeRoute
   '/app/markets': typeof AppMarketsRoute
   '/app/performance': typeof AppPerformanceRoute
@@ -284,6 +291,7 @@ export interface FileRoutesByTo {
   '/app/agent': typeof AppAgentRoute
   '/app/catalog': typeof AppCatalogRoute
   '/app/customize': typeof AppCustomizeRoute
+  '/app/help': typeof AppHelpRoute
   '/app/home': typeof AppHomeRoute
   '/app/markets': typeof AppMarketsRoute
   '/app/performance': typeof AppPerformanceRoute
@@ -324,6 +332,7 @@ export interface FileRoutesById {
   '/app/agent': typeof AppAgentRoute
   '/app/catalog': typeof AppCatalogRoute
   '/app/customize': typeof AppCustomizeRoute
+  '/app/help': typeof AppHelpRoute
   '/app/home': typeof AppHomeRoute
   '/app/markets': typeof AppMarketsRoute
   '/app/performance': typeof AppPerformanceRoute
@@ -365,6 +374,7 @@ export interface FileRouteTypes {
     | '/app/agent'
     | '/app/catalog'
     | '/app/customize'
+    | '/app/help'
     | '/app/home'
     | '/app/markets'
     | '/app/performance'
@@ -404,6 +414,7 @@ export interface FileRouteTypes {
     | '/app/agent'
     | '/app/catalog'
     | '/app/customize'
+    | '/app/help'
     | '/app/home'
     | '/app/markets'
     | '/app/performance'
@@ -443,6 +454,7 @@ export interface FileRouteTypes {
     | '/app/agent'
     | '/app/catalog'
     | '/app/customize'
+    | '/app/help'
     | '/app/home'
     | '/app/markets'
     | '/app/performance'
@@ -552,6 +564,13 @@ declare module '@tanstack/react-router' {
       path: '/customize'
       fullPath: '/app/customize'
       preLoaderRoute: typeof AppCustomizeRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/help': {
+      id: '/app/help'
+      path: '/help'
+      fullPath: '/app/help'
+      preLoaderRoute: typeof AppHelpRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/home': {
@@ -750,6 +769,7 @@ interface AppRouteChildren {
   AppAgentRoute: typeof AppAgentRoute
   AppCatalogRoute: typeof AppCatalogRoute
   AppCustomizeRoute: typeof AppCustomizeRoute
+  AppHelpRoute: typeof AppHelpRoute
   AppHomeRoute: typeof AppHomeRoute
   AppMarketsRoute: typeof AppMarketsRoute
   AppPerformanceRoute: typeof AppPerformanceRoute
@@ -765,6 +785,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAgentRoute: AppAgentRoute,
   AppCatalogRoute: AppCatalogRoute,
   AppCustomizeRoute: AppCustomizeRoute,
+  AppHelpRoute: AppHelpRoute,
   AppHomeRoute: AppHomeRoute,
   AppMarketsRoute: AppMarketsRoute,
   AppPerformanceRoute: AppPerformanceRoute,
