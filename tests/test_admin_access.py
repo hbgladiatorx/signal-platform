@@ -51,3 +51,23 @@ def test_bootstrap_emails_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_bootstrap_emails_empty(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("ADMIN_BOOTSTRAP_EMAILS", raising=False)
     assert _bootstrap_admin_emails() == set()
+
+
+@pytest.mark.parametrize(
+    "email,expected",
+    [
+        ("flow-audit-20260629@cimcha.io", True),
+        ("FLOW-AUDIT@x.com", True),
+        ("someone@cimcha.io", True),
+        ("hb_gladiator@outlook.com", False),
+        ("real.user@gmail.com", False),
+        (None, False),
+    ],
+)
+def test_internal_account_detection(
+    monkeypatch: pytest.MonkeyPatch, email: str | None, expected: bool
+) -> None:
+    from services.api.deps import _is_internal_account
+
+    monkeypatch.delenv("INTERNAL_ACCOUNT_EMAIL_PATTERNS", raising=False)
+    assert _is_internal_account(email) is expected

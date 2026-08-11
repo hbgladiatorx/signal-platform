@@ -71,6 +71,26 @@ def _bootstrap_admin_emails() -> set[str]:
     return {e.strip().lower() for e in raw.split(",") if e.strip()}
 
 
+def _internal_account_patterns() -> list[str]:
+    """Substrings that identify internal QA / audit accounts (case-insensitive).
+
+    Configurable via INTERNAL_ACCOUNT_EMAIL_PATTERNS (comma-separated). Defaults
+    cover the flow-audit e2e probe and the @cimcha.io internal domain.
+    """
+    import os
+
+    raw = os.environ.get("INTERNAL_ACCOUNT_EMAIL_PATTERNS", "flow-audit,@cimcha.io")
+    return [p.strip().lower() for p in raw.split(",") if p.strip()]
+
+
+def _is_internal_account(email: str | None) -> bool:
+    """True if this email is an internal QA/audit account (not a real user)."""
+    if not email:
+        return False
+    e = email.lower()
+    return any(p in e for p in _internal_account_patterns())
+
+
 async def provision_user_record(
     claims: dict[str, Any],
     session: AsyncSession,
@@ -141,10 +161,26 @@ async def provision_user_record(
             raise HTTPException(status_code=500, detail="Failed to provision user")
         row = dict(irow)
 
+    # Internal QA / audit accounts (e.g. the flow-audit e2e probe) are pinned to
+    # role 'system' so they never surface in the admin user list or count as real
+    # users — even if they keep re-authenticating. Takes precedence over the admin
+    # bootstrap below.
+    if _is_internal_account(email):
+        if row.get("role") != "system":
+            demoted = await session.execute(
+                text(
+                    "UPDATE users SET role = 'system', updated_at = NOW() "
+                    "WHERE id = :id RETURNING role"
+                ),
+                {"id": row["id"]},
+            )
+            drow = demoted.mappings().first()
+            if drow is not None:
+                row["role"] = drow["role"]
     # Break-glass admin bootstrap: an email listed in ADMIN_BOOTSTRAP_EMAILS is
     # always promoted to admin on sight (never demoted here — demotion is an
     # explicit admin action). Guarantees the owner can always reach the console.
-    if (
+    elif (
         email
         and email.lower() in _bootstrap_admin_emails()
         and row.get("role") != "admin"
