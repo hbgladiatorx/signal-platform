@@ -9,7 +9,8 @@ import { AssetClassBadge } from "@/components/common/AssetClassBadge";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { QueryState } from "@/components/common/QueryState";
-import { LayoutGrid, List as ListIcon, Pencil, Trash2 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { LayoutGrid, List as ListIcon, Pencil, Trash2, Info } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -67,7 +68,7 @@ function BacktestsList() {
           view === "grid" ? (
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
               {strategies.map((s) => (
-                <StrategyBacktestCard key={s.id} strategyId={s.id} name={s.name} description={s.description} assetClass={s.assetClass} />
+                <StrategyBacktestCard key={s.id} strategyId={s.id} name={s.name} description={s.description} nlDescription={s.nlDescription} assetClass={s.assetClass} />
               ))}
             </div>
           ) : (
@@ -82,7 +83,7 @@ function BacktestsList() {
               </div>
               <div className="divide-y divide-border">
                 {strategies.map((s) => (
-                  <StrategyBacktestRow key={s.id} strategyId={s.id} name={s.name} assetClass={s.assetClass} />
+                  <StrategyBacktestRow key={s.id} strategyId={s.id} name={s.name} description={s.description} nlDescription={s.nlDescription} assetClass={s.assetClass} />
                 ))}
               </div>
             </Card>
@@ -95,6 +96,30 @@ function BacktestsList() {
 
 const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
 const returnClass = (v?: number) => (v == null ? "text-muted-foreground" : v >= 0 ? "text-emerald-500" : "text-red-500");
+
+/** Info icon → popover with a plain-English "what this strategy does". */
+function WhatItDoes({ text }: { text?: string }) {
+  const body = text && text.trim()
+    ? text.trim()
+    : "No plain-English summary yet — open the strategy to see its exact rules.";
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost" size="icon" className="size-6 shrink-0 text-muted-foreground hover:text-cyan"
+          aria-label="What this strategy does" title="What it does"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Info className="size-3.5" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="max-w-xs" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-1 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">What it does</div>
+        <p className="text-sm leading-relaxed text-foreground/90">{body}</p>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 /** Edit (open in Builder) + Delete (two-step confirm) for a strategy row/card.
  *  Clicks here never bubble up to the row/card's own open-detail handler. */
@@ -151,7 +176,7 @@ function RowActions({ strategyId, name }: { strategyId: string; name: string }) 
   );
 }
 
-function StrategyBacktestCard({ strategyId, name, description, assetClass }: { strategyId: string; name: string; description: string; assetClass: any }) {
+function StrategyBacktestCard({ strategyId, name, description, nlDescription, assetClass }: { strategyId: string; name: string; description: string; nlDescription?: string; assetClass: any }) {
   const navigate = useNavigate();
   const { data } = useQuery({ queryKey: ["bts", strategyId], queryFn: () => getBacktestsForStrategy(strategyId) });
   const latest = data?.[0];
@@ -167,7 +192,10 @@ function StrategyBacktestCard({ strategyId, name, description, assetClass }: { s
       className="flex h-full cursor-pointer flex-col border-border bg-elevated p-4 transition-colors hover:border-violet/30"
     >
       <div className="mb-1 flex items-start justify-between gap-2">
-        <h3 className="font-semibold">{name}</h3>
+        <div className="flex min-w-0 items-center gap-1">
+          <h3 className="truncate font-semibold">{name}</h3>
+          <WhatItDoes text={nlDescription || description} />
+        </div>
         <div className="flex shrink-0 items-center gap-1">
           <AssetClassBadge assetClass={assetClass} hideIcon />
           <RowActions strategyId={strategyId} name={name} />
@@ -188,7 +216,7 @@ function StrategyBacktestCard({ strategyId, name, description, assetClass }: { s
   );
 }
 
-function StrategyBacktestRow({ strategyId, name, assetClass }: { strategyId: string; name: string; assetClass: any }) {
+function StrategyBacktestRow({ strategyId, name, description, nlDescription, assetClass }: { strategyId: string; name: string; description: string; nlDescription?: string; assetClass: any }) {
   const navigate = useNavigate();
   const { data } = useQuery({ queryKey: ["bts", strategyId], queryFn: () => getBacktestsForStrategy(strategyId) });
   const latest = data?.[0];
@@ -204,9 +232,10 @@ function StrategyBacktestRow({ strategyId, name, assetClass }: { strategyId: str
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } }}
       className="grid cursor-pointer grid-cols-12 items-center gap-2 px-4 py-3 text-sm transition-colors hover:bg-muted/30"
     >
-      <div className="col-span-4 flex min-w-0 items-center gap-2">
+      <div className="col-span-4 flex min-w-0 items-center gap-1.5">
         <AssetClassBadge assetClass={assetClass} hideIcon />
         <span className="truncate font-medium">{name}</span>
+        <WhatItDoes text={nlDescription || description} />
       </div>
       <div className={cn("col-span-2 text-right font-mono", returnClass(latest?.stats.totalReturn))}>
         {latest ? pct(latest.stats.totalReturn) : "—"}

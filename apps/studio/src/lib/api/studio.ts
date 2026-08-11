@@ -169,6 +169,7 @@ function userToDev(u: ApiUserStrategy, bts: ApiBacktestSummary[] = []): DevStrat
     id: u.id,
     name: u.name,
     description: u.description ?? "",
+    nlDescription: u.nl_description ?? undefined,
     assetClass: toAssetClass(u.asset_class),
     // Reflect reality: a strategy with a completed backtest has been backtested;
     // otherwise it's still a draft. (Live trading is tracked separately.)
