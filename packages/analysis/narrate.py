@@ -14,6 +14,8 @@ from __future__ import annotations
 import json
 import logging
 import os
+
+from packages.core.anthropic_key import current_anthropic_key
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -93,10 +95,11 @@ def generate_narrative(
             error="The 'anthropic' package is not installed in this container.",
         )
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = current_anthropic_key()
     if not api_key:
         return NarrativeResult(
-            ok=False, error="ANTHROPIC_API_KEY is not set in this environment."
+            ok=False,
+            error="No Anthropic API key connected for this user.",
         )
 
     client = Anthropic(api_key=api_key, timeout=60.0)

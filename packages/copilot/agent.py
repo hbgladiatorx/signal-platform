@@ -14,6 +14,8 @@ from __future__ import annotations
 import logging
 import os
 from typing import Any, Optional
+
+from packages.core.anthropic_key import current_anthropic_key
 from uuid import UUID
 
 from anthropic import Anthropic, APIError, APITimeoutError
@@ -101,11 +103,14 @@ async def run_copilot_turn(
     owns history and sends it each turn). `strategy_id` seeds the "current"
     strategy for the closing state render; tool calls can change it.
     """
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = current_anthropic_key()
     if not api_key:
         return CopilotResult(
             ok=False,
-            reply="The copilot isn't configured — ANTHROPIC_API_KEY is missing on the server.",
+            reply=(
+                "The copilot needs your Anthropic API key. Add one under "
+                "**Settings → AI copilot key** — each user connects their own."
+            ),
             error="missing_api_key",
         )
 

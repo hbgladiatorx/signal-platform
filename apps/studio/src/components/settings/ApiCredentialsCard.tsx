@@ -69,7 +69,8 @@ export function ApiCredentialsCard() {
     spec.fields.every((f) => (fields[f.key] ?? "").trim().length > 0) &&
     !create.isPending;
 
-  const creds: ApiCredential[] = data ?? [];
+  // Broker keys only — the Anthropic (AI) key has its own card.
+  const creds: ApiCredential[] = (data ?? []).filter((c) => c.service !== "anthropic");
 
   return (
     <Card className="border-border bg-elevated p-5">

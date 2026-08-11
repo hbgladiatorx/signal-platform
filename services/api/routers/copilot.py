@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from packages.copilot.agent import run_copilot_turn
+from packages.core.anthropic_key import bind_request_anthropic_key
 from packages.copilot.state import compute_strategy_state
 from packages.data.user_strategies import (
     get_user_strategy,
@@ -69,6 +70,10 @@ async def chat_endpoint(
 ) -> ChatResponse:
     if req.messages[-1].role != "user":
         raise HTTPException(422, "The last message must be from the user.")
+
+    # Bind this user's own Anthropic key for the request; every AI call in the
+    # turn (chat + any translate/plan tool calls) reads it from the context.
+    await bind_request_anthropic_key(session, user.id)
 
     result = await run_copilot_turn(
         session=session,

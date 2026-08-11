@@ -21,6 +21,8 @@ from __future__ import annotations
 import json
 import logging
 import os
+
+from packages.core.anthropic_key import current_anthropic_key
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -364,11 +366,11 @@ def _run_emit(
             error="The 'anthropic' package is not installed in the api container.",
         )
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = current_anthropic_key()
     if not api_key:
         return GraphPlan(
             ok=False,
-            error="ANTHROPIC_API_KEY is not set in the api container's environment.",
+            error="Connect your Anthropic API key under Settings → AI copilot key.",
         )
 
     client = Anthropic(api_key=api_key, timeout=60.0)

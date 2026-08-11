@@ -77,6 +77,10 @@ from packages.backtest.persistence import (
     reclaim_stale_backtests,
     save_backtest_results,
 )
+from packages.core.anthropic_key import (
+    resolve_anthropic_key,
+    set_request_anthropic_key,
+)
 from packages.data.db import get_engine
 from packages.data.messagebus import QUEUE_BACKTEST_JOBS, QUEUE_WALKFORWARD_JOBS
 from packages.livetrade.bars import load_bars
@@ -305,6 +309,11 @@ async def _process_job(
         # out of credit, and only runs when there's a substantive analysis to narrate.
         if analysis_json and analytics.num_closed_trades > 0:
             try:
+                # Auto-narration runs on the backtest OWNER's own Anthropic key.
+                # If they haven't connected one, narration is simply skipped.
+                async with engine.connect() as key_conn:
+                    owner_key = await resolve_anthropic_key(key_conn, header["user_id"])
+                set_request_anthropic_key(owner_key)
                 narration = generate_narrative(analysis_json, strategy_name=strategy_name)
                 if narration.ok and narration.narrative:
                     analysis_json["narrative"] = narration.narrative

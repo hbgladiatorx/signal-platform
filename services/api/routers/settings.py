@@ -57,6 +57,12 @@ SERVICE_FIELDS: dict[str, dict[str, Any]] = {
         "primary": "api_key_id",
         "display_name": "Alpaca",
     },
+    # AI copilot — each user connects their own Anthropic key (not a broker).
+    "anthropic": {
+        "fields": ["api_key"],
+        "primary": "api_key",
+        "display_name": "Anthropic",
+    },
 }
 
 

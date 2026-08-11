@@ -31,6 +31,7 @@ from packages.data.user_strategies import (
     soft_delete_user_strategy,
     update_user_strategy,
 )
+from packages.core.anthropic_key import bind_request_anthropic_key
 from packages.strategy.graph_compiler import compile_graph_to_source
 from packages.strategy.graph_planner import plan_graph_from_code, plan_graph_from_nl
 from packages.strategy.llm_translator import (
@@ -369,6 +370,7 @@ class TranslateResponse(BaseModel):
 async def translate_endpoint(
     req: TranslateRequest,
     user=Depends(get_current_user_record),
+    session: AsyncSession = Depends(get_db_session),
 ) -> TranslateResponse:
     """Generate strategy Python source from a natural-language description.
 
@@ -426,7 +428,8 @@ async def translate_endpoint(
             log.info("translate.compile_fallback reason=%s", compiled.reason)
         # Either path: fall through to the LLM below.
 
-    # Call the LLM
+    # Call the LLM with this user's own Anthropic key.
+    await bind_request_anthropic_key(session, user.id)
     llm_result: TranslationResult = translate_nl_to_strategy(
         nl_description=req.nl_description,
         previous_source=req.previous_source,
@@ -494,6 +497,7 @@ class PlanGraphResponse(BaseModel):
 async def plan_graph_endpoint(
     req: PlanGraphRequest,
     user=Depends(get_current_user_record),
+    session: AsyncSession = Depends(get_db_session),
 ) -> PlanGraphResponse:
     """AI builder: natural language → visual strategy node graph.
 
@@ -503,6 +507,7 @@ async def plan_graph_endpoint(
     including time-based / non-indicator strategies. The returned graph drops
     straight onto the React-Flow canvas and is compilable by /translate.
     """
+    await bind_request_anthropic_key(session, user.id)
     result = plan_graph_from_nl(
         nl_description=req.prompt,
         asset_class_hint=req.asset_class,
@@ -535,6 +540,7 @@ class PlanGraphFromCodeRequest(BaseModel):
 async def plan_graph_from_code_endpoint(
     req: PlanGraphFromCodeRequest,
     user=Depends(get_current_user_record),
+    session: AsyncSession = Depends(get_db_session),
 ) -> PlanGraphResponse:
     """AI: render the node graph that REPRESENTS a strategy's Python source.
 
@@ -542,6 +548,7 @@ async def plan_graph_from_code_endpoint(
     view of a code-authored strategy. Best-effort: the Python source stays the
     source of truth, so the graph is a view (gaps land in `assumptions`).
     """
+    await bind_request_anthropic_key(session, user.id)
     result = plan_graph_from_code(
         source_code=req.source_code,
         asset_class_hint=req.asset_class,

@@ -13,6 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { MCPConnectionSection } from "@/components/agent/AgentConnections";
 import { ApiCredentialsCard } from "@/components/settings/ApiCredentialsCard";
+import { AnthropicKeyCard } from "@/components/settings/AnthropicKeyCard";
 import { PlanBadge } from "@/components/billing/PlanBadge";
 import { getCurrentPlan, getTier, setCurrentPlan } from "@/lib/api/billing";
 import { getConnections } from "@/lib/api/system";
@@ -177,6 +178,8 @@ function SettingsPage() {
           <Input type="number" value={accountSize || ""} onChange={(e) => setAccountSize(Number(e.target.value) || 0)} placeholder="25000" className="bg-background" />
         </div>
       </Card>
+
+      <AnthropicKeyCard />
 
       <ApiCredentialsCard />
 

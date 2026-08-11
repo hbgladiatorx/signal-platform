@@ -15,6 +15,8 @@ from __future__ import annotations
 import json
 import logging
 import os
+
+from packages.core.anthropic_key import current_anthropic_key
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -456,14 +458,13 @@ def translate_nl_to_strategy(
             ),
         )
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = current_anthropic_key()
     if not api_key:
         return TranslationResult(
             ok=False,
             error=(
-                "ANTHROPIC_API_KEY is not set in the api container's environment. "
-                "Add it to docker-compose.yml under the api service's environment, "
-                "and export it on the host before `docker compose up`."
+                "Connect your Anthropic API key under Settings → AI copilot key. "
+                "The AI builder runs on your own key."
             ),
         )
 

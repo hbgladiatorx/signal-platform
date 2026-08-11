@@ -16,6 +16,8 @@ from __future__ import annotations
 import json
 import logging
 import os
+
+from packages.core.anthropic_key import current_anthropic_key
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -189,9 +191,12 @@ def suggest_param_tweaks(
     except ImportError:
         return TweakResult(ok=False, error="The 'anthropic' package is not installed.")
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = current_anthropic_key()
     if not api_key:
-        return TweakResult(ok=False, error="ANTHROPIC_API_KEY is not set in this environment.")
+        return TweakResult(
+            ok=False,
+            error="Connect your Anthropic API key under Settings → AI copilot key.",
+        )
 
     payload = {
         "strategy": strategy_name,
