@@ -185,7 +185,17 @@ export function CopilotChat({ strategyId, suggestedAction, onResult }: Props) {
         <div className="px-1 pb-2">
           <button
             disabled={busy}
-            onClick={() => send(actionToMessage(suggestedAction.action)!)}
+            onClick={() =>
+              // Send what the chip says. The backend reuses the `run_backtest`
+              // action for the "widen the test" case with a different label, so
+              // for backtests we send the label itself (accurate instruction);
+              // other actions keep their canonical "…— I confirm." message.
+              send(
+                suggestedAction.action === "run_backtest"
+                  ? suggestedAction.label
+                  : actionToMessage(suggestedAction.action) ?? suggestedAction.label,
+              )
+            }
             className="inline-flex items-center gap-1.5 rounded-full border border-violet/40 bg-violet/10 px-3 py-1.5 text-[12px] font-medium text-violet transition-colors hover:bg-violet/20 disabled:opacity-50"
           >
             <Sparkles className="size-3.5" />
