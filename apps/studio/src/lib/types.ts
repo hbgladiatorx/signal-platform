@@ -120,6 +120,8 @@ export interface DevStrategy {
   id: string;
   name: string;
   description: string;
+  /** Plain-English "what it does" summary, when available. */
+  nlDescription?: string;
   assetClass: AssetClass;
   stage: PipelineStage;
   createdAt: string;
