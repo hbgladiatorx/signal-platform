@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getOnboarded, resetAllPrefs, setPreferenceScope } from "@/lib/user-prefs";
 import { resetCurrentPlan, setBillingScope } from "@/lib/api/billing";
+import { siteUrl } from "@/lib/site-url";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -59,7 +60,7 @@ function AuthPage() {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: window.location.origin },
+      options: { emailRedirectTo: siteUrl() },
     });
     setLoading(false);
     if (error) return toast.error(error.message);
@@ -84,7 +85,7 @@ function AuthPage() {
     e.preventDefault();
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: siteUrl("/reset-password"),
     });
     setLoading(false);
     if (error) return toast.error(error.message);
@@ -96,7 +97,7 @@ function AuthPage() {
     setLoading(true);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth` },
+      options: { redirectTo: siteUrl("/auth") },
     });
     if (error) { setLoading(false); toast.error(error.message); }
   };
