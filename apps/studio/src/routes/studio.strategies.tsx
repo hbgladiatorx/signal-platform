@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StageBadge } from "@/components/common/StageBadge";
 import { AssetClassBadge } from "@/components/common/AssetClassBadge";
+import { WhatItDoes } from "@/components/common/WhatItDoes";
 import { formatDistanceToNow } from "date-fns";
 import { Play, Plus, Trash2 } from "lucide-react";
 import type { AssetClass, DevStrategy, PipelineStage } from "@/lib/types";
@@ -127,8 +128,11 @@ function StrategiesList() {
             const ret = st?.totalReturn;
             return (
             <div key={s.id} className="grid grid-cols-12 items-center gap-2 px-4 py-3 text-sm">
-              <div className="col-span-2">
-                <Link to="/studio/strategy/$id" params={{ id: s.id }} className="font-medium hover:text-violet">{s.name}</Link>
+              <div className="col-span-2 min-w-0">
+                <div className="flex items-center gap-1">
+                  <Link to="/studio/strategy/$id" params={{ id: s.id }} className="truncate font-medium hover:text-violet">{s.name}</Link>
+                  <WhatItDoes text={s.nlDescription || s.description} />
+                </div>
                 <div className="text-xs text-muted-foreground line-clamp-1">
                   {s.lastRunAt ? `Last run ${formatDistanceToNow(new Date(s.lastRunAt), { addSuffix: true })}` : (s.description || "Not yet backtested")}
                 </div>

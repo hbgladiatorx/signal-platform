@@ -9,8 +9,8 @@ import { AssetClassBadge } from "@/components/common/AssetClassBadge";
 import { formatDistanceToNow } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { QueryState } from "@/components/common/QueryState";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { LayoutGrid, List as ListIcon, Pencil, Trash2, Info } from "lucide-react";
+import { WhatItDoes } from "@/components/common/WhatItDoes";
+import { LayoutGrid, List as ListIcon, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -96,30 +96,6 @@ function BacktestsList() {
 
 const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
 const returnClass = (v?: number) => (v == null ? "text-muted-foreground" : v >= 0 ? "text-emerald-500" : "text-red-500");
-
-/** Info icon → popover with a plain-English "what this strategy does". */
-function WhatItDoes({ text }: { text?: string }) {
-  const body = text && text.trim()
-    ? text.trim()
-    : "No plain-English summary yet — open the strategy to see its exact rules.";
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost" size="icon" className="size-6 shrink-0 text-muted-foreground hover:text-cyan"
-          aria-label="What this strategy does" title="What it does"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Info className="size-3.5" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="max-w-xs" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-1 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">What it does</div>
-        <p className="text-sm leading-relaxed text-foreground/90">{body}</p>
-      </PopoverContent>
-    </Popover>
-  );
-}
 
 /** Edit (open in Builder) + Delete (two-step confirm) for a strategy row/card.
  *  Clicks here never bubble up to the row/card's own open-detail handler. */
