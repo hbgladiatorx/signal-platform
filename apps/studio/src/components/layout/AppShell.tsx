@@ -190,8 +190,9 @@ function Shell({ mode }: { mode: "trader" | "studio" }) {
         </div>
         {/* Asset-class filter — trader only, cascades through context.
             The always-scrolling ticker tape moved to the Markets tab to keep
-            every screen calm. */}
-        {!isStudio && <AssetChipRow />}
+            every screen calm. Hidden on surfaces where an asset class is
+            meaningless (e.g. the admin console). */}
+        {!isStudio && !pathname.startsWith("/app/admin") && <AssetChipRow />}
 
       </header>
 
