@@ -6,13 +6,14 @@ import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Activity, ShieldAlert, ShieldCheck, Square, CircleStop, Info } from "lucide-react";
+import { Activity, ShieldAlert, ShieldCheck, Square, CircleStop, Info, AlertTriangle } from "lucide-react";
 import {
   Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import {
   listSessions, getSession, getSessionOrders, getSessionPositions, getSessionEquity,
   stopSession, flattenSession, getKillSwitch, engageKillSwitch, disengageKillSwitch,
+  sessionNoWorker,
   type PaperSessionSummary,
 } from "@/lib/api/sessions";
 
@@ -90,6 +91,11 @@ function SessionCard({ s, active, onClick }: { s: PaperSessionSummary; active: b
       </div>
       <div className="mt-1 flex items-center gap-2 text-xs">
         <span className={statusTone(s.status)}>● {s.status}</span>
+        {sessionNoWorker(s) && (
+          <span className="inline-flex items-center gap-0.5 text-amber-500" title="Marked running, but no worker has reported in — it isn't executing.">
+            <AlertTriangle className="size-3" /> no worker
+          </span>
+        )}
         <span className="text-muted-foreground">· {s.symbols.length} sym · {s.num_fills} fills</span>
       </div>
       <div className="mt-1 text-xs text-muted-foreground">
@@ -132,8 +138,10 @@ function SessionDetail({ id }: { id: string }) {
       : startCash;
   const isRunning = s?.status === "running";
   const isCrypto = (s?.asset_class ?? "").toLowerCase().includes("crypto");
-  // Running, but nothing has happened yet — the state that looks "stuck".
-  const idle = isRunning && (s?.num_fills ?? 0) === 0 && equitySeries.length === 0;
+  // Marked running but no worker heartbeat — it isn't actually executing.
+  const noWorker = !!s && sessionNoWorker(s);
+  // Running, worker alive, but nothing has happened yet (market closed / no signal).
+  const idle = isRunning && !noWorker && (s?.num_fills ?? 0) === 0 && equitySeries.length === 0;
 
   return (
     <div className="space-y-4">
@@ -144,6 +152,11 @@ function SessionDetail({ id }: { id: string }) {
               <h2 className="font-semibold">{s?.strategy_name ?? "Session"}</h2>
               {s && <Badge variant={s.mode === "live" ? "destructive" : "secondary"}>{s.mode}</Badge>}
               {s && <span className={`text-xs ${statusTone(s.status)}`}>● {s.status}</span>}
+              {s && sessionNoWorker(s) && (
+                <span className="inline-flex items-center gap-0.5 text-xs text-amber-500" title="No worker heartbeat">
+                  <AlertTriangle className="size-3" /> no worker
+                </span>
+              )}
             </div>
             <p className="mt-1 text-xs text-muted-foreground">{s?.symbols.join(", ")}</p>
           </div>
@@ -164,6 +177,18 @@ function SessionDetail({ id }: { id: string }) {
           <Stat label="Orders" value={String(s?.num_orders ?? 0)} />
           <Stat label="Fills" value={String(s?.num_fills ?? 0)} />
         </div>
+        {noWorker && (
+          <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+            <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-500" />
+            <span>
+              This session is marked <strong>running</strong> but no worker has reported in
+              {s?.last_heartbeat_at ? ` since ${new Date(s.last_heartbeat_at).toLocaleTimeString()}` : " at all"} —
+              it isn't executing. The paper-trader may be down, or this session's record
+              outlived the worker. Try <strong>Stop</strong> and start a fresh session; if it
+              persists, check the paper_trader service.
+            </span>
+          </div>
+        )}
         {idle && (
           <div className="mt-3 flex items-start gap-2 rounded-md border border-border bg-background/40 px-3 py-2 text-xs text-muted-foreground">
             <Info className="mt-0.5 size-3.5 shrink-0" />

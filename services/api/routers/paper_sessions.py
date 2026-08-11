@@ -90,6 +90,9 @@ class PaperSessionSummary(BaseModel):
     realized_pnl: Decimal | None = None
     num_orders: int = 0
     num_fills: int = 0
+    # Last time the worker proved it's executing this session. The UI flags a
+    # 'running' session with a stale/absent heartbeat as having no live worker.
+    last_heartbeat_at: datetime | None = None
 
 
 class PaperSessionDetail(PaperSessionSummary):
@@ -443,4 +446,5 @@ def _summary_fields(r: dict[str, Any]) -> dict[str, Any]:
         "realized_pnl": r.get("realized_pnl"),
         "num_orders": r.get("num_orders") or 0,
         "num_fills": r.get("num_fills") or 0,
+        "last_heartbeat_at": r.get("last_heartbeat_at"),
     }

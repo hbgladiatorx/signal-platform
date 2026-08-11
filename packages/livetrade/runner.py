@@ -44,6 +44,10 @@ from packages.strategy.resolver import resolve_strategy
 log = structlog.get_logger(__name__)
 
 EQUITY_SNAPSHOT_INTERVAL_S = 60
+# Liveness cadence — stamped regardless of market hours so the UI can tell a
+# worker is alive even when equities are closed. Staleness threshold on the
+# frontend should allow a few missed beats (see studio.live.tsx).
+HEARTBEAT_INTERVAL_S = 20
 
 
 class PaperTrader:
@@ -106,6 +110,7 @@ class PaperTrader:
             asyncio.create_task(self._bar_router.run(), name="bar-router"),
             asyncio.create_task(self._control_loop(), name="control"),
             asyncio.create_task(self._equity_loop(), name="equity"),
+            asyncio.create_task(self._heartbeat_loop(), name="heartbeat"),
         ]
         await self._stop.wait()
         self._bar_router.stop()
@@ -413,6 +418,24 @@ class PaperTrader:
         """Drop an in-memory session whose DB row no longer exists."""
         self.registry.remove(session_id)
         log.warning("paper.runner.ghost_session_evicted", session_id=str(session_id))
+
+    async def _heartbeat_loop(self) -> None:
+        """Prove this worker is alive and owns its sessions. Runs on a fixed
+        cadence regardless of market hours (unlike the equity snapshotter), so a
+        'running' session with a stale heartbeat means no worker is executing it."""
+        while not self._stop.is_set():
+            try:
+                await asyncio.sleep(HEARTBEAT_INTERVAL_S)
+            except asyncio.CancelledError:
+                raise
+            ids = [s.session_id for s in self.registry.all()]
+            if not ids:
+                continue
+            try:
+                async with self.engine.begin() as conn:
+                    await P.update_heartbeats(conn, ids)
+            except Exception as e:  # noqa: BLE001
+                log.warning("paper.runner.heartbeat_error", error=str(e))
 
 
 def _dec(v: Any) -> Decimal | None:

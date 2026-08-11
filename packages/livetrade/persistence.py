@@ -538,6 +538,22 @@ async def insert_equity_point(
     )
 
 
+async def update_heartbeats(
+    conn: AsyncConnection, session_ids: list[UUID]
+) -> None:
+    """Stamp last_heartbeat_at = now() for every session the worker owns. Cheap,
+    market-hours-independent liveness signal the UI reads to detect dead workers."""
+    if not session_ids:
+        return
+    await conn.execute(
+        text(
+            "UPDATE paper_sessions SET last_heartbeat_at = now() "
+            "WHERE id = ANY(:ids)"
+        ),
+        {"ids": [str(s) for s in session_ids]},
+    )
+
+
 async def load_equity_points(
     conn: AsyncConnection | AsyncSession, session_id: UUID
 ) -> list[dict[str, Any]]:

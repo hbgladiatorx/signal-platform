@@ -19,6 +19,9 @@ export interface PaperSessionSummary {
   realized_pnl: number | string | null;
   num_orders: number;
   num_fills: number;
+  // Last time the worker proved it's executing this session (ISO). A running
+  // session with a stale/absent heartbeat means no live worker — see sessionLive().
+  last_heartbeat_at?: string | null;
   // Present on the session DETAIL response (GET /paper-sessions/{id}); the
   // baseline a paper session starts with, used to seed the equity display.
   starting_cash?: number | string | null;
@@ -67,6 +70,27 @@ export interface SessionEquityRow {
   cash: number | string;
   positions_value: number | string;
   total_equity: number | string;
+}
+
+// A 'running' session is only truly live if a worker recently stamped its
+// heartbeat. Server cadence is 20s; allow a few missed beats before flagging so
+// a brief hiccup or clock skew doesn't cause false alarms. Returns true when the
+// session claims to be running but no worker appears to be executing it.
+export function sessionNoWorker(s: {
+  status: string;
+  last_heartbeat_at?: string | null;
+  started_at?: string | null;
+}): boolean {
+  if (s.status !== "running") return false;
+  const STALE_MS = 90_000;
+  const hbAge = s.last_heartbeat_at
+    ? Date.now() - new Date(s.last_heartbeat_at).getTime()
+    : Infinity;
+  const startedAge = s.started_at
+    ? Date.now() - new Date(s.started_at).getTime()
+    : 0;
+  // Don't flag a just-started session that simply hasn't beat yet.
+  return hbAge > STALE_MS && startedAge > STALE_MS;
 }
 
 export const listSessions = () =>
