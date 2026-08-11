@@ -33,6 +33,29 @@ async function authHeaders(): Promise<Record<string, string>> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+/** Turn a FastAPI `detail` (string | {msg} | validation list) into one line. */
+function humanizeDetail(detail: unknown): string | null {
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const parts = detail
+      .map((e) => {
+        const loc = Array.isArray((e as { loc?: unknown[] })?.loc)
+          ? (e as { loc: unknown[] }).loc.filter((x) => x !== "body").join(".")
+          : "";
+        const msg = (e as { msg?: unknown })?.msg;
+        const text = typeof msg === "string" ? msg : "invalid";
+        return loc ? `${loc}: ${text}` : text;
+      })
+      .filter(Boolean);
+    return parts.length ? parts.join("; ") : null;
+  }
+  if (detail && typeof detail === "object") {
+    const msg = (detail as { msg?: unknown }).msg;
+    if (typeof msg === "string") return msg;
+  }
+  return null;
+}
+
 type Query = Record<string, string | number | boolean | undefined | null>;
 
 function buildUrl(path: string, query?: Query): string {
@@ -86,18 +109,11 @@ async function request<T>(
       data && typeof data === "object" && "detail" in data
         ? (data as { detail: unknown }).detail
         : data;
-    // Surface the backend's real reason. FastAPI validation/business errors
-    // send `detail` either as a string or as an object like {msg, ...}; show
-    // that human message instead of a generic "Request failed" so the UI is
-    // self-diagnosing.
-    const detailMsg =
-      detail && typeof detail === "object" && "msg" in detail && typeof (detail as { msg: unknown }).msg === "string"
-        ? (detail as { msg: string }).msg
-        : null;
-    const message =
-      typeof detail === "string"
-        ? detail
-        : detailMsg ?? `Request failed (${res.status}) ${method} ${path}`;
+    // Surface the backend's real reason. FastAPI sends `detail` as a string, a
+    // business-error object like {msg, ...}, OR a request-validation LIST like
+    // [{loc, msg, type}]. Unpack all three so a 422 says WHICH field is wrong
+    // instead of a generic "Request failed".
+    const message = humanizeDetail(detail) ?? `Request failed (${res.status}) ${method} ${path}`;
     throw new ApiError(res.status, message, detail);
   }
 
