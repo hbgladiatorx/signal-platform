@@ -462,6 +462,12 @@ class LiveSession:
             rows, self._last_close, self.starting_cash, self._contract_multiplier()
         )
 
+    def market_time_in_force(self) -> str:
+        """TIF for a market order. Crypto venues reject 'day' (Alpaca crypto
+        accepts only gtc/ioc/fok); equities require 'day'. Single source of truth
+        shared by order submission and flatten."""
+        return "gtc" if self.asset_class == _CRYPTO_ASSET else "day"
+
     def _time_in_force(self, order: Order) -> str:
         if self.asset_class == _CRYPTO_ASSET:
             return "gtc"

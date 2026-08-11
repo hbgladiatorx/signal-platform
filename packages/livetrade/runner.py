@@ -15,6 +15,7 @@ Stage 1 runs a single shard.
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
@@ -324,21 +325,31 @@ class PaperTrader:
         for symbol, qty in positions.items():
             if qty <= 0:
                 continue
-            tif = "gtc" if session.asset_class == "crypto_spot" else "day"
+            coid = f"pt_{session.session_id.hex[:8]}_flatten_{symbol}".replace("/", "_")[:48]
             req = BrokerOrderRequest(
                 canonical_symbol=symbol,
                 side=OrderSide.SELL,
                 quantity=qty,
                 order_type=OrderType.MARKET,
                 limit_price=None,
-                time_in_force=tif,
-                client_order_id=f"pt_{session.session_id.hex[:8]}_flatten_{symbol}".replace(
-                    "/", "_"
-                )[:48],
+                time_in_force=session.market_time_in_force(),
+                client_order_id=coid,
             )
             try:
                 await session.broker.submit_order(req)
             except Exception as e:  # noqa: BLE001
+                # Some venues reject 'day' for crypto ("invalid crypto
+                # time_in_force"). If the asset_class was mislabeled, retry once
+                # with GTC so the position still gets flattened rather than left
+                # open. Use a distinct client_order_id (the first was rejected).
+                if "time_in_force" in str(e).lower() and req.time_in_force != "gtc":
+                    try:
+                        await session.broker.submit_order(
+                            replace(req, time_in_force="gtc", client_order_id=f"{coid[:46]}_g")
+                        )
+                        continue
+                    except Exception as e2:  # noqa: BLE001
+                        e = e2
                 log.error("paper.runner.flatten_failed", symbol=symbol, error=str(e))
 
     async def _halt_session(self, session_id: UUID, reason: str) -> None:
