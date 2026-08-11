@@ -124,10 +124,20 @@ class BarRouter:
         resolution = payload.get("resolution")
         if not symbol or not resolution:
             return
+        from sqlalchemy.exc import IntegrityError
+
         subs = self.registry.subscribers(symbol, resolution)
         for session in subs:
             try:
                 await session.on_closed_bar(payload)
+            except IntegrityError:
+                # The session's paper_sessions row is gone — evict this ghost so
+                # it stops FK-violating on every bar (see runner._equity_loop).
+                self.registry.remove(session.session_id)
+                log.warning(
+                    "paper.bar_router.ghost_session_evicted",
+                    session_id=str(session.session_id),
+                )
             except Exception as e:  # noqa: BLE001
                 log.error(
                     "paper.bar_router.session_error",

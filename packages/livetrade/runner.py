@@ -362,20 +362,27 @@ class PaperTrader:
     # Equity snapshotter
     # ============================================================
     async def _equity_loop(self) -> None:
+        from sqlalchemy.exc import IntegrityError
+
         while not self._stop.is_set():
             try:
                 await asyncio.sleep(EQUITY_SNAPSHOT_INTERVAL_S)
-                for session in self.registry.all():
-                    # Don't poll the broker while its venue is closed (equities
-                    # overnight/weekends) — that just hammers the REST API and
-                    # trips rate limits. 24/7 crypto reports always-open and
-                    # keeps snapshotting. Fail-open so a clock error never
-                    # silently freezes the equity curve.
-                    try:
-                        if not await session.broker.is_market_open():
-                            continue
-                    except Exception:  # noqa: BLE001
-                        pass
+            except asyncio.CancelledError:
+                raise
+            # Snapshot each session independently so one bad session can't abort
+            # the others' snapshot for this tick.
+            for session in self.registry.all():
+                # Don't poll the broker while its venue is closed (equities
+                # overnight/weekends) — that just hammers the REST API and
+                # trips rate limits. 24/7 crypto reports always-open and
+                # keeps snapshotting. Fail-open so a clock error never
+                # silently freezes the equity curve.
+                try:
+                    if not await session.broker.is_market_open():
+                        continue
+                except Exception:  # noqa: BLE001
+                    pass
+                try:
                     async with session.lock:
                         await session.refresh_account_snapshot()
                         equity = getattr(session, "_last_equity", session._cash)
@@ -392,10 +399,20 @@ class PaperTrader:
                         await P.update_session_summary(
                             conn, session.session_id, current_equity=equity
                         )
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:  # noqa: BLE001
-                log.warning("paper.runner.equity_loop_error", error=str(e))
+                except IntegrityError:
+                    # The session's paper_sessions row is gone (deleted out from
+                    # under the runner, e.g. a DB reset). Stop looping on this
+                    # ghost — evict it so we don't FK-violate every 60s forever.
+                    self._evict_ghost(session.session_id)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as e:  # noqa: BLE001
+                    log.warning("paper.runner.equity_loop_error", error=str(e))
+
+    def _evict_ghost(self, session_id: UUID) -> None:
+        """Drop an in-memory session whose DB row no longer exists."""
+        self.registry.remove(session_id)
+        log.warning("paper.runner.ghost_session_evicted", session_id=str(session_id))
 
 
 def _dec(v: Any) -> Decimal | None:
