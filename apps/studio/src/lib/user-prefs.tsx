@@ -159,7 +159,7 @@ export function useHiddenSections() {
 /* ---------------- Trading defaults ---------------- */
 export function useAccountSize() { return usePref<number>("trading.accountSize", 0); }
 export function useRiskPerTrade() { return usePref<number>("trading.riskPerTrade", 0); }
-export function useDefaultTimeframe() { return usePref<string>("trading.timeframe", "1H"); }
+export function useDefaultTimeframe() { return usePref<string>("trading.timeframe", "1h"); }
 export function useDefaultChartType() { return usePref<string>("trading.chartType", "candle"); }
 export function getAccountSize() { return read<number>("trading.accountSize", 0); }
 export function setAccountSize(v: number) { write("trading.accountSize", v); }

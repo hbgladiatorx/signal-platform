@@ -401,7 +401,7 @@ function DefaultsTab() {
         </Field>
         <Field label="Default timeframe">
           <select value={tf} onChange={(e) => setTf(e.target.value)} className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs">
-            {["1m", "5m", "15m", "1H", "4H", "1D", "1W"].map((x) => <option key={x}>{x}</option>)}
+            {["1m", "5m", "15m", "1h", "4h", "1d"].map((x) => <option key={x}>{x}</option>)}
           </select>
         </Field>
         <Field label="Default chart type">

@@ -713,7 +713,7 @@ export async function cloneBacktest(id: string): Promise<BacktestRun> {
     strategy_name: src.strategy_name,
     params: src.params_json ?? {},
     symbols: src.symbols,
-    bar_resolution: src.bar_resolution,
+    bar_resolution: normalizeBarResolution(src.bar_resolution),
     starting_cash: num(src.starting_cash) || 10000,
     fee_rate_bps: src.fee_rate_bps ?? 10,
     slippage_bps: src.slippage_bps ?? 5,
@@ -761,6 +761,22 @@ export type RunBacktestParams = BacktestRun["params"] & {
   windowEnd?: string;
 };
 
+// The bar resolutions the backend accepts (exact, lowercase). A graph node or a
+// stale pref can carry variants like "1D"/"1H"/"1day"; POST /backtests validates
+// strictly, so normalize here to avoid a 422 on an otherwise-valid run.
+const BAR_RESOLUTIONS = ["1m", "5m", "15m", "1h", "4h", "1d"] as const;
+const BAR_ALIASES: Record<string, string> = {
+  "1min": "1m", "5min": "5m", "15min": "15m",
+  "60m": "1h", "1hr": "1h", "1hour": "1h",
+  "4hr": "4h", "4hour": "4h",
+  "1day": "1d", daily: "1d", "1w": "1d", "1wk": "1d",
+};
+export function normalizeBarResolution(tf?: string): string {
+  const t = (tf ?? "").trim().toLowerCase();
+  if ((BAR_RESOLUTIONS as readonly string[]).includes(t)) return t;
+  return BAR_ALIASES[t] ?? "1h";
+}
+
 export async function runBacktest(
   strategyId: string,
   params: RunBacktestParams,
@@ -792,10 +808,13 @@ export async function runBacktest(
   // Resolve the bar resolution: an explicit override wins; otherwise use the
   // timeframe the strategy's `price` node declares (so a "1m" strategy actually
   // backtests on 1-minute bars and "hold 1 bar" means one minute, not one hour);
-  // fall back to 1h only when the graph doesn't say.
+  // fall back to 1h only when the graph doesn't say. Normalize to the canonical
+  // lowercase set the backend accepts — a graph or pref may carry "1D"/"1H".
   const priceTf = graph.nodes?.find((n) => n.type === "price")?.data?.timeframe;
-  const barResolution =
-    params.barResolution || (typeof priceTf === "string" && priceTf ? priceTf : "1h");
+  const barResolution = normalizeBarResolution(
+    (params.barResolution as string | undefined) ||
+      (typeof priceTf === "string" ? priceTf : ""),
+  );
 
   // A bounded window (e.g. held-out OOS) sends both ends; absent => full
   // history. Dates are sent as ISO so the backend parses them as UTC instants.
