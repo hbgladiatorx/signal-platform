@@ -151,6 +151,9 @@ function Shell({ mode }: { mode: "trader" | "studio" }) {
               <DropdownMenuItem asChild>
                 <Link to={isStudio ? "/studio/settings" : "/app/settings"}>Settings</Link>
               </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/app/help">Help &amp; guide</Link>
+              </DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={async () => {
                   const { supabase } = await import("@/integrations/supabase/client");

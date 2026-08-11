@@ -12,7 +12,7 @@ import { NextStep } from "@/components/common/NextStep";
 import { MetricLabel } from "@/components/common/Term";
 import { useAssetFilter } from "@/lib/asset-filter";
 import { formatDistanceToNow } from "date-fns";
-import { ArrowRight, BarChart3, LineChart } from "lucide-react";
+import { ArrowRight, BarChart3, LineChart, BookOpen } from "lucide-react";
 
 export const Route = createFileRoute("/app/home")({
   head: () => ({ meta: [{ title: "Today — Bayn" }] }),
@@ -111,6 +111,18 @@ function HomePage() {
         <div className="flex-1">
           <div className="text-sm font-medium">Markets &amp; news</div>
           <div className="text-xs text-muted-foreground">Market overview and your news wire.</div>
+        </div>
+        <ArrowRight className="size-4 text-muted-foreground" />
+      </Link>
+
+      <Link
+        to="/app/help"
+        className="flex items-center gap-3 rounded-xl border border-border bg-elevated/60 p-4 transition-colors hover:border-cyan/30 hover:bg-elevated"
+      >
+        <span className="grid size-9 place-items-center rounded-lg bg-muted/40 text-muted-foreground"><BookOpen className="size-4" /></span>
+        <div className="flex-1">
+          <div className="text-sm font-medium">Help &amp; how-to</div>
+          <div className="text-xs text-muted-foreground">A step-by-step guide to everything you can do.</div>
         </div>
         <ArrowRight className="size-4 text-muted-foreground" />
       </Link>
