@@ -22,7 +22,7 @@ import json
 import logging
 import os
 
-from packages.core.anthropic_key import current_anthropic_key
+from packages.core.ai_client import AIError, AIUnavailable, structured_call
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -359,54 +359,29 @@ def _run_emit(
     instead of throwing.
     """
     try:
-        from anthropic import Anthropic, APIError, APITimeoutError
-    except ImportError:
-        return GraphPlan(
-            ok=False,
-            error="The 'anthropic' package is not installed in the api container.",
-        )
-
-    api_key = current_anthropic_key()
-    if not api_key:
-        return GraphPlan(
-            ok=False,
-            error="Connect your Anthropic API key under Settings → AI copilot key.",
-        )
-
-    client = Anthropic(api_key=api_key, timeout=60.0)
-    try:
-        response = client.messages.create(
-            model=MODEL,
-            max_tokens=4096,
+        tool_input = structured_call(
             system=system_prompt,
-            tools=[EMIT_GRAPH_TOOL],
-            tool_choice={"type": "tool", "name": "emit_strategy_graph"},
-            messages=[{"role": "user", "content": user_msg}],
+            user=user_msg,
+            tool_name="emit_strategy_graph",
+            tool_description=EMIT_GRAPH_TOOL.get("description", ""),
+            input_schema=EMIT_GRAPH_TOOL.get("input_schema", {}),
+            default_model=MODEL,
+            max_tokens=4096,
         )
-    except APITimeoutError:
-        return GraphPlan(ok=False, error="The AI builder timed out. Try again.")
-    except APIError as exc:  # includes auth + credit-balance errors
-        msg = str(getattr(exc, "message", "") or exc)
-        return GraphPlan(ok=False, error=f"Anthropic API error: {msg[:300]}")
-    except Exception as exc:  # noqa: BLE001 — never crash the endpoint
-        return GraphPlan(ok=False, error=f"AI builder failed: {str(exc)[:300]}")
+    except AIUnavailable:
+        return GraphPlan(
+            ok=False,
+            error="Connect an AI provider under Settings → AI copilot to build strategies.",
+        )
+    except AIError as exc:
+        return GraphPlan(ok=False, error=str(exc))
 
-    usage = getattr(response, "usage", None)
-    in_tok = getattr(usage, "input_tokens", 0) if usage else 0
-    out_tok = getattr(usage, "output_tokens", 0) if usage else 0
+    in_tok = out_tok = 0
 
-    tool_input: Optional[dict[str, Any]] = None
-    for block in response.content:
-        if getattr(block, "type", None) == "tool_use" and getattr(block, "name", None) == "emit_strategy_graph":
-            tool_input = block.input  # type: ignore[attr-defined]
-            break
-
-    if tool_input is None:
+    if not tool_input:
         return GraphPlan(
             ok=False,
             error="The AI did not return a structured graph. Try rephrasing.",
-            input_tokens=in_tok,
-            output_tokens=out_tok,
         )
 
     nodes, edges = _normalize_nodes_edges(

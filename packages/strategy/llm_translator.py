@@ -16,7 +16,7 @@ import json
 import logging
 import os
 
-from packages.core.anthropic_key import current_anthropic_key
+from packages.core.ai_client import AIError, AIUnavailable, structured_call
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -445,29 +445,6 @@ def translate_nl_to_strategy(
     risk_flag = detect_risk_ambiguity(nl_description)
     risk_flag_dict = risk_flag.to_dict() if risk_flag else None
 
-    # Lazy import so the module can be imported even if anthropic isn't
-    # installed yet (helpful for tests / early startup)
-    try:
-        from anthropic import Anthropic, APIError, APITimeoutError
-    except ImportError:
-        return TranslationResult(
-            ok=False,
-            error=(
-                "The 'anthropic' package is not installed. Add it to "
-                "pyproject.toml dependencies and rebuild the api container."
-            ),
-        )
-
-    api_key = current_anthropic_key()
-    if not api_key:
-        return TranslationResult(
-            ok=False,
-            error=(
-                "Connect your Anthropic API key under Settings → AI copilot key. "
-                "The AI builder runs on your own key."
-            ),
-        )
-
     # Build the user message
     parts = [
         "Translate this strategy description into runnable Python code:",
@@ -493,58 +470,25 @@ def translate_nl_to_strategy(
         ])
     user_message = "\n".join(parts)
 
-    client = Anthropic(api_key=api_key, timeout=60.0)
-
     try:
-        response = client.messages.create(
-            # claude-sonnet-4-20250514 was retired and now 404s; use the current
-            # Sonnet. Override via LLM_TRANSLATOR_MODEL if needed.
-            model=os.environ.get("LLM_TRANSLATOR_MODEL", "claude-sonnet-4-6"),
-            max_tokens=4000,
+        tool_input = structured_call(
             system=SYSTEM_PROMPT,
-            tools=[TRANSLATE_TOOL],
-            tool_choice={"type": "tool", "name": "emit_strategy_code"},
-            messages=[{"role": "user", "content": user_message}],
+            user=user_message,
+            tool_name="emit_strategy_code",
+            tool_description=TRANSLATE_TOOL.get("description", ""),
+            input_schema=TRANSLATE_TOOL.get("input_schema", {}),
+            default_model=os.environ.get("LLM_TRANSLATOR_MODEL", "claude-sonnet-4-6"),
+            max_tokens=4000,
         )
-    except APITimeoutError:
+    except AIUnavailable:
         return TranslationResult(
             ok=False,
-            error="LLM request timed out after 60s. Try again, or simplify the description.",
+            error="Connect an AI provider under Settings → AI copilot to build strategies.",
         )
-    except APIError as e:
-        log.error("llm_translator.api_error err=%s", e)
-        return TranslationResult(
-            ok=False,
-            error=f"LLM API error: {type(e).__name__}: {e}",
-        )
-    except Exception as e:
-        log.exception("llm_translator.unexpected_error")
-        return TranslationResult(
-            ok=False,
-            error=f"Unexpected LLM error: {type(e).__name__}: {e}",
-        )
+    except AIError as e:
+        log.error("llm_translator.ai_error err=%s", e)
+        return TranslationResult(ok=False, error=str(e))
 
-    # Find the tool_use block
-    tool_input: Optional[dict[str, Any]] = None
-    for block in response.content:
-        if getattr(block, "type", None) == "tool_use" and getattr(block, "name", None) == "emit_strategy_code":
-            tool_input = block.input  # type: ignore[attr-defined]
-            break
-
-    if tool_input is None:
-        # The model didn't use the tool. Likely an edge case (refusal,
-        # confusion) — surface what it said.
-        text_parts = [
-            getattr(block, "text", "") for block in response.content
-            if getattr(block, "type", None) == "text"
-        ]
-        explanation = "\n".join(text_parts).strip() or "(no text response)"
-        return TranslationResult(
-            ok=False,
-            error=f"LLM did not emit structured tool output. Response: {explanation[:500]}",
-        )
-
-    usage = getattr(response, "usage", None)
     return TranslationResult(
         ok=True,
         source_code=tool_input.get("source_code"),
@@ -553,6 +497,6 @@ def translate_nl_to_strategy(
         suggested_strategy_name=tool_input.get("suggested_strategy_name"),
         explanation=tool_input.get("explanation"),
         risk_flag=risk_flag_dict,
-        input_tokens=getattr(usage, "input_tokens", 0) if usage else 0,
-        output_tokens=getattr(usage, "output_tokens", 0) if usage else 0,
+        input_tokens=0,
+        output_tokens=0,
     )

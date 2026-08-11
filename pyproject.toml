@@ -45,6 +45,8 @@ dependencies = [
     # Config
     "python-dotenv>=1.0.1",
     "anthropic>=0.40.0",
+    # OpenAI-compatible providers (OpenAI, DeepSeek, Groq, OpenRouter, custom).
+    "openai>=1.40.0",
 ]
 
 [dependency-groups]

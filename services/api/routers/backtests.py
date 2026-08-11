@@ -51,7 +51,7 @@ from packages.backtest.persistence import (
 from packages.data.messagebus import QUEUE_BACKTEST_JOBS
 from packages.analysis.narrate import generate_narrative
 from packages.analysis.tweak_advisor import suggest_param_tweaks
-from packages.core.anthropic_key import bind_request_anthropic_key
+from packages.core.ai_provider import bind_request_ai_config
 from starlette.concurrency import run_in_threadpool
 from services.api.deps import (
     CurrentUserRecord,
@@ -660,7 +660,7 @@ async def generate_backtest_narrative(
             "analysis feature or have no closed trades).",
         )
 
-    await bind_request_anthropic_key(session, user.id)
+    await bind_request_ai_config(session, user.id)
     result = await run_in_threadpool(
         generate_narrative, analysis, row.get("strategy_name")
     )
@@ -726,7 +726,7 @@ async def suggest_backtest_tweaks(
             "analysis feature or have no closed trades).",
         )
 
-    await bind_request_anthropic_key(session, user.id)
+    await bind_request_ai_config(session, user.id)
     result = await run_in_threadpool(
         suggest_param_tweaks, analysis, body.graph_json, row.get("strategy_name")
     )

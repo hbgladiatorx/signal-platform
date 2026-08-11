@@ -14,14 +14,11 @@ from __future__ import annotations
 import logging
 import os
 from typing import Any, Optional
-
-from packages.core.anthropic_key import current_anthropic_key
 from uuid import UUID
 
-from anthropic import Anthropic, APIError, APITimeoutError
 from sqlalchemy.ext.asyncio import AsyncSession
-from starlette.concurrency import run_in_threadpool
 
+from packages.core.ai_client import AIError, AIUnavailable, ToolCall, agentic_call
 from packages.copilot.prompt import COPILOT_MODEL, MAX_TOOL_ITERATIONS, SYSTEM_PROMPT
 from packages.copilot.state import compute_strategy_state
 from packages.copilot.tools import TOOL_SCHEMAS, dispatch_tool
@@ -103,23 +100,7 @@ async def run_copilot_turn(
     owns history and sends it each turn). `strategy_id` seeds the "current"
     strategy for the closing state render; tool calls can change it.
     """
-    api_key = current_anthropic_key()
-    if not api_key:
-        return CopilotResult(
-            ok=False,
-            reply=(
-                "The copilot needs your Anthropic API key. Add one under "
-                "**Settings → AI copilot key** — each user connects their own."
-            ),
-            error="missing_api_key",
-        )
-
-    client = Anthropic(api_key=api_key, timeout=90.0)
-    convo = list(messages)
-    tool_trace: list[dict[str, Any]] = []
     current_sid = strategy_id
-    in_tokens = 0
-    out_tokens = 0
 
     # Tell the agent which strategy is open on the canvas, so "this strategy"
     # (or an unqualified request) resolves without asking the user for an id.
@@ -132,78 +113,52 @@ async def run_copilot_turn(
             "acting."
         )
 
-    def _call_llm() -> Any:
-        return client.messages.create(
-            model=os.environ.get("COPILOT_MODEL", COPILOT_MODEL),
-            max_tokens=2048,
-            system=system,
-            tools=TOOL_SCHEMAS,
-            messages=convo,
+    def _track(tc: ToolCall, out: dict[str, Any]) -> None:
+        nonlocal current_sid
+        sid = tc.input.get("strategy_id") or (
+            out.get("strategy_id") if isinstance(out, dict) else None
+        )
+        if sid:
+            current_sid = str(sid)
+
+    async def _dispatch(name: str, inp: dict[str, Any]) -> dict[str, Any]:
+        return await dispatch_tool(
+            name, inp, session=session, user=user, registry=registry
         )
 
-    for _ in range(MAX_TOOL_ITERATIONS):
-        try:
-            resp = await run_in_threadpool(_call_llm)
-        except APITimeoutError:
-            return CopilotResult(
-                ok=False, reply="That took too long — try again.", error="timeout",
-                tool_trace=tool_trace, input_tokens=in_tokens, output_tokens=out_tokens,
-            )
-        except APIError as e:
-            log.error("copilot.api_error err=%s", e)
-            return CopilotResult(
-                ok=False, reply=f"The assistant hit an API error: {type(e).__name__}.",
-                error=str(e), tool_trace=tool_trace,
-                input_tokens=in_tokens, output_tokens=out_tokens,
-            )
+    # The provider-agnostic loop: works on Anthropic (default) or any
+    # OpenAI-compatible provider the user connected. Model resolves from the
+    # user's config, falling back to COPILOT_MODEL for the Anthropic default.
+    try:
+        result = await agentic_call(
+            system=system,
+            messages=list(messages),
+            tools=TOOL_SCHEMAS,
+            dispatch=_dispatch,
+            default_model=os.environ.get("COPILOT_MODEL", COPILOT_MODEL),
+            max_iters=MAX_TOOL_ITERATIONS,
+            on_tool=_track,
+        )
+    except AIUnavailable:
+        return CopilotResult(
+            ok=False,
+            reply=(
+                "The copilot needs an AI provider. Add one under "
+                "**Settings → AI copilot** — each user connects their own key."
+            ),
+            error="missing_api_key",
+        )
+    except AIError as e:
+        log.error("copilot.ai_error err=%s", e)
+        return CopilotResult(
+            ok=False, reply=f"The assistant hit an error: {e}", error=str(e),
+        )
 
-        usage = getattr(resp, "usage", None)
-        if usage:
-            in_tokens += getattr(usage, "input_tokens", 0) or 0
-            out_tokens += getattr(usage, "output_tokens", 0) or 0
-
-        assistant_blocks = _blocks_to_serialisable(resp.content)
-        convo.append({"role": "assistant", "content": assistant_blocks})
-
-        tool_uses = [b for b in assistant_blocks if b["type"] == "tool_use"]
-        if getattr(resp, "stop_reason", None) != "tool_use" or not tool_uses:
-            # Final answer.
-            reply = _collect_text(resp.content)
-            state = await _final_state(session, user, current_sid)
-            return CopilotResult(
-                ok=True, reply=reply, strategy_id=current_sid, state=state,
-                tool_trace=tool_trace, input_tokens=in_tokens, output_tokens=out_tokens,
-            )
-
-        # Execute every tool the model asked for, in order.
-        tool_results: list[dict[str, Any]] = []
-        for tu in tool_uses:
-            tname = tu["name"]
-            tinput = tu["input"]
-            result = await dispatch_tool(
-                tname, tinput, session=session, user=user, registry=registry
-            )
-            # Track the strategy in play for the closing state render.
-            sid = tinput.get("strategy_id") or result.get("strategy_id")
-            if sid:
-                current_sid = str(sid)
-            tool_trace.append({"name": tname, "input": tinput, "result": result})
-            tool_results.append(
-                {
-                    "type": "tool_result",
-                    "tool_use_id": tu["id"],
-                    "content": _stringify(result),
-                }
-            )
-        convo.append({"role": "user", "content": tool_results})
-
-    # Ran out of iterations.
     state = await _final_state(session, user, current_sid)
     return CopilotResult(
-        ok=True,
-        reply="I worked through several steps but didn't finish — tell me how you'd like to proceed.",
-        strategy_id=current_sid, state=state, tool_trace=tool_trace,
-        input_tokens=in_tokens, output_tokens=out_tokens,
+        ok=True, reply=result.reply, strategy_id=current_sid, state=state,
+        tool_trace=result.tool_trace, input_tokens=result.input_tokens,
+        output_tokens=result.output_tokens,
         error="max_iterations",
     )
 

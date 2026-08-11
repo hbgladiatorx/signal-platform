@@ -13,7 +13,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { MCPConnectionSection } from "@/components/agent/AgentConnections";
 import { ApiCredentialsCard } from "@/components/settings/ApiCredentialsCard";
-import { AnthropicKeyCard } from "@/components/settings/AnthropicKeyCard";
+import { AIProviderCard } from "@/components/settings/AIProviderCard";
 import { PlanBadge } from "@/components/billing/PlanBadge";
 import { getCurrentPlan, getTier, setCurrentPlan } from "@/lib/api/billing";
 import { getConnections } from "@/lib/api/system";
@@ -179,7 +179,7 @@ function SettingsPage() {
         </div>
       </Card>
 
-      <AnthropicKeyCard />
+      <AIProviderCard />
 
       <ApiCredentialsCard />
 

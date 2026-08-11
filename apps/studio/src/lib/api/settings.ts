@@ -80,6 +80,26 @@ export interface PlatformCredential {
 export const listPlatformCredentials = () =>
   api.get<PlatformCredential[]>("/settings/platform-credentials");
 
+// AI providers the copilot can run on. Anthropic uses the native API; the rest
+// are OpenAI-compatible (base URL + model). Mirrors PRESETS in
+// packages/core/ai_provider.py.
+export interface AIProviderPreset {
+  key: string;
+  label: string;
+  baseUrl?: string;      // shown/used for OpenAI-compatible providers
+  defaultModel: string;  // "" for anthropic (backend picks per feature)
+  needsBaseUrl?: boolean; // custom: user must supply the base URL
+  hint?: string;
+}
+export const AI_PROVIDERS: AIProviderPreset[] = [
+  { key: "deepseek", label: "DeepSeek (cheapest)", baseUrl: "https://api.deepseek.com/v1", defaultModel: "deepseek-chat", hint: "console: platform.deepseek.com" },
+  { key: "anthropic", label: "Anthropic (Claude)", defaultModel: "", hint: "console.anthropic.com" },
+  { key: "openai", label: "OpenAI", baseUrl: "https://api.openai.com/v1", defaultModel: "gpt-4o-mini", hint: "platform.openai.com" },
+  { key: "groq", label: "Groq (fast)", baseUrl: "https://api.groq.com/openai/v1", defaultModel: "llama-3.3-70b-versatile", hint: "console.groq.com" },
+  { key: "openrouter", label: "OpenRouter (many models)", baseUrl: "https://openrouter.ai/api/v1", defaultModel: "openai/gpt-4o-mini", hint: "openrouter.ai/keys" },
+  { key: "custom", label: "Custom (OpenAI-compatible)", defaultModel: "", needsBaseUrl: true },
+];
+
 export const createApiCredential = (input: {
   service: string;
   label: string;

@@ -15,7 +15,7 @@ import json
 import logging
 import os
 
-from packages.core.anthropic_key import current_anthropic_key
+from packages.core.ai_client import AIError, AIUnavailable, text_call
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -88,51 +88,18 @@ def generate_narrative(
 ) -> NarrativeResult:
     """Best-effort LLM narrative. Never raises; returns ok=False on any issue."""
     try:
-        from anthropic import Anthropic, APIError, APITimeoutError
-    except ImportError:
-        return NarrativeResult(
-            ok=False,
-            error="The 'anthropic' package is not installed in this container.",
-        )
-
-    api_key = current_anthropic_key()
-    if not api_key:
-        return NarrativeResult(
-            ok=False,
-            error="No Anthropic API key connected for this user.",
-        )
-
-    client = Anthropic(api_key=api_key, timeout=60.0)
-    try:
-        resp = client.messages.create(
-            model=NARRATE_MODEL,
-            max_tokens=900,
+        text = text_call(
             system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": _user_message(analysis, strategy_name)}],
+            user=_user_message(analysis, strategy_name),
+            default_model=NARRATE_MODEL,
+            max_tokens=900,
         )
-    except APITimeoutError:
-        return NarrativeResult(ok=False, error="LLM request timed out after 60s.")
-    except APIError as e:
-        # Out-of-credit, rate-limit, auth, etc. all land here — surface a clean,
-        # user-readable reason rather than a stack trace.
-        msg = str(e)
-        if "credit" in msg.lower() or "balance" in msg.lower():
-            msg = "Anthropic credit balance is too low — top up to enable AI narratives."
-        log.warning("narrate.api_error err=%s", e)
-        return NarrativeResult(ok=False, error=f"{msg}")
-    except Exception as e:  # noqa: BLE001
-        log.exception("narrate.unexpected_error")
-        return NarrativeResult(ok=False, error=f"Unexpected LLM error: {type(e).__name__}")
+    except AIUnavailable:
+        return NarrativeResult(ok=False, error="No AI provider connected for this user.")
+    except AIError as e:
+        log.warning("narrate.ai_error err=%s", e)
+        return NarrativeResult(ok=False, error=str(e))
 
-    text = "".join(
-        getattr(b, "text", "") for b in resp.content if getattr(b, "type", None) == "text"
-    ).strip()
     if not text:
-        return NarrativeResult(ok=False, error="LLM returned no text.")
-    usage = getattr(resp, "usage", None)
-    return NarrativeResult(
-        ok=True,
-        narrative=text,
-        input_tokens=getattr(usage, "input_tokens", 0) if usage else 0,
-        output_tokens=getattr(usage, "output_tokens", 0) if usage else 0,
-    )
+        return NarrativeResult(ok=False, error="The model returned no text.")
+    return NarrativeResult(ok=True, narrative=text)

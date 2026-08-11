@@ -57,11 +57,19 @@ SERVICE_FIELDS: dict[str, dict[str, Any]] = {
         "primary": "api_key_id",
         "display_name": "Alpaca",
     },
-    # AI copilot — each user connects their own Anthropic key (not a broker).
+    # AI copilot — each user connects their own Anthropic key (legacy, key-only).
     "anthropic": {
         "fields": ["api_key"],
         "primary": "api_key",
         "display_name": "Anthropic",
+    },
+    # AI copilot provider — Anthropic OR any OpenAI-compatible endpoint. The
+    # payload carries {provider, api_key, base_url?, model?}; only provider + key
+    # are required (base_url/model default from the provider preset).
+    "ai_provider": {
+        "fields": ["provider", "api_key"],
+        "primary": "api_key",
+        "display_name": "AI provider",
     },
 }
 

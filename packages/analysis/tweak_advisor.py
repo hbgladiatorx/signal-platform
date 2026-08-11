@@ -17,7 +17,7 @@ import json
 import logging
 import os
 
-from packages.core.anthropic_key import current_anthropic_key
+from packages.core.ai_client import AIError, AIUnavailable, structured_call
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -186,18 +186,6 @@ def suggest_param_tweaks(
             error="This strategy has no editable node graph to tune. Tweak it in the visual builder.",
         )
 
-    try:
-        from anthropic import Anthropic, APIError, APITimeoutError
-    except ImportError:
-        return TweakResult(ok=False, error="The 'anthropic' package is not installed.")
-
-    api_key = current_anthropic_key()
-    if not api_key:
-        return TweakResult(
-            ok=False,
-            error="Connect your Anthropic API key under Settings → AI copilot key.",
-        )
-
     payload = {
         "strategy": strategy_name,
         "verdict": analysis.get("verdict"),
@@ -222,43 +210,30 @@ def suggest_param_tweaks(
         + "\n```"
     )
 
-    client = Anthropic(api_key=api_key, timeout=60.0)
     try:
-        resp = client.messages.create(
-            model=MODEL,
-            max_tokens=1500,
+        tool_input = structured_call(
             system=SYSTEM_PROMPT,
-            tools=[EMIT_TWEAKS_TOOL],
-            tool_choice={"type": "tool", "name": "emit_param_tweaks"},
-            messages=[{"role": "user", "content": user_msg}],
+            user=user_msg,
+            tool_name="emit_param_tweaks",
+            tool_description=EMIT_TWEAKS_TOOL.get("description", ""),
+            input_schema=EMIT_TWEAKS_TOOL.get("input_schema", {}),
+            default_model=MODEL,
+            max_tokens=1500,
         )
-    except APITimeoutError:
-        return TweakResult(ok=False, error="The tweak advisor timed out. Try again.")
-    except APIError as e:
-        msg = str(e)
-        if "credit" in msg.lower() or "balance" in msg.lower():
-            msg = "Anthropic credit balance is too low — top up to enable AI tuning."
-        return TweakResult(ok=False, error=msg[:300])
-    except Exception as e:  # noqa: BLE001
-        return TweakResult(ok=False, error=f"Tweak advisor failed: {type(e).__name__}")
+    except AIUnavailable:
+        return TweakResult(
+            ok=False,
+            error="Connect an AI provider under Settings → AI copilot to tune strategies.",
+        )
+    except AIError as e:
+        return TweakResult(ok=False, error=str(e))
 
-    usage = getattr(resp, "usage", None)
-    in_tok = getattr(usage, "input_tokens", 0) if usage else 0
-    out_tok = getattr(usage, "output_tokens", 0) if usage else 0
-
-    tool_input: Optional[dict[str, Any]] = None
-    for block in resp.content:
-        if getattr(block, "type", None) == "tool_use" and getattr(block, "name", None) == "emit_param_tweaks":
-            tool_input = block.input  # type: ignore[attr-defined]
-            break
-    if tool_input is None:
-        return TweakResult(ok=False, error="The advisor returned no structured tweaks.", input_tokens=in_tok, output_tokens=out_tok)
+    if not tool_input:
+        return TweakResult(ok=False, error="The advisor returned no structured tweaks.")
 
     tweaks = _validate_tweaks(tool_input.get("tweaks") or [], graph)
     return TweakResult(
         ok=True,
         summary=str(tool_input.get("summary") or ""),
         tweaks=tweaks,
-        input_tokens=in_tok,
-        output_tokens=out_tok,
     )
