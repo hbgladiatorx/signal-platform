@@ -1,39 +1,35 @@
-"""User identity endpoint.
+"""Current-user identity endpoint.
 
-GET /me — returns the claims from the current request's JWT.
+GET /me — the canonical "who am I and what can I do?" for the frontend.
 
-This is the canonical way for the frontend to ask "who am I and what
-can I see?" — and for us to verify the auth flow works end-to-end.
+Returns the caller's provisioned platform record — id, email, role, and active
+status — resolved from the database (not the raw JWT), so the UI can gate
+admin-only surfaces on `role`. Provisioning happens here on first sight, exactly
+as in every other authenticated route.
 """
 from __future__ import annotations
 
-from typing import Any
-
 from fastapi import APIRouter, Depends
 
-from services.api.auth import get_current_user
+from services.api.deps import CurrentUserRecord, get_current_user_record
 
 router = APIRouter(tags=["auth"])
 
 
 @router.get("/me")
-async def get_me(claims: dict[str, Any] = Depends(get_current_user)) -> dict[str, Any]:
-    """Return the JWT claims of the authenticated principal.
+async def get_me(
+    user: CurrentUserRecord = Depends(get_current_user_record),
+) -> dict[str, object]:
+    """Return the authenticated user's platform record.
 
-    For user tokens, this includes 'sub' (the Auth0 user ID),
-    'email', and other profile claims (if the requesting application
-    requested scopes that include them).
-
-    For machine-to-machine tokens, only 'sub' (the M2M client name)
-    and standard JWT claims (iss, aud, exp, etc.) are present.
+    Deliberately does NOT echo the full JWT claim set (which can carry
+    provider-internal fields) — only the fields the app needs.
     """
     return {
-        "sub": claims.get("sub"),
-        "iss": claims.get("iss"),
-        "aud": claims.get("aud"),
-        "scope": claims.get("scope"),
-        "exp": claims.get("exp"),
-        "iat": claims.get("iat"),
-        # Full claims for debugging — remove from response in production multi-user
-        "claims": claims,
+        "id": str(user.id),
+        "org_id": str(user.org_id),
+        "email": user.email,
+        "role": user.role,
+        "is_active": user.is_active,
+        "is_admin": user.role == "admin",
     }

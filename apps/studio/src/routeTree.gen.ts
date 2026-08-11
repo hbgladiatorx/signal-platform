@@ -16,6 +16,7 @@ import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as StudioRouteImport } from './routes/studio'
+import { Route as AppAdminRouteImport } from './routes/app.admin'
 import { Route as AppAgentRouteImport } from './routes/app.agent'
 import { Route as AppCatalogRouteImport } from './routes/app.catalog'
 import { Route as AppCustomizeRouteImport } from './routes/app.customize'
@@ -82,6 +83,11 @@ const StudioRoute = StudioRouteImport.update({
   id: '/studio',
   path: '/studio',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppAdminRoute = AppAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppAgentRoute = AppAgentRouteImport.update({
   id: '/agent',
@@ -248,6 +254,7 @@ export interface FileRoutesByFullPath {
   '/pricing': typeof PricingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/studio': typeof StudioRouteWithChildren
+  '/app/admin': typeof AppAdminRoute
   '/app/agent': typeof AppAgentRoute
   '/app/catalog': typeof AppCatalogRoute
   '/app/customize': typeof AppCustomizeRoute
@@ -288,6 +295,7 @@ export interface FileRoutesByTo {
   '/pricing': typeof PricingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/studio': typeof StudioRouteWithChildren
+  '/app/admin': typeof AppAdminRoute
   '/app/agent': typeof AppAgentRoute
   '/app/catalog': typeof AppCatalogRoute
   '/app/customize': typeof AppCustomizeRoute
@@ -329,6 +337,7 @@ export interface FileRoutesById {
   '/pricing': typeof PricingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/studio': typeof StudioRouteWithChildren
+  '/app/admin': typeof AppAdminRoute
   '/app/agent': typeof AppAgentRoute
   '/app/catalog': typeof AppCatalogRoute
   '/app/customize': typeof AppCustomizeRoute
@@ -371,6 +380,7 @@ export interface FileRouteTypes {
     | '/pricing'
     | '/reset-password'
     | '/studio'
+    | '/app/admin'
     | '/app/agent'
     | '/app/catalog'
     | '/app/customize'
@@ -411,6 +421,7 @@ export interface FileRouteTypes {
     | '/pricing'
     | '/reset-password'
     | '/studio'
+    | '/app/admin'
     | '/app/agent'
     | '/app/catalog'
     | '/app/customize'
@@ -451,6 +462,7 @@ export interface FileRouteTypes {
     | '/pricing'
     | '/reset-password'
     | '/studio'
+    | '/app/admin'
     | '/app/agent'
     | '/app/catalog'
     | '/app/customize'
@@ -544,6 +556,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/studio'
       preLoaderRoute: typeof StudioRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/app/admin': {
+      id: '/app/admin'
+      path: '/admin'
+      fullPath: '/app/admin'
+      preLoaderRoute: typeof AppAdminRouteImport
+      parentRoute: typeof AppRoute
     }
     '/app/agent': {
       id: '/app/agent'
@@ -766,6 +785,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppAdminRoute: typeof AppAdminRoute
   AppAgentRoute: typeof AppAgentRoute
   AppCatalogRoute: typeof AppCatalogRoute
   AppCustomizeRoute: typeof AppCustomizeRoute
@@ -782,6 +802,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAdminRoute: AppAdminRoute,
   AppAgentRoute: AppAgentRoute,
   AppCatalogRoute: AppCatalogRoute,
   AppCustomizeRoute: AppCustomizeRoute,

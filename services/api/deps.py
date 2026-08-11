@@ -44,6 +44,7 @@ class CurrentUserRecord(BaseModel):
     org_id: UUID
     email: str | None = None
     role: str
+    is_active: bool = True
 
 
 def _claim_name(claims: dict[str, Any]) -> str | None:
@@ -55,6 +56,19 @@ def _claim_name(claims: dict[str, Any]) -> str | None:
         return claims["name"]
     meta = claims.get("user_metadata") or {}
     return meta.get("name") or meta.get("full_name")
+
+
+def _bootstrap_admin_emails() -> set[str]:
+    """Emails always granted admin, from ADMIN_BOOTSTRAP_EMAILS (comma-separated).
+
+    This is the break-glass seed for the admin tier: it guarantees the owner can
+    always reach the admin dashboard — even on a fresh database or after a wipe —
+    from which they can promote other users. Case-insensitive.
+    """
+    import os
+
+    raw = os.environ.get("ADMIN_BOOTSTRAP_EMAILS", "")
+    return {e.strip().lower() for e in raw.split(",") if e.strip()}
 
 
 async def provision_user_record(
@@ -82,6 +96,7 @@ async def provision_user_record(
     # `sub` changed), adopt the existing account onto the new subject instead of
     # silently creating a duplicate. This keeps one email = one user_id and
     # prevents the account fragmentation that scatters strategies/sessions.
+    row: dict[str, Any] | None = None
     if email:
         has_sub = await session.execute(
             text("SELECT 1 FROM users WHERE auth0_sub = :sub"), {"sub": sub}
@@ -100,30 +115,56 @@ async def provision_user_record(
                           ORDER BY created_at
                           LIMIT 1
                      )
-                    RETURNING id, org_id, email, role
+                    RETURNING id, org_id, email, role, is_active
                     """
                 ),
                 {"sub": sub, "email": email, "name": name},
             )
             arow = adopted.mappings().first()
             if arow is not None:
-                return CurrentUserRecord(**dict(arow))
+                row = dict(arow)
 
-    result = await session.execute(
-        text(
-            """
-            INSERT INTO users (auth0_sub, email, name)
-            VALUES (:sub, :email, :name)
-            ON CONFLICT (auth0_sub) DO UPDATE SET updated_at = NOW()
-            RETURNING id, org_id, email, role
-            """
-        ),
-        {"sub": sub, "email": email, "name": name},
-    )
-    row = result.mappings().first()
     if row is None:
-        raise HTTPException(status_code=500, detail="Failed to provision user")
-    return CurrentUserRecord(**dict(row))
+        result = await session.execute(
+            text(
+                """
+                INSERT INTO users (auth0_sub, email, name)
+                VALUES (:sub, :email, :name)
+                ON CONFLICT (auth0_sub) DO UPDATE SET updated_at = NOW()
+                RETURNING id, org_id, email, role, is_active
+                """
+            ),
+            {"sub": sub, "email": email, "name": name},
+        )
+        irow = result.mappings().first()
+        if irow is None:
+            raise HTTPException(status_code=500, detail="Failed to provision user")
+        row = dict(irow)
+
+    # Break-glass admin bootstrap: an email listed in ADMIN_BOOTSTRAP_EMAILS is
+    # always promoted to admin on sight (never demoted here — demotion is an
+    # explicit admin action). Guarantees the owner can always reach the console.
+    if (
+        email
+        and email.lower() in _bootstrap_admin_emails()
+        and row.get("role") != "admin"
+    ):
+        promoted = await session.execute(
+            text(
+                "UPDATE users SET role = 'admin', updated_at = NOW() "
+                "WHERE id = :id RETURNING role"
+            ),
+            {"id": row["id"]},
+        )
+        prow = promoted.mappings().first()
+        if prow is not None:
+            row["role"] = prow["role"]
+
+    # A disabled account is rejected at the door — no data, no admin, nothing.
+    if not row.get("is_active", True):
+        raise HTTPException(status_code=403, detail="This account has been disabled.")
+
+    return CurrentUserRecord(**row)
 
 
 async def get_current_user_record(
@@ -137,3 +178,17 @@ async def get_current_user_record(
     M2M tokens without a `sub` are rejected (401).
     """
     return await provision_user_record(claims, session)
+
+
+async def require_admin(
+    user: CurrentUserRecord = Depends(get_current_user_record),
+) -> CurrentUserRecord:
+    """FastAPI dependency: allow only admins through, else 403.
+
+    Every `/admin/*` endpoint depends on this. Regular members and the internal
+    'system' account are refused. Role is resolved from the DB (not the JWT), so
+    a demotion takes effect on the caller's very next request.
+    """
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user

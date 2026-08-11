@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse
 from packages.data.db import dispose_engine, get_engine
 from services.api.redis_subscriber import broadcaster
 from services.api.routers import (
+    admin,
     backtests,
     certify,
     copilot,
@@ -162,6 +163,7 @@ app.include_router(paper_sessions.router)
 app.include_router(live.router)
 app.include_router(copilot.router)
 app.include_router(deletes.router)
+app.include_router(admin.router)
 app.include_router(ws.router)
 
 

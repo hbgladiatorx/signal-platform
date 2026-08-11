@@ -2,8 +2,9 @@ import { useEffect } from "react";
 import { Link, Outlet, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   Home, BookOpen, BarChart3, Signal as SignalIcon, Settings, Bell,
-  User, ArrowRightLeft, Lock, Sparkles, Activity,
+  User, ArrowRightLeft, Lock, Sparkles, Activity, ShieldCheck,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,6 +17,7 @@ import { AssetFilterProvider, useAssetFilter, ASSET_OPTIONS } from "@/lib/asset-
 import { PlanBadge } from "@/components/billing/PlanBadge";
 import { getCurrentPlan } from "@/lib/api/billing";
 import { useAuth } from "@/hooks/use-auth";
+import { getMe } from "@/lib/api/me";
 
 type NavItem = { to: string; label: string; icon: typeof Home };
 
@@ -54,6 +56,10 @@ function Shell({ mode }: { mode: "trader" | "studio" }) {
   const nav = mode === "studio" ? studioNav : traderNav;
   const isStudio = mode === "studio";
   const { user } = useAuth();
+  // Admin surfaces are hidden unless the backend reports this user is an admin
+  // (the /admin API enforces it regardless; this just avoids dead links).
+  const me = useQuery({ queryKey: ["me"], queryFn: getMe, staleTime: 60_000 });
+  const isAdmin = me.data?.is_admin ?? false;
   // Real signed-in handle from the Supabase session; honest fallback if absent.
   const handle = user?.email ? `@${user.email.split("@")[0]}` : "your account";
 
@@ -154,6 +160,16 @@ function Shell({ mode }: { mode: "trader" | "studio" }) {
               <DropdownMenuItem asChild>
                 <Link to="/app/help">Help &amp; guide</Link>
               </DropdownMenuItem>
+              {isAdmin && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/app/admin">
+                      <ShieldCheck className="mr-2 size-4 text-violet" /> Admin console
+                    </Link>
+                  </DropdownMenuItem>
+                </>
+              )}
               <DropdownMenuItem
                 onSelect={async () => {
                   const { supabase } = await import("@/integrations/supabase/client");
