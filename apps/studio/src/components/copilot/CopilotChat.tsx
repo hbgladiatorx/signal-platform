@@ -14,6 +14,8 @@ import {
   type CopilotMessage,
   type CopilotToolCall,
 } from "@/lib/api/copilot";
+import { applyGraphTweak } from "@/lib/api/agent";
+import { getDevStrategy, saveStrategyGraph } from "@/lib/api/studio";
 
 interface DisplayMsg {
   id: string;
@@ -81,6 +83,45 @@ export function CopilotChat({ strategyId, suggestedAction, onResult }: Props) {
     ];
     setMsgs((prev) => [...prev, userMsg]);
     setBusy(true);
+
+    // Fast path: a recognized graph edit on an existing strategy is applied
+    // locally and compiled deterministically (no AI round-trip), so simple
+    // tweaks like "RSI 30/70 → 40/60" are near-instant instead of a full
+    // Claude turn. Anything the tweak engine doesn't recognize falls through
+    // to the AI below.
+    const sid = sidRef.current;
+    if (sid) {
+      try {
+        const strat = await getDevStrategy(sid);
+        const g = strat?.graph;
+        if (strat && g && g.nodes && g.nodes.length) {
+          const tweak = applyGraphTweak(trimmed, {
+            name: strat.name,
+            assetClass: strat.assetClass,
+            nodes: g.nodes,
+            edges: g.edges,
+          });
+          if (tweak) {
+            await saveStrategyGraph(sid, tweak.graph);
+            setMsgs((prev) => [
+              ...prev,
+              {
+                id: nextId(),
+                role: "assistant",
+                content:
+                  "Updated instantly (no AI needed):\n" +
+                  tweak.changes.map((c) => `- ${c}`).join("\n") +
+                  "\n\nRe-run the backtest to see the effect.",
+              },
+            ]);
+            setBusy(false);
+            return;
+          }
+        }
+      } catch {
+        /* fall through to the AI turn on any error */
+      }
+    }
 
     try {
       const res = await sendCopilotChat(history, sidRef.current);
