@@ -19,6 +19,7 @@ import { getConnections } from "@/lib/api/system";
 import { getFinnhubStatus } from "@/lib/api/finnhub.functions";
 import { useAccountSize, useIdentity, useNotifications } from "@/lib/user-prefs";
 import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
 
@@ -165,6 +166,8 @@ function SettingsPage() {
         </div>
       </Card>
 
+      <ChangePasswordCard />
+
       <Card className="border-border bg-elevated p-5">
         <h2 className="font-semibold">Position sizing</h2>
         <p className="text-sm text-muted-foreground">Used to suggest size for each signal — based on a 1% account risk default.</p>
@@ -266,6 +269,66 @@ function StatusRow({ ok, loading, label, hint, optional }: { ok?: boolean; loadi
         {loading ? "…" : ok ? "Configured" : optional ? "Optional" : "Not set"}
       </span>
     </div>
+  );
+}
+
+/** Change the signed-in user's password via Supabase (no current-password
+ *  prompt needed — the active session authorizes the change). */
+function ChangePasswordCard() {
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const canSubmit = password.length >= 8 && password === confirm && !saving;
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (password.length < 8) return toast.error("Password must be at least 8 characters");
+    if (password !== confirm) return toast.error("Passwords don't match");
+    setSaving(true);
+    const { error } = await supabase.auth.updateUser({ password });
+    setSaving(false);
+    if (error) return toast.error(error.message);
+    setPassword("");
+    setConfirm("");
+    toast.success("Password updated");
+  }
+
+  return (
+    <Card className="border-border bg-elevated p-5">
+      <h2 className="font-semibold">Password</h2>
+      <p className="text-sm text-muted-foreground">Set a new password for signing in.</p>
+      <Separator className="my-4" />
+      <form onSubmit={submit} className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label>New password</Label>
+          <Input
+            type="password"
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="At least 8 characters"
+            className="bg-background"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Confirm new password</Label>
+          <Input
+            type="password"
+            autoComplete="new-password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            placeholder="Re-enter new password"
+            className="bg-background"
+          />
+        </div>
+        <div className="md:col-span-2">
+          <Button type="submit" disabled={!canSubmit}>
+            {saving ? "Updating…" : "Update password"}
+          </Button>
+        </div>
+      </form>
+    </Card>
   );
 }
 
