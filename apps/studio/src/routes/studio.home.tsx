@@ -1,15 +1,15 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { getDevStrategies, getRecentBacktests, graphTimeframe, deleteBacktest, getBuiltinStrategyNames } from "@/lib/api/studio";
+import { getDevStrategies, getRecentBacktests, graphTimeframe, deleteBacktest, getBuiltinStrategyNames, deleteUserStrategy, builtinStrategyId } from "@/lib/api/studio";
 import { listSessions } from "@/lib/api/sessions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StageBadge } from "@/components/common/StageBadge";
 import { AssetClassBadge } from "@/components/common/AssetClassBadge";
 import { formatDistanceToNow } from "date-fns";
-import { Plus, Layers, FlaskConical, Activity, Inbox, TrendingUp, Trophy, PencilRuler, Rocket, Send, AlertTriangle, Trash2 } from "lucide-react";
+import { Plus, Layers, FlaskConical, Activity, Inbox, TrendingUp, Trophy, PencilRuler, Rocket, Send, AlertTriangle, Trash2, Pencil } from "lucide-react";
 import { CustomizeButton } from "@/components/common/CustomizeButton";
 import { cn } from "@/lib/utils";
 import type { PipelineStage } from "@/lib/types";
@@ -42,6 +42,7 @@ const tickerOf = (sym: string) => sym.split("@")[0];
 
 function StudioHome() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const strategies = useQuery({ queryKey: ["devStrategies"], queryFn: getDevStrategies });
   const backtests = useQuery({ queryKey: ["recentBacktests", 12], queryFn: () => getRecentBacktests(12) });
   const sessions = useQuery({ queryKey: ["sessions"], queryFn: listSessions, refetchInterval: 15000 });
@@ -62,6 +63,18 @@ function StudioHome() {
     () => new Set(builtinNamesQuery.data ?? []),
     [builtinNamesQuery.data],
   );
+  // Resolve a backtest run's strategyId so its row can open the detail page.
+  // User strategies map by name; built-ins use the builtin: id; deleted
+  // strategies (orphans) have no detail page -> undefined (delete only).
+  const idByName = useMemo(
+    () => new Map(list.map((s) => [s.name, s.id])),
+    [list],
+  );
+  const runStrategyId = (name: string): string | undefined =>
+    idByName.get(name) ??
+    (builtinStrategyNames.has(name) ? builtinStrategyId(name) : undefined);
+
+  // Delete a backtest run (any row on the panel).
   const [confirmDelId, setConfirmDelId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const onDeleteRun = async (id: string) => {
@@ -75,6 +88,23 @@ function StudioHome() {
     } finally {
       setDeletingId(null);
       setConfirmDelId(null);
+    }
+  };
+
+  // Delete a strategy (from the Strategies overview rows).
+  const [confirmStratId, setConfirmStratId] = useState<string | null>(null);
+  const [deletingStratId, setDeletingStratId] = useState<string | null>(null);
+  const onDeleteStrategy = async (id: string, name: string) => {
+    setDeletingStratId(id);
+    try {
+      await deleteUserStrategy(id);
+      await qc.invalidateQueries({ queryKey: ["devStrategies"] });
+      toast.success(`Deleted "${name}"`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't delete that strategy");
+    } finally {
+      setDeletingStratId(null);
+      setConfirmStratId(null);
     }
   };
 
@@ -233,7 +263,12 @@ function StudioHome() {
                 {sess.slice(0, 6).map((s) => {
                   const pnl = s.realized_pnl == null ? undefined : Number(s.realized_pnl);
                   return (
-                    <div key={s.id} className="grid grid-cols-12 items-center gap-2 px-4 py-3 text-sm">
+                    <Link
+                      key={s.id}
+                      to="/studio/live"
+                      search={{ id: s.id }}
+                      className="grid grid-cols-12 items-center gap-2 px-4 py-3 text-sm transition-colors hover:bg-muted/30"
+                    >
                       <div className="col-span-5 truncate">
                         <div className="truncate font-medium">{s.strategy_name}</div>
                         <div className="font-mono text-[11px] text-muted-foreground">{s.symbols.map(tickerOf).join(", ")}</div>
@@ -245,7 +280,7 @@ function StudioHome() {
                       <div className={cn("col-span-3 text-right font-mono text-xs", pnl == null ? "text-muted-foreground" : pnl >= 0 ? "text-emerald-500" : "text-red-500")}>
                         {pnl == null ? "—" : `${pnl >= 0 ? "+" : ""}$${pnl.toFixed(2)}`}
                       </div>
-                    </div>
+                    </Link>
                   );
                 })}
               </div>
@@ -277,8 +312,27 @@ function StudioHome() {
                   const orphan =
                     !activeStrategyNames.has(b.strategyName) &&
                     !builtinStrategyNames.has(b.strategyName);
+                  const sid = runStrategyId(b.strategyName);
+                  const openDetail = () => {
+                    if (!sid) return;
+                    navigate({
+                      to: "/studio/backtests/$strategyId",
+                      params: { strategyId: sid },
+                      search: { runId: b.id } as never,
+                    });
+                  };
                   return (
-                  <div key={b.id} className="group relative grid grid-cols-12 items-center gap-2 px-4 py-3 text-sm">
+                  <div
+                    key={b.id}
+                    role={sid ? "button" : undefined}
+                    tabIndex={sid ? 0 : undefined}
+                    onClick={sid ? openDetail : undefined}
+                    onKeyDown={sid ? (e) => { if (e.key === "Enter") openDetail(); } : undefined}
+                    className={cn(
+                      "group relative grid grid-cols-12 items-center gap-2 px-4 py-3 text-sm transition-colors",
+                      sid && "cursor-pointer hover:bg-muted/30",
+                    )}
+                  >
                     <div className="col-span-5 truncate">
                       <div className="flex items-center gap-1.5">
                         <span className="truncate font-medium">{b.strategyName}</span>
@@ -301,25 +355,24 @@ function StudioHome() {
                     </div>
                     <div className="col-span-2 text-right font-mono text-xs text-muted-foreground">{b.sharpe != null ? `Sh ${b.sharpe.toFixed(2)}` : "—"}</div>
                     <div className="col-span-2 text-right font-mono text-xs text-muted-foreground">{b.trades ?? "—"} trd</div>
-                    {/* Delete affordance for orphaned runs — the only place they
-                        can be removed from the UI. Two-step confirm. */}
-                    {orphan && (
-                      confirmDelId === b.id ? (
-                        <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-md border border-border bg-elevated px-1.5 py-1 shadow-sm">
-                          <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px] text-danger hover:text-danger"
-                            disabled={deletingId === b.id} onClick={() => onDeleteRun(b.id)}>
-                            {deletingId === b.id ? "Deleting…" : "Delete run"}
-                          </Button>
-                          <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => setConfirmDelId(null)}>Cancel</Button>
-                        </div>
-                      ) : (
-                        <Button size="icon" variant="ghost"
-                          className="absolute right-2 top-1/2 size-7 -translate-y-1/2 bg-elevated text-muted-foreground opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
-                          title="Delete this orphaned run" aria-label="Delete orphaned run"
-                          onClick={() => setConfirmDelId(b.id)}>
-                          <Trash2 className="size-3.5" />
+                    {/* Delete any run inline (two-step confirm). Buttons stop
+                        propagation so they don't trigger the row's open-detail. */}
+                    {confirmDelId === b.id ? (
+                      <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-md border border-border bg-elevated px-1.5 py-1 shadow-sm"
+                        onClick={(e) => e.stopPropagation()}>
+                        <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px] text-danger hover:text-danger"
+                          disabled={deletingId === b.id} onClick={() => onDeleteRun(b.id)}>
+                          {deletingId === b.id ? "Deleting…" : "Delete run"}
                         </Button>
-                      )
+                        <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => setConfirmDelId(null)}>Cancel</Button>
+                      </div>
+                    ) : (
+                      <Button size="icon" variant="ghost"
+                        className="absolute right-2 top-1/2 size-7 -translate-y-1/2 bg-elevated text-muted-foreground opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
+                        title="Delete this run" aria-label="Delete run"
+                        onClick={(e) => { e.stopPropagation(); setConfirmDelId(b.id); }}>
+                        <Trash2 className="size-3.5" />
+                      </Button>
                     )}
                   </div>
                   );
@@ -357,7 +410,7 @@ function StudioHome() {
                 const gTf = graphTimeframe(s.graph);
                 const stale = !!s.headlineBarResolution && !!gTf && gTf !== s.headlineBarResolution;
                 return (
-                  <Link key={s.id} to="/studio/strategy/$id" params={{ id: s.id }} className="grid grid-cols-12 items-center gap-2 px-4 py-3 text-sm transition-colors hover:bg-muted/30">
+                  <Link key={s.id} to="/studio/strategy/$id" params={{ id: s.id }} className="group relative grid grid-cols-12 items-center gap-2 px-4 py-3 text-sm transition-colors hover:bg-muted/30">
                     <div className="col-span-3 flex items-center gap-1.5 truncate font-medium">
                       <span className="truncate">{s.name}</span>
                       {stale && (
@@ -375,6 +428,31 @@ function StudioHome() {
                     <div className="col-span-1 text-right font-mono">{st ? `${(st.winRate * 100).toFixed(0)}%` : "—"}</div>
                     <div className="col-span-1 text-right font-mono text-muted-foreground">{st ? `${(st.maxDrawdown * 100).toFixed(0)}%` : "—"}</div>
                     <div className="col-span-1 text-right font-mono text-muted-foreground">{st?.totalTrades ?? "—"}</div>
+                    {/* Edit / delete — revealed on hover; stop the row's navigation. */}
+                    {confirmStratId === s.id ? (
+                      <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-md border border-border bg-elevated px-1.5 py-1 shadow-sm"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                        <span className="px-1 text-[11px] text-muted-foreground">Delete?</span>
+                        <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px] text-danger hover:text-danger"
+                          disabled={deletingStratId === s.id}
+                          onClick={(e) => { e.preventDefault(); onDeleteStrategy(s.id, s.name); }}>
+                          {deletingStratId === s.id ? "Deleting…" : "Confirm"}
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]"
+                          onClick={(e) => { e.preventDefault(); setConfirmStratId(null); }}>Cancel</Button>
+                      </div>
+                    ) : (
+                      <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-0.5 rounded-md border border-border bg-elevated px-1 py-0.5 opacity-0 shadow-sm transition-opacity group-hover:opacity-100">
+                        <Button size="icon" variant="ghost" className="size-6" title="Edit in builder" aria-label="Edit strategy"
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate({ to: "/studio/builder/$id", params: { id: s.id } }); }}>
+                          <Pencil className="size-3.5" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="size-6 text-muted-foreground hover:text-danger" title="Delete strategy" aria-label="Delete strategy"
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setConfirmStratId(s.id); }}>
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </div>
+                    )}
                   </Link>
                 );
               })}

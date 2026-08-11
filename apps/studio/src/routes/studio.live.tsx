@@ -18,6 +18,10 @@ import {
 } from "@/lib/api/sessions";
 
 export const Route = createFileRoute("/studio/live")({
+  // ?id=<session> deep-links a specific session (e.g. from the dashboard).
+  validateSearch: (s: Record<string, unknown>): { id?: string } => ({
+    id: typeof s.id === "string" ? s.id : undefined,
+  }),
   head: () => ({ meta: [{ title: "Live & Paper — Bayn Studio" }] }),
   component: LiveSessions,
 });
@@ -33,7 +37,12 @@ function LiveSessions() {
     refetchInterval: REFRESH,
   });
 
-  const [selected, setSelected] = useState<string | undefined>();
+  const { id: idFromUrl } = Route.useSearch();
+  const [selected, setSelected] = useState<string | undefined>(idFromUrl);
+  // A deep link (or changing it) wins; otherwise fall back to the first session.
+  useEffect(() => {
+    if (idFromUrl) setSelected(idFromUrl);
+  }, [idFromUrl]);
   useEffect(() => {
     if (!selected && sessions?.length) setSelected(sessions[0].id);
   }, [sessions, selected]);

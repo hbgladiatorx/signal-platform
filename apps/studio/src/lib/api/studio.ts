@@ -475,6 +475,12 @@ export function isBuiltinStrategy(id: string): boolean {
   return id.startsWith(BUILTIN_PREFIX);
 }
 
+// The strategyId a built-in strategy's backtest history lives under (the detail
+// route + getBacktestsForStrategy both understand this prefix).
+export function builtinStrategyId(name: string): string {
+  return `${BUILTIN_PREFIX}${name}`;
+}
+
 // Owner-scoped delete (204). The backend 404s a missing or foreign row, which
 // surfaces here as ApiError(404).
 export async function deleteUserStrategy(id: string): Promise<void> {
