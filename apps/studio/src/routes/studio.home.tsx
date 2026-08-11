@@ -48,6 +48,12 @@ function StudioHome() {
   const runs = backtests.data ?? [];
   const sess = sessions.data ?? [];
 
+  // "Recent backtests" shows only meaningful runs — completed with at least one
+  // closed trade — so 0-trade and errored/failed runs don't clutter the panel.
+  const meaningfulRuns = runs.filter(
+    (b) => b.status === "completed" && (b.trades ?? 0) > 0,
+  );
+
   const summary = useMemo(() => {
     const withStats = list.filter((s) => s.stats);
     const returns = withStats.map((s) => s.stats!.totalReturn).filter((v): v is number => v != null);
@@ -213,14 +219,16 @@ function StudioHome() {
             <Button variant="ghost" size="sm" asChild><Link to="/studio/backtests">View all →</Link></Button>
           </div>
           <Card className="border-border bg-elevated">
-            {runs.length === 0 ? (
+            {meaningfulRuns.length === 0 ? (
               <div className="p-6 text-center text-sm text-muted-foreground">
                 <Inbox className="mx-auto mb-2 size-8 opacity-50" />
-                No backtests yet. Run one from a strategy to see it here.
+                {runs.length === 0
+                  ? "No backtests yet. Run one from a strategy to see it here."
+                  : "No completed backtests with trades yet. Runs with 0 trades or errors are hidden here."}
               </div>
             ) : (
               <div className="divide-y divide-border">
-                {runs.slice(0, 6).map((b) => (
+                {meaningfulRuns.slice(0, 6).map((b) => (
                   <div key={b.id} className="grid grid-cols-12 items-center gap-2 px-4 py-3 text-sm">
                     <div className="col-span-5 truncate">
                       <div className="truncate font-medium">{b.strategyName}</div>
