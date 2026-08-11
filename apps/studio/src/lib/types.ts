@@ -129,6 +129,9 @@ export interface DevStrategy {
   graph: StrategyGraph;
   sourceCode?: string;
   stats?: StrategyStats;
+  /** Timeframe of the backtest that `stats` came from (normalized, e.g. "1d").
+   *  Compare with graphTimeframe(graph) to detect stale results. */
+  headlineBarResolution?: string;
   isActive?: boolean;
   liveSinceDays?: number;
   versions: Array<{ id: string; createdAt: string; note: string }>;

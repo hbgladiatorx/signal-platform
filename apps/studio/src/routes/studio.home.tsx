@@ -1,14 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { getDevStrategies, getRecentBacktests } from "@/lib/api/studio";
+import { getDevStrategies, getRecentBacktests, graphTimeframe } from "@/lib/api/studio";
 import { listSessions } from "@/lib/api/sessions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StageBadge } from "@/components/common/StageBadge";
 import { AssetClassBadge } from "@/components/common/AssetClassBadge";
 import { formatDistanceToNow } from "date-fns";
-import { Plus, Layers, FlaskConical, Activity, Inbox, TrendingUp, Trophy, PencilRuler, Rocket, Send } from "lucide-react";
+import { Plus, Layers, FlaskConical, Activity, Inbox, TrendingUp, Trophy, PencilRuler, Rocket, Send, AlertTriangle } from "lucide-react";
 import { CustomizeButton } from "@/components/common/CustomizeButton";
 import { cn } from "@/lib/utils";
 import type { PipelineStage } from "@/lib/types";
@@ -53,6 +53,17 @@ function StudioHome() {
   const meaningfulRuns = runs.filter(
     (b) => b.status === "completed" && (b.trades ?? 0) > 0,
   );
+
+  // Graph (source-of-truth) timeframe per strategy, to flag runs/stats whose
+  // timeframe no longer matches the graph (changed on the canvas since).
+  const graphTfByName = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of list) {
+      const tf = graphTimeframe(s.graph);
+      if (tf) m.set(s.name, tf);
+    }
+    return m;
+  }, [list]);
 
   const summary = useMemo(() => {
     const withStats = list.filter((s) => s.stats);
@@ -228,10 +239,21 @@ function StudioHome() {
               </div>
             ) : (
               <div className="divide-y divide-border">
-                {meaningfulRuns.slice(0, 6).map((b) => (
+                {meaningfulRuns.slice(0, 6).map((b) => {
+                  const gTf = graphTfByName.get(b.strategyName);
+                  const stale = !!b.barResolution && !!gTf && gTf !== b.barResolution;
+                  return (
                   <div key={b.id} className="grid grid-cols-12 items-center gap-2 px-4 py-3 text-sm">
                     <div className="col-span-5 truncate">
-                      <div className="truncate font-medium">{b.strategyName}</div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate font-medium">{b.strategyName}</span>
+                        {stale && (
+                          <AlertTriangle
+                            className="size-3 shrink-0 text-amber-500"
+                            aria-label={`Stale: ran on ${b.barResolution}, graph is now ${gTf}`}
+                          />
+                        )}
+                      </div>
                       <div className="font-mono text-[11px] text-muted-foreground">{b.symbols.map(tickerOf).join(", ")} · {formatDistanceToNow(new Date(b.createdAt), { addSuffix: true })}</div>
                     </div>
                     <div className={cn("col-span-3 text-right font-mono", pctClass(b.totalReturn))}>
@@ -240,7 +262,8 @@ function StudioHome() {
                     <div className="col-span-2 text-right font-mono text-xs text-muted-foreground">{b.sharpe != null ? `Sh ${b.sharpe.toFixed(2)}` : "—"}</div>
                     <div className="col-span-2 text-right font-mono text-xs text-muted-foreground">{b.trades ?? "—"} trd</div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </Card>
@@ -271,9 +294,19 @@ function StudioHome() {
             <div className="divide-y divide-border">
               {topStrategies.slice(0, 10).map((s) => {
                 const st = s.stats;
+                const gTf = graphTimeframe(s.graph);
+                const stale = !!s.headlineBarResolution && !!gTf && gTf !== s.headlineBarResolution;
                 return (
                   <Link key={s.id} to="/studio/strategy/$id" params={{ id: s.id }} className="grid grid-cols-12 items-center gap-2 px-4 py-3 text-sm transition-colors hover:bg-muted/30">
-                    <div className="col-span-3 truncate font-medium">{s.name}</div>
+                    <div className="col-span-3 flex items-center gap-1.5 truncate font-medium">
+                      <span className="truncate">{s.name}</span>
+                      {stale && (
+                        <AlertTriangle
+                          className="size-3 shrink-0 text-amber-500"
+                          aria-label={`Stats from a ${s.headlineBarResolution} run, but graph is now ${gTf}`}
+                        />
+                      )}
+                    </div>
                     <div className="col-span-1"><AssetClassBadge assetClass={s.assetClass} hideIcon /></div>
                     <div className="col-span-2"><StageBadge stage={s.stage} /></div>
                     <div className={cn("col-span-1 text-right font-mono", pctClass(st?.totalReturn))}>{st?.totalReturn != null ? fmtPct(st.totalReturn) : "—"}</div>

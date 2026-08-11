@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import { toast } from "sonner";
-import { deleteUserStrategy, getDevStrategies, isBuiltinStrategy, runBacktest } from "@/lib/api/studio";
+import { deleteUserStrategy, getDevStrategies, graphTimeframe, isBuiltinStrategy, runBacktest } from "@/lib/api/studio";
 import { BacktestRunModal } from "@/components/studio/BacktestRunModal";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import { StageBadge } from "@/components/common/StageBadge";
 import { AssetClassBadge } from "@/components/common/AssetClassBadge";
 import { WhatItDoes } from "@/components/common/WhatItDoes";
 import { formatDistanceToNow } from "date-fns";
-import { Play, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, Play, Plus, Trash2 } from "lucide-react";
 import type { AssetClass, DevStrategy, PipelineStage } from "@/lib/types";
 
 // `?stage=` pre-filters the list (the dashboard status cards link here). An
@@ -126,12 +126,24 @@ function StrategiesList() {
           {list.map((s) => {
             const st = s.stats;
             const ret = st?.totalReturn;
+            const gTf = graphTimeframe(s.graph);
+            // Displayed stats came from a run on a timeframe the graph no longer
+            // declares — the graph (source of truth) was changed since.
+            const stale = !!s.headlineBarResolution && !!gTf && gTf !== s.headlineBarResolution;
             return (
             <div key={s.id} className="grid grid-cols-12 items-center gap-2 px-4 py-3 text-sm">
               <div className="col-span-2 min-w-0">
                 <div className="flex items-center gap-1">
                   <Link to="/studio/strategy/$id" params={{ id: s.id }} className="truncate font-medium hover:text-violet">{s.name}</Link>
                   <WhatItDoes text={s.nlDescription || s.description} />
+                  {stale && (
+                    <span
+                      className="inline-flex shrink-0 items-center gap-0.5 rounded bg-amber-500/15 px-1 py-0.5 text-[10px] font-medium text-amber-500"
+                      title={`Stats are from a ${s.headlineBarResolution} run, but the graph is now ${gTf}. Re-run at ${gTf} to refresh.`}
+                    >
+                      <AlertTriangle className="size-3" /> stale {s.headlineBarResolution}→{gTf}
+                    </span>
+                  )}
                 </div>
                 <div className="text-xs text-muted-foreground line-clamp-1">
                   {s.lastRunAt ? `Last run ${formatDistanceToNow(new Date(s.lastRunAt), { addSuffix: true })}` : (s.description || "Not yet backtested")}

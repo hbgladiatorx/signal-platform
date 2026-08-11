@@ -180,6 +180,8 @@ function userToDev(u: ApiUserStrategy, bts: ApiBacktestSummary[] = []): DevStrat
     graph: u.graph_json ?? { nodes: [], edges: [] },
     sourceCode: u.source_code,
     stats: head ? statsFromBacktest(head) : undefined,
+    headlineBarResolution: head?.bar_resolution
+      ? normalizeBarResolution(head.bar_resolution) : undefined,
     versions: [{ id: "v1", createdAt: u.created_at, note: "Saved" }],
   };
 }
@@ -650,6 +652,7 @@ export interface RecentBacktest {
   symbols: string[];
   status: string;
   createdAt: string;
+  barResolution?: string; // normalized timeframe this run executed on
   totalReturn?: number; // fraction
   sharpe?: number;
   profitFactor?: number;
@@ -665,6 +668,7 @@ export async function getRecentBacktests(limit = 12): Promise<RecentBacktest[]> 
     symbols: b.symbols,
     status: b.status,
     createdAt: b.created_at,
+    barResolution: b.bar_resolution ? normalizeBarResolution(b.bar_resolution) : undefined,
     totalReturn: b.total_return_pct == null ? undefined : b.total_return_pct / 100,
     sharpe: b.sharpe_ratio ?? undefined,
     profitFactor: b.profit_factor ?? undefined,
@@ -775,6 +779,14 @@ export function normalizeBarResolution(tf?: string): string {
   const t = (tf ?? "").trim().toLowerCase();
   if ((BAR_RESOLUTIONS as readonly string[]).includes(t)) return t;
   return BAR_ALIASES[t] ?? "1h";
+}
+
+// The timeframe the graph declares on its `price` node — the source of truth for
+// what a strategy runs on. Empty string when the graph doesn't say (built-in or
+// code-only strategies), so callers can treat "unknown" as "not stale".
+export function graphTimeframe(graph?: StrategyGraph | null): string {
+  const tf = graph?.nodes?.find((n) => n.type === "price")?.data?.timeframe;
+  return typeof tf === "string" && tf ? normalizeBarResolution(tf) : "";
 }
 
 export async function runBacktest(

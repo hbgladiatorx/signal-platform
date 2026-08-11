@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
-import { getBacktestsForStrategy, getBacktest, getDevStrategy, deleteBacktest, cloneBacktest, submitStrategyToBayn, deployStrategyLive, runBacktest, saveStrategyGraph, certifyBacktest, getCertReportHtml, skipForwardTest, normalizeBarResolution, type CertResult } from "@/lib/api/studio";
+import { getBacktestsForStrategy, getBacktest, getDevStrategy, deleteBacktest, cloneBacktest, submitStrategyToBayn, deployStrategyLive, runBacktest, saveStrategyGraph, certifyBacktest, getCertReportHtml, skipForwardTest, normalizeBarResolution, graphTimeframe, type CertResult } from "@/lib/api/studio";
 import type { StrategyGraph } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -237,10 +237,7 @@ function BacktestDetail() {
   // Is this run's timeframe out of sync with the graph (the source of truth)?
   // If the user changed the canvas timeframe after this run, the shown results
   // are stale — surface that and offer a one-click re-run at the graph's tf.
-  const graphPriceTf = (strategy.graph?.nodes as { type?: string; data?: { timeframe?: unknown } }[] | undefined)
-    ?.find((n) => n.type === "price")?.data?.timeframe;
-  const graphTf = typeof graphPriceTf === "string" && graphPriceTf
-    ? normalizeBarResolution(graphPriceTf) : "";
+  const graphTf = graphTimeframe(strategy.graph);
   const runTf = run.barResolution ? normalizeBarResolution(run.barResolution) : "";
   const timeframeStale = !!graphTf && !!runTf && graphTf !== runTf;
 
