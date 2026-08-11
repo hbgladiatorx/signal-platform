@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
-import { getBacktestsForStrategy, getBacktest, getDevStrategy, deleteBacktest, cloneBacktest, submitStrategyToBayn, deployStrategyLive, runBacktest, saveStrategyGraph, certifyBacktest, getCertReportHtml, skipForwardTest, type CertResult } from "@/lib/api/studio";
+import { getBacktestsForStrategy, getBacktest, getDevStrategy, deleteBacktest, cloneBacktest, submitStrategyToBayn, deployStrategyLive, runBacktest, saveStrategyGraph, certifyBacktest, getCertReportHtml, skipForwardTest, normalizeBarResolution, type CertResult } from "@/lib/api/studio";
 import type { StrategyGraph } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell,
   Line, LineChart,
 } from "recharts";
-import { ArrowLeft, Rocket, Send, CheckCircle2, ArrowRight, Activity, Sparkles, ShieldCheck, Copy, Trash2 } from "lucide-react";
+import { ArrowLeft, Rocket, Send, CheckCircle2, ArrowRight, Activity, Sparkles, ShieldCheck, Copy, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { advanceStage, getStage, nextStage, STAGE_ORDER } from "@/lib/strategy-stage";
@@ -183,6 +183,7 @@ function BacktestDetail() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [cloning, setCloning] = useState(false);
+  const [reRunning, setReRunning] = useState(false);
 
   // When OOS doesn't cleanly pass (negative return, or too few trades to judge)
   // we don't dead-end — we open this gate so the user can continue regardless.
@@ -232,6 +233,35 @@ function BacktestDetail() {
   if (!run) return <div className="p-6 text-muted-foreground">No backtest runs yet.</div>;
 
   const stats = run.stats;
+
+  // Is this run's timeframe out of sync with the graph (the source of truth)?
+  // If the user changed the canvas timeframe after this run, the shown results
+  // are stale — surface that and offer a one-click re-run at the graph's tf.
+  const graphPriceTf = (strategy.graph?.nodes as { type?: string; data?: { timeframe?: unknown } }[] | undefined)
+    ?.find((n) => n.type === "price")?.data?.timeframe;
+  const graphTf = typeof graphPriceTf === "string" && graphPriceTf
+    ? normalizeBarResolution(graphPriceTf) : "";
+  const runTf = run.barResolution ? normalizeBarResolution(run.barResolution) : "";
+  const timeframeStale = !!graphTf && !!runTf && graphTf !== runTf;
+
+  const onReRunAtGraphTf = async () => {
+    setReRunning(true);
+    toast.loading(`Re-running this backtest at ${graphTf}…`, { id: "retf" });
+    try {
+      const r = await runBacktest(strategyId, {
+        ...run.params,
+        symbols: run.symbols && run.symbols.length ? run.symbols : undefined,
+        barResolution: undefined, // follow the graph
+      });
+      await qc.invalidateQueries({ queryKey: ["bts", strategyId] });
+      toast.success(`Re-run at ${graphTf} · ${fmtPct(r.stats.totalReturn)}`, { id: "retf" });
+      navigate({ to: "/studio/backtests/$strategyId", params: { strategyId }, search: { runId: r.id } as never });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Re-run failed", { id: "retf" });
+    } finally {
+      setReRunning(false);
+    }
+  };
 
   const onDeleteRun = async () => {
     setDeleting(true);
@@ -304,7 +334,10 @@ function BacktestDetail() {
         const r = await runBacktest(strategyId, {
           ...run.params,
           symbols: run.symbols && run.symbols.length ? run.symbols : undefined,
-          barResolution: run.barResolution,
+          // Follow the graph (source of truth) for the timeframe, not this run's
+          // stored one — otherwise an OOS test of a 1d run against a graph since
+          // changed to 15m is rejected by the backend's timeframe guard.
+          barResolution: undefined,
           windowStart: oosStartIso,
           windowEnd: oosEndIso,
         });
@@ -387,8 +420,11 @@ function BacktestDetail() {
         </Select>
         {/* A completed run is immutable: "editing" it means re-running the same
             config as a new run. */}
-        <Button size="sm" variant="outline" className="gap-1.5" disabled={cloning} onClick={onCloneRun}>
-          <Copy className="size-3.5" /> {cloning ? "Re-running…" : "Re-run"}
+        {/* On a stale run an exact clone would 422 against the graph's timeframe,
+            so re-run at the graph tf instead. */}
+        <Button size="sm" variant="outline" className="gap-1.5" disabled={cloning || reRunning}
+          onClick={timeframeStale ? onReRunAtGraphTf : onCloneRun}>
+          <Copy className="size-3.5" /> {(cloning || reRunning) ? "Re-running…" : timeframeStale ? `Re-run at ${graphTf}` : "Re-run"}
         </Button>
         {confirmDelete ? (
           <div className="flex items-center gap-1">
@@ -403,6 +439,24 @@ function BacktestDetail() {
           </Button>
         )}
       </div>
+
+      {/* Stale-timeframe notice: this run's tf differs from the graph (source of
+          truth). Results are out of date; OOS/re-backtest now follow the graph. */}
+      {timeframeStale && (
+        <Card className="flex flex-wrap items-center gap-3 border-amber-500/30 bg-amber-500/10 p-3 text-sm">
+          <AlertTriangle className="size-4 shrink-0 text-amber-500" />
+          <span className="flex-1">
+            This backtest ran on <span className="font-mono font-medium">{runTf}</span>, but the
+            strategy's graph is now set to <span className="font-mono font-medium">{graphTf}</span>.
+            These results are stale — re-run at <span className="font-mono">{graphTf}</span> to keep
+            them in sync (the graph is the source of truth). OOS and re-backtests already use{" "}
+            <span className="font-mono">{graphTf}</span>.
+          </span>
+          <Button size="sm" variant="outline" className="gap-1.5" disabled={reRunning} onClick={onReRunAtGraphTf}>
+            <Copy className="size-3.5" /> {reRunning ? "Re-running…" : `Re-run at ${graphTf}`}
+          </Button>
+        </Card>
+      )}
 
       {/* Validation pipeline stepper */}
       <Card className="border-violet/20 bg-elevated p-4">
@@ -478,7 +532,8 @@ function BacktestDetail() {
                 const r = await runBacktest(strategyId, {
                   ...run.params,
                   symbols: run.symbols && run.symbols.length ? run.symbols : undefined,
-                  barResolution: run.barResolution,
+                  // Follow the just-patched graph's timeframe (source of truth).
+                  barResolution: undefined,
                 });
                 toast.success(`Re-backtest done · ${fmtPct(r.stats.totalReturn)}`, { id: "tweak" });
                 await qc.invalidateQueries({ queryKey: ["bts", strategyId] });
