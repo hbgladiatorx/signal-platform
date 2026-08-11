@@ -19,6 +19,9 @@ export interface PaperSessionSummary {
   realized_pnl: number | string | null;
   num_orders: number;
   num_fills: number;
+  // Present on the session DETAIL response (GET /paper-sessions/{id}); the
+  // baseline a paper session starts with, used to seed the equity display.
+  starting_cash?: number | string | null;
 }
 
 export interface CreatePaperSessionInput {

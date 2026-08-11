@@ -6,7 +6,10 @@ import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Activity, ShieldAlert, ShieldCheck, Square, CircleStop } from "lucide-react";
+import { Activity, ShieldAlert, ShieldCheck, Square, CircleStop, Info } from "lucide-react";
+import {
+  Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
+} from "recharts";
 import {
   listSessions, getSession, getSessionOrders, getSessionPositions, getSessionEquity,
   stopSession, flattenSession, getKillSwitch, engageKillSwitch, disengageKillSwitch,
@@ -117,8 +120,20 @@ function SessionDetail({ id }: { id: string }) {
     catch (e) { toast.error(e instanceof Error ? e.message : "Action failed"); }
   };
 
+  const equitySeries = (equity ?? []).map((e) => ({ ts: e.ts, equity: n(e.total_equity) }));
   const last = equity?.length ? equity[equity.length - 1] : undefined;
+  const startCash = s?.starting_cash != null ? n(s.starting_cash) : undefined;
+  // Fall back to current_equity, then the session's starting cash, so a freshly
+  // started paper session shows its baseline instead of a bare "—".
+  const equityValue = last
+    ? n(last.total_equity)
+    : s?.current_equity != null
+      ? n(s.current_equity)
+      : startCash;
   const isRunning = s?.status === "running";
+  const isCrypto = (s?.asset_class ?? "").toLowerCase().includes("crypto");
+  // Running, but nothing has happened yet — the state that looks "stuck".
+  const idle = isRunning && (s?.num_fills ?? 0) === 0 && equitySeries.length === 0;
 
   return (
     <div className="space-y-4">
@@ -144,11 +159,62 @@ function SessionDetail({ id }: { id: string }) {
           )}
         </div>
         <div className="mt-3 grid grid-cols-2 gap-3 border-t border-border pt-3 sm:grid-cols-4">
-          <Stat label="Equity" value={last ? money(last.total_equity) : s?.current_equity != null ? money(s.current_equity) : "—"} />
-          <Stat label="Realized P&L" value={s?.realized_pnl != null ? money(s.realized_pnl) : "—"} />
+          <Stat label="Equity" value={equityValue != null ? money(equityValue) : "—"} />
+          <Stat label="Realized P&L" value={s?.realized_pnl != null ? money(s.realized_pnl) : isRunning ? money(0) : "—"} />
           <Stat label="Orders" value={String(s?.num_orders ?? 0)} />
           <Stat label="Fills" value={String(s?.num_fills ?? 0)} />
         </div>
+        {idle && (
+          <div className="mt-3 flex items-start gap-2 rounded-md border border-border bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+            <Info className="mt-0.5 size-3.5 shrink-0" />
+            <span>
+              {isCrypto
+                ? "Session is live but hasn't traded yet — it acts on the strategy's next signal. Equity, orders and fills update automatically."
+                : "This strategy trades during US market hours (9:30am–4:00pm ET, Mon–Fri). While the market is closed the session stays running but idle — equity, orders and fills update once it reopens."}
+            </span>
+          </div>
+        )}
+      </Card>
+
+      {/* Equity curve */}
+      <Card className="border-border bg-elevated p-4">
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Equity curve</h3>
+          {startCash != null && (
+            <span className="text-xs text-muted-foreground">Started at {money(startCash)}</span>
+          )}
+        </div>
+        {equitySeries.length > 0 ? (
+          <div className="h-56">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={equitySeries}>
+                <defs>
+                  <linearGradient id="liveEq" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--violet)" stopOpacity={0.4} />
+                    <stop offset="100%" stopColor="var(--violet)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke="oklch(1 0 0 / 8%)" vertical={false} />
+                <XAxis dataKey="ts" tickFormatter={(v) => new Date(v).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} minTickGap={40} />
+                <YAxis domain={["auto", "auto"]} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(1)}k`} width={52} />
+                <Tooltip contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }} labelFormatter={(v) => new Date(v as string).toLocaleString()} formatter={(v) => [money(v), "Equity"]} />
+                <Area type="monotone" dataKey="equity" stroke="var(--violet)" strokeWidth={2} fill="url(#liveEq)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <div className="flex h-40 flex-col items-center justify-center gap-1 text-center">
+            <Info className="size-5 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">No equity history yet.</p>
+            <p className="max-w-md text-xs text-muted-foreground">
+              {idle
+                ? isCrypto
+                  ? "The session is live but hasn't traded yet — the curve starts plotting on the first snapshot."
+                  : "The market is likely closed. The curve starts plotting once the session takes its first snapshot during US market hours."
+                : "The equity curve will appear once the session records its first snapshot."}
+            </p>
+          </div>
+        )}
       </Card>
 
       <Card className="border-border bg-elevated p-4">
