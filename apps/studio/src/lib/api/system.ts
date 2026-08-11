@@ -87,3 +87,22 @@ export interface ConnectionsStatus {
 
 /** Which platform integrations are configured on the server (booleans only). */
 export const getConnections = () => api.get<ConnectionsStatus>("/system/connections");
+
+// ---- Live resource metrics (floating health widget) ----------------------
+
+export interface SystemMetrics {
+  ts: number;
+  cpu_percent: number;
+  cpu_cores: number;
+  load_avg: number[] | null;
+  mem_used: number;
+  mem_total: number;
+  mem_percent: number;
+  disk_used: number;
+  disk_total: number;
+  disk_percent: number;
+  net_bytes_sent: number;
+  net_bytes_recv: number;
+}
+
+export const getSystemMetrics = () => api.get<SystemMetrics>("/system/metrics");

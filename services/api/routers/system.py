@@ -352,3 +352,53 @@ async def connections(_user=Depends(get_current_user)) -> dict[str, bool]:
         "trading_binanceus": has("BINANCEUS_API_KEY", "BINANCEUS_API_SECRET"),
         "key_encryption": has("SETTINGS_ENCRYPTION_KEY"),
     }
+
+
+# ============================================================
+# Live resource metrics (for the floating health widget)
+# ============================================================
+class SystemMetrics(BaseModel):
+    ts: float
+    cpu_percent: float
+    cpu_cores: int
+    load_avg: list[float] | None = None
+    mem_used: int
+    mem_total: int
+    mem_percent: float
+    disk_used: int
+    disk_total: int
+    disk_percent: float
+    # Cumulative counters — the client derives a rate from successive polls.
+    net_bytes_sent: int
+    net_bytes_recv: int
+
+
+@router.get("/metrics", response_model=SystemMetrics)
+async def system_metrics(_user=Depends(get_current_user)) -> SystemMetrics:
+    """Host resource usage (CPU / memory / disk / network) for the live health
+    widget. psutil reads the host's /proc, so CPU + memory reflect the whole
+    machine — a backtest running in the worker shows up here. Cheap and
+    non-blocking (cpu_percent(interval=None) reports usage since the last call)."""
+    import psutil
+
+    vm = psutil.virtual_memory()
+    du = psutil.disk_usage("/")
+    net = psutil.net_io_counters()
+    try:
+        load = list(os.getloadavg())
+    except (OSError, AttributeError):
+        load = None
+    return SystemMetrics(
+        ts=time.time(),
+        cpu_percent=psutil.cpu_percent(interval=None),
+        cpu_cores=psutil.cpu_count() or 1,
+        load_avg=load,
+        mem_used=int(vm.used),
+        mem_total=int(vm.total),
+        mem_percent=float(vm.percent),
+        disk_used=int(du.used),
+        disk_total=int(du.total),
+        disk_percent=float(du.percent),
+        net_bytes_sent=int(net.bytes_sent),
+        net_bytes_recv=int(net.bytes_recv),
+    )
