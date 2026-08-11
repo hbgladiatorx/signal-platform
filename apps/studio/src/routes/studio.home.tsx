@@ -1,14 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
-import { getDevStrategies, getRecentBacktests, graphTimeframe } from "@/lib/api/studio";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
+import { getDevStrategies, getRecentBacktests, graphTimeframe, deleteBacktest } from "@/lib/api/studio";
 import { listSessions } from "@/lib/api/sessions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StageBadge } from "@/components/common/StageBadge";
 import { AssetClassBadge } from "@/components/common/AssetClassBadge";
 import { formatDistanceToNow } from "date-fns";
-import { Plus, Layers, FlaskConical, Activity, Inbox, TrendingUp, Trophy, PencilRuler, Rocket, Send, AlertTriangle } from "lucide-react";
+import { Plus, Layers, FlaskConical, Activity, Inbox, TrendingUp, Trophy, PencilRuler, Rocket, Send, AlertTriangle, Trash2 } from "lucide-react";
 import { CustomizeButton } from "@/components/common/CustomizeButton";
 import { cn } from "@/lib/utils";
 import type { PipelineStage } from "@/lib/types";
@@ -40,6 +41,7 @@ const pctClass = (v?: number) =>
 const tickerOf = (sym: string) => sym.split("@")[0];
 
 function StudioHome() {
+  const qc = useQueryClient();
   const strategies = useQuery({ queryKey: ["devStrategies"], queryFn: getDevStrategies });
   const backtests = useQuery({ queryKey: ["recentBacktests", 12], queryFn: () => getRecentBacktests(12) });
   const sessions = useQuery({ queryKey: ["sessions"], queryFn: listSessions, refetchInterval: 15000 });
@@ -47,6 +49,29 @@ function StudioHome() {
   const list = strategies.data ?? [];
   const runs = backtests.data ?? [];
   const sess = sessions.data ?? [];
+
+  // A run is "orphaned" when its strategy is no longer one of your active
+  // strategies (deleted, or a built-in) — so it's stranded on this per-run panel
+  // with no per-strategy page to manage it. Offer an inline delete for those.
+  const activeStrategyNames = useMemo(
+    () => new Set(list.map((s) => s.name)),
+    [list],
+  );
+  const [confirmDelId, setConfirmDelId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const onDeleteRun = async (id: string) => {
+    setDeletingId(id);
+    try {
+      await deleteBacktest(id);
+      await qc.invalidateQueries({ queryKey: ["recentBacktests", 12] });
+      toast.success("Backtest deleted");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't delete that backtest");
+    } finally {
+      setDeletingId(null);
+      setConfirmDelId(null);
+    }
+  };
 
   // "Recent backtests" shows only meaningful runs — completed with at least one
   // closed trade — so 0-trade and errored/failed runs don't clutter the panel.
@@ -242,8 +267,11 @@ function StudioHome() {
                 {meaningfulRuns.slice(0, 6).map((b) => {
                   const gTf = graphTfByName.get(b.strategyName);
                   const stale = !!b.barResolution && !!gTf && gTf !== b.barResolution;
+                  // Orphan = its strategy isn't one of your active strategies, so
+                  // it can't be managed from the per-strategy "View all" page.
+                  const orphan = !activeStrategyNames.has(b.strategyName);
                   return (
-                  <div key={b.id} className="grid grid-cols-12 items-center gap-2 px-4 py-3 text-sm">
+                  <div key={b.id} className="group relative grid grid-cols-12 items-center gap-2 px-4 py-3 text-sm">
                     <div className="col-span-5 truncate">
                       <div className="flex items-center gap-1.5">
                         <span className="truncate font-medium">{b.strategyName}</span>
@@ -253,6 +281,11 @@ function StudioHome() {
                             aria-label={`Stale: ran on ${b.barResolution}, graph is now ${gTf}`}
                           />
                         )}
+                        {orphan && (
+                          <span className="shrink-0 rounded bg-muted px-1 py-0.5 text-[10px] text-muted-foreground" title="This strategy was deleted or is a built-in — its runs only appear here.">
+                            deleted
+                          </span>
+                        )}
                       </div>
                       <div className="font-mono text-[11px] text-muted-foreground">{b.symbols.map(tickerOf).join(", ")} · {formatDistanceToNow(new Date(b.createdAt), { addSuffix: true })}</div>
                     </div>
@@ -261,6 +294,26 @@ function StudioHome() {
                     </div>
                     <div className="col-span-2 text-right font-mono text-xs text-muted-foreground">{b.sharpe != null ? `Sh ${b.sharpe.toFixed(2)}` : "—"}</div>
                     <div className="col-span-2 text-right font-mono text-xs text-muted-foreground">{b.trades ?? "—"} trd</div>
+                    {/* Delete affordance for orphaned runs — the only place they
+                        can be removed from the UI. Two-step confirm. */}
+                    {orphan && (
+                      confirmDelId === b.id ? (
+                        <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-md border border-border bg-elevated px-1.5 py-1 shadow-sm">
+                          <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px] text-danger hover:text-danger"
+                            disabled={deletingId === b.id} onClick={() => onDeleteRun(b.id)}>
+                            {deletingId === b.id ? "Deleting…" : "Delete run"}
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => setConfirmDelId(null)}>Cancel</Button>
+                        </div>
+                      ) : (
+                        <Button size="icon" variant="ghost"
+                          className="absolute right-2 top-1/2 size-7 -translate-y-1/2 bg-elevated text-muted-foreground opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
+                          title="Delete this orphaned run" aria-label="Delete orphaned run"
+                          onClick={() => setConfirmDelId(b.id)}>
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      )
+                    )}
                   </div>
                   );
                 })}

@@ -30,6 +30,9 @@ COPY migrations ./migrations
 # referee/ is the certification engine; the /referee API router imports it, so it
 # must be in the image (it was previously CLI-only and uncopied).
 COPY referee ./referee
+# scripts/ holds one-off management commands run via `docker compose exec api
+# python -m scripts.<name>` (e.g. cleanup_orphan_backtests).
+COPY scripts ./scripts
 
 # Ensure imports work from any subdirectory
 ENV PYTHONPATH=/app
