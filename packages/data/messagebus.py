@@ -76,7 +76,19 @@ class RedisStreamsBus:
 
     async def _get_client(self) -> redis.Redis:
         if self._client is None:
-            self._client = redis.from_url(self.url, decode_responses=False)
+            # socket_timeout must exceed the longest blocking read on this client
+            # (brpop timeout=5s in the paper control loop; xreadgroup block=1s in
+            # consumers) so those blocks return cleanly instead of racing the
+            # socket read into a TimeoutError — which otherwise forces error+sleep
+            # retries and delays control commands (e.g. session start) and stream
+            # consumption. Keepalive + health checks keep pooled connections fresh.
+            self._client = redis.from_url(
+                self.url,
+                decode_responses=False,
+                socket_timeout=30,
+                socket_keepalive=True,
+                health_check_interval=30,
+            )
         return self._client
 
     async def publish(self, stream: str, payload: dict[str, Any]) -> str:

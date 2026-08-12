@@ -89,7 +89,16 @@ async def _get_redis() -> redis.Redis:
     global _redis_client
     if _redis_client is None:
         url = os.environ.get("REDIS_URL", "redis://redis:6379/0")
-        _redis_client = redis.from_url(url, decode_responses=True)
+        # Bounded timeouts so a briefly-slow Redis surfaces as a fast, clean error
+        # instead of hanging the HTTP request until the browser times out
+        # ("server timed out"). Enqueue (LPUSH) is non-blocking, so 5s is ample.
+        _redis_client = redis.from_url(
+            url,
+            decode_responses=True,
+            socket_timeout=5,
+            socket_connect_timeout=5,
+            health_check_interval=30,
+        )
     return _redis_client
 
 
