@@ -185,6 +185,25 @@ function BacktestDetail() {
   const [cloning, setCloning] = useState(false);
   const [reRunning, setReRunning] = useState(false);
 
+  // OOS holdout config — chosen per run, persisted. Percent of the covered
+  // window, or a fixed recent duration in days.
+  const [oosMode, setOosMode] = useState<"pct" | "days">(
+    () => (localStorage.getItem("studio.oosMode") as "pct" | "days") || "pct",
+  );
+  const [oosPct, setOosPct] = useState<number>(
+    () => Number(localStorage.getItem("studio.oosPct")) || 30,
+  );
+  const [oosDays, setOosDays] = useState<number>(
+    () => Number(localStorage.getItem("studio.oosDays")) || 90,
+  );
+  useEffect(() => {
+    try {
+      localStorage.setItem("studio.oosMode", oosMode);
+      localStorage.setItem("studio.oosPct", String(oosPct));
+      localStorage.setItem("studio.oosDays", String(oosDays));
+    } catch { /* ignore */ }
+  }, [oosMode, oosPct, oosDays]);
+
   // When OOS doesn't cleanly pass (negative return, or too few trades to judge)
   // we don't dead-end — we open this gate so the user can continue regardless.
   const [oosGate, setOosGate] = useState<
@@ -320,9 +339,15 @@ function BacktestDetail() {
         toast.error("Run a completed backtest with trades over a real time window first — there's nothing to hold out yet.");
         return;
       }
-      // Hold out the most recent 30% of the covered window, as full ISO instants
-      // (so intraday windows survive); the backend parses them as UTC.
-      const oosStartIso = new Date(hi - Math.floor(span * 0.3)).toISOString();
+      // Hold out the most recent slice of the covered window per the user's
+      // choice — a percentage of the span, or a fixed number of days (clamped so
+      // it never exceeds the available span). Full ISO instants so intraday
+      // windows survive; the backend parses them as UTC.
+      const holdoutMs =
+        oosMode === "days"
+          ? Math.min(oosDays * 86_400_000, span)
+          : span * (Math.min(90, Math.max(5, oosPct)) / 100);
+      const oosStartIso = new Date(hi - Math.floor(holdoutMs)).toISOString();
       const oosEndIso = new Date(hi).toISOString();
       const oosStart = oosStartIso.slice(0, 10);
       const oosEnd = oosEndIso.slice(0, 10);
@@ -470,6 +495,29 @@ function BacktestDetail() {
                 onClick={onSkipForward}>
                 Skip forward testing
               </Button>
+            )}
+            {/* OOS holdout — pick per run: a % of the covered window or a fixed
+                number of recent days. Shown when the OOS test is the next step. */}
+            {stage === "backtested" && (
+              <div className="flex items-center gap-1 rounded-md border border-border bg-background/40 px-1.5 py-1 text-xs" title="How much of the tested window to hold out for the out-of-sample test">
+                <span className="text-muted-foreground">OOS holdout</span>
+                <input
+                  type="number"
+                  min={oosMode === "pct" ? 5 : 1}
+                  max={oosMode === "pct" ? 90 : 3650}
+                  value={oosMode === "pct" ? oosPct : oosDays}
+                  onChange={(e) =>
+                    oosMode === "pct"
+                      ? setOosPct(Number(e.target.value))
+                      : setOosDays(Number(e.target.value))
+                  }
+                  className="w-14 rounded border border-border bg-background px-1 py-0.5 text-right font-mono"
+                />
+                <div className="flex overflow-hidden rounded border border-border">
+                  <button type="button" className={cn("px-1.5 py-0.5", oosMode === "pct" ? "bg-violet/20 text-violet" : "text-muted-foreground")} onClick={() => setOosMode("pct")}>%</button>
+                  <button type="button" className={cn("px-1.5 py-0.5", oosMode === "days" ? "bg-violet/20 text-violet" : "text-muted-foreground")} onClick={() => setOosMode("days")}>days</button>
+                </div>
+              </div>
             )}
             {next && (
               <Button size="sm" className="bg-violet text-violet-foreground hover:bg-violet/90"

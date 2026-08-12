@@ -28,6 +28,22 @@ export interface RunParams {
 // "SPY@ALPACA" → "SPY" and "BTC-USDT@BINANCEUS" → "BTC-USDT". Users pick by this.
 const tickerOf = (canonical: string) => canonical.split("@")[0];
 
+// YYYY-MM-DD for `days` ago (browser-local). Used for the lookback presets.
+const isoDaysAgo = (days: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+};
+const isoToday = () => new Date().toISOString().slice(0, 10);
+// Quick backtest-period presets → how far back the in-sample window starts.
+const PERIOD_PRESETS: Array<{ label: string; days: number }> = [
+  { label: "1Y", days: 365 },
+  { label: "2Y", days: 365 * 2 },
+  { label: "3Y", days: 365 * 3 },
+  { label: "5Y", days: 365 * 5 },
+  { label: "Max", days: 365 * 10 },
+];
+
 // Sensible default pick per asset class (used when the universe loads).
 function defaultSymbol(assetClass: AssetClass, symbols: string[]): string | undefined {
   if (!symbols.length) return undefined;
@@ -53,13 +69,15 @@ export function BacktestRunModal({
 }) {
   const [running, setRunning] = useState(false);
   const [params, setParams] = useState({
-    startDate: "2023-01-01",
-    endDate: "2024-12-31",
+    startDate: isoDaysAgo(365 * 2), // default: last 2 years, ending today
+    endDate: isoToday(),
     capital: 25000,
     commissionBps: 5,
     slippageBps: 3,
     commissionModel: "per_share",
   });
+  const applyPreset = (days: number) =>
+    setParams((p) => ({ ...p, startDate: isoDaysAgo(days), endDate: isoToday() }));
 
   // The class the symbol list is drawn from. Defaults to the strategy's class;
   // editable when allowAssetSwitch.
@@ -219,6 +237,17 @@ export function BacktestRunModal({
               </ScrollArea>
             </div>
           )}
+        </div>
+
+        {/* Backtest period presets — quick "how far back" for the in-sample window. */}
+        <div className="flex items-center gap-1.5 pt-1">
+          <Label className="mr-1 text-xs text-muted-foreground">Period</Label>
+          {PERIOD_PRESETS.map((p) => (
+            <Button key={p.label} type="button" size="sm" variant="outline" className="h-7 px-2 text-xs"
+              onClick={() => applyPreset(p.days)}>
+              {p.label}
+            </Button>
+          ))}
         </div>
 
         {/* Simulation params */}
