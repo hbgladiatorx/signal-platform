@@ -157,6 +157,16 @@ export function AnalysisCard({
         ))}
       </div>
 
+      {/* No narrative yet — tell the user how to get it auto-generated. */}
+      {!narrative && !loading && (
+        <p className="mt-3 rounded-md border border-border bg-background/40 p-2.5 text-xs text-muted-foreground">
+          <Sparkles className="mr-1 inline size-3 text-violet" />
+          Connect an AI provider under <strong>Settings → AI copilot</strong> and
+          every backtest with trades gets a plain-English explanation here
+          automatically — or click <strong>Explain with AI</strong> to generate one now.
+        </p>
+      )}
+
       {/* LLM narrative (once generated) */}
       {narrative && (
         <div className="mt-3 rounded-md border border-violet/20 bg-violet/5 p-3">
