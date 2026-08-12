@@ -482,7 +482,17 @@ async def _process_walkforward_job(
 
 # ============================================================
 async def main_loop() -> None:
-    redis_client: redis.Redis = redis.from_url(REDIS_URL, decode_responses=True)
+    # socket_timeout comfortably exceeds the BRPOP block so an idle (empty-queue)
+    # poll returns cleanly instead of racing the socket read into a timeout — the
+    # source of the noisy "brpop_error" spam. Keepalive + health checks keep the
+    # blocking connection fresh.
+    redis_client: redis.Redis = redis.from_url(
+        REDIS_URL,
+        decode_responses=True,
+        socket_timeout=POP_TIMEOUT_S + 15,
+        socket_keepalive=True,
+        health_check_interval=30,
+    )
     engine: AsyncEngine = get_engine()
 
     strategies_cache: dict[str, Type[Strategy]] = discover_strategies(STRATEGIES_DIR)
@@ -532,6 +542,10 @@ async def main_loop() -> None:
                 [QUEUE_WALKFORWARD_JOBS, QUEUE_BACKTEST_JOBS],
                 timeout=POP_TIMEOUT_S,
             )
+        except redis.TimeoutError:
+            # Idle empty-queue poll racing the socket read — expected, not an
+            # error. Loop and check shutdown_event again (no backoff needed).
+            continue
         except Exception as e:
             log.error("backtest_worker.brpop_error", err=str(e))
             await asyncio.sleep(1.0)
