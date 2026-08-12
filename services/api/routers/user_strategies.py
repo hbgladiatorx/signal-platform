@@ -21,6 +21,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from packages.data.user_strategies import (
@@ -201,19 +202,29 @@ async def create_endpoint(
     assert result.class_name is not None
     assert result.params_schema is not None
 
-    new_id = await create_user_strategy(
-        session,
-        user_id=user.id,
-        org_id=user.org_id,
-        name=req.name,
-        description=req.description,
-        nl_description=req.nl_description,
-        class_name=result.class_name,
-        source_code=req.source_code,
-        params_schema=result.params_schema,
-        graph_json=req.graph_json,
-        asset_class=req.asset_class,
-    )
+    try:
+        new_id = await create_user_strategy(
+            session,
+            user_id=user.id,
+            org_id=user.org_id,
+            name=req.name,
+            description=req.description,
+            nl_description=req.nl_description,
+            class_name=result.class_name,
+            source_code=req.source_code,
+            params_schema=result.params_schema,
+            graph_json=req.graph_json,
+            asset_class=req.asset_class,
+        )
+    except IntegrityError:
+        # Name collides with an existing active strategy (raced past the pre-check,
+        # or before the partial-unique migration, a soft-deleted one). Clean 409
+        # instead of a 500.
+        await session.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail={"msg": f"You already have a strategy named '{req.name}'."},
+        )
 
     return CreateUserStrategyResponse(
         id=new_id,
