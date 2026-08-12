@@ -49,6 +49,35 @@ async def delete_backtest_endpoint(
     await session.commit()
 
 
+@router.delete("/paper-sessions/{session_id}", status_code=204)
+async def delete_paper_session_endpoint(
+    session_id: UUID,
+    session: AsyncSession = Depends(get_db_session),
+    user: Any = Depends(get_current_user_record),
+) -> None:
+    """Delete a paper/live session you own. It must be stopped first — deleting a
+    running session's row out from under the worker is what creates ghost
+    sessions. Cascades to its orders, fills, positions and equity points."""
+    row = (
+        await session.execute(
+            text("SELECT user_id, status FROM paper_sessions WHERE id = :id"),
+            {"id": session_id},
+        )
+    ).first()
+    if row is None or str(row[0]) != str(user.id):
+        # 404 (not 403) so we don't reveal another user's session exists.
+        raise HTTPException(status_code=404, detail="Session not found")
+    if str(row[1]) in {"running", "starting", "stopping"}:
+        raise HTTPException(
+            status_code=409, detail="Stop the session before deleting it."
+        )
+    await session.execute(
+        text("DELETE FROM paper_sessions WHERE id = :id AND user_id = :uid"),
+        {"id": session_id, "uid": user.id},
+    )
+    await session.commit()
+
+
 @router.delete("/walkforwards/{walkforward_id}", status_code=204)
 async def delete_walkforward_endpoint(
     walkforward_id: UUID,

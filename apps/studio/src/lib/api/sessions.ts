@@ -117,6 +117,11 @@ export const stopSession = (id: string) =>
 export const flattenSession = (id: string) =>
   api.post<void>(`/paper-sessions/${id}/flatten`);
 
+// Delete a stopped session (cascades to its orders/fills/positions/equity).
+// The API rejects deleting a running session — stop it first.
+export const deleteSession = (id: string) =>
+  api.del<void>(`/paper-sessions/${id}`);
+
 // ---------- kill switch ----------
 // Platform-wide pause on live (real-money) order submission. Paper sessions
 // are unaffected. Engaging/disengaging take no body.

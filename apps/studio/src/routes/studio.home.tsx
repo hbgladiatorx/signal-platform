@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { getDevStrategies, getRecentBacktests, graphTimeframe, deleteBacktest, getBuiltinStrategyNames, deleteUserStrategy, builtinStrategyId } from "@/lib/api/studio";
-import { listSessions } from "@/lib/api/sessions";
+import { listSessions, deleteSession } from "@/lib/api/sessions";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StageBadge } from "@/components/common/StageBadge";
@@ -88,6 +88,23 @@ function StudioHome() {
     } finally {
       setDeletingId(null);
       setConfirmDelId(null);
+    }
+  };
+
+  // Delete a stopped session (from the Live & paper rows).
+  const [confirmSessId, setConfirmSessId] = useState<string | null>(null);
+  const [deletingSessId, setDeletingSessId] = useState<string | null>(null);
+  const onDeleteSession = async (id: string) => {
+    setDeletingSessId(id);
+    try {
+      await deleteSession(id);
+      await qc.invalidateQueries({ queryKey: ["sessions"] });
+      toast.success("Session deleted");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't delete that session");
+    } finally {
+      setDeletingSessId(null);
+      setConfirmSessId(null);
     }
   };
 
@@ -267,7 +284,7 @@ function StudioHome() {
                       key={s.id}
                       to="/studio/live"
                       search={{ id: s.id }}
-                      className="grid grid-cols-12 items-center gap-2 px-4 py-3 text-sm transition-colors hover:bg-muted/30"
+                      className="group relative grid grid-cols-12 items-center gap-2 px-4 py-3 text-sm transition-colors hover:bg-muted/30"
                     >
                       <div className="col-span-5 truncate">
                         <div className="truncate font-medium">{s.strategy_name}</div>
@@ -280,6 +297,27 @@ function StudioHome() {
                       <div className={cn("col-span-3 text-right font-mono text-xs", pnl == null ? "text-muted-foreground" : pnl >= 0 ? "text-emerald-500" : "text-red-500")}>
                         {pnl == null ? "—" : `${pnl >= 0 ? "+" : ""}$${pnl.toFixed(2)}`}
                       </div>
+                      {/* Delete a stopped session (running ones must be stopped
+                          from the detail first — the API rejects otherwise). */}
+                      {confirmSessId === s.id ? (
+                        <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-md border border-border bg-elevated px-1.5 py-1 shadow-sm"
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                          <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px] text-danger hover:text-danger"
+                            disabled={deletingSessId === s.id}
+                            onClick={(e) => { e.preventDefault(); onDeleteSession(s.id); }}>
+                            {deletingSessId === s.id ? "Deleting…" : "Delete"}
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]"
+                            onClick={(e) => { e.preventDefault(); setConfirmSessId(null); }}>Cancel</Button>
+                        </div>
+                      ) : (
+                        <Button size="icon" variant="ghost"
+                          className="absolute right-2 top-1/2 size-7 -translate-y-1/2 bg-elevated text-muted-foreground opacity-0 transition-opacity hover:text-danger group-hover:opacity-100"
+                          title="Delete session" aria-label="Delete session"
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setConfirmSessId(s.id); }}>
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      )}
                     </Link>
                   );
                 })}

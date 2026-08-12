@@ -6,13 +6,13 @@ import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Activity, ShieldAlert, ShieldCheck, Square, CircleStop, Info, AlertTriangle } from "lucide-react";
+import { Activity, ShieldAlert, ShieldCheck, Square, CircleStop, Info, AlertTriangle, Trash2 } from "lucide-react";
 import {
   Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import {
   listSessions, getSession, getSessionOrders, getSessionPositions, getSessionEquity,
-  stopSession, flattenSession, getKillSwitch, engageKillSwitch, disengageKillSwitch,
+  stopSession, flattenSession, deleteSession, getKillSwitch, engageKillSwitch, disengageKillSwitch,
   sessionNoWorker,
   type PaperSessionSummary,
 } from "@/lib/api/sessions";
@@ -169,7 +169,7 @@ function SessionDetail({ id }: { id: string }) {
             </div>
             <p className="mt-1 text-xs text-muted-foreground">{s?.symbols.join(", ")}</p>
           </div>
-          {isRunning && (
+          {isRunning ? (
             <div className="flex gap-2">
               <Button size="sm" variant="outline" onClick={() => act(() => flattenSession(id), "Flatten requested")}>
                 <Square className="mr-1 size-3.5" /> Flatten
@@ -178,6 +178,12 @@ function SessionDetail({ id }: { id: string }) {
                 <CircleStop className="mr-1 size-3.5" /> Stop
               </Button>
             </div>
+          ) : (
+            // Stopped session — allow removing it (cascades to its orders/etc).
+            <Button size="sm" variant="ghost" className="text-danger hover:text-danger"
+              onClick={() => act(() => deleteSession(id), "Session deleted")}>
+              <Trash2 className="mr-1 size-3.5" /> Delete
+            </Button>
           )}
         </div>
         <div className="mt-3 grid grid-cols-2 gap-3 border-t border-border pt-3 sm:grid-cols-4">
