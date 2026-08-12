@@ -245,6 +245,15 @@ def run_backtest(
     # processed at the start of THIS bar's Phase 2.
     pending_cancellations: set[str] = set()
 
+    # Per-symbol cursor into each (time-sorted) bar frame. `ts` advances
+    # monotonically through the timeline, so we advance each cursor forward
+    # only — giving each bar's history as a cheap positional slice instead of a
+    # full boolean-mask rescan+copy of the whole frame every bar (which made the
+    # loop O(N²) in bar count; this is O(N)).
+    sym_index = {sym: bars[sym].index for sym in strategy.symbols}
+    sym_len = {sym: len(bars[sym]) for sym in strategy.symbols}
+    sym_pos = {sym: 0 for sym in strategy.symbols}
+
     # ----- Walk timeline -----
     for bar_count, ts in enumerate(timeline):
         # --- (1) UPDATE MARKS ---
@@ -381,11 +390,19 @@ def run_backtest(
         pending_orders = next_pending
 
         # --- (3) CALL STRATEGY ---
-        # Build history slices up to and including this bar
+        # Build history slices up to and including this bar. Advance each
+        # symbol's cursor to the count of rows with index <= ts, then take a
+        # positional view — identical rows to `df.loc[df.index <= ts]`, but O(1)
+        # per bar instead of an O(N) rescan+copy.
         history: dict[str, pd.DataFrame] = {}
         for sym in strategy.symbols:
-            df = bars[sym]
-            history[sym] = df.loc[df.index <= ts]
+            idx = sym_index[sym]
+            pos = sym_pos[sym]
+            n = sym_len[sym]
+            while pos < n and idx[pos] <= ts:
+                pos += 1
+            sym_pos[sym] = pos
+            history[sym] = bars[sym].iloc[:pos]
 
         ctx = BarContext(
             ts=ts,
