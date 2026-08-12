@@ -124,11 +124,16 @@ POP_TIMEOUT_S = 5  # BRPOP blocking time
 # worker's genuinely in-flight job alone (real runs finish in seconds-minutes).
 STALE_RUNNING_SECONDS = int(os.environ.get("BACKTEST_STALE_RUNNING_SECONDS", "1800"))
 
-# Upper bound on bars a single backtest may span. The engine builds a per-bar
-# equity curve and materializes bars as pandas Series, so memory scales with
-# bar count; past this the run risks OOM-killing the worker. We fail honestly
-# with an actionable message instead. Env-tunable as the worker's cap changes.
-MAX_BACKTEST_BARS = int(os.environ.get("BACKTEST_MAX_BARS", "750000"))
+# Upper bound on bars a single backtest may span. Two reasons to cap it:
+#   1. Memory — the engine builds a per-bar equity curve and materializes bars as
+#      pandas Series, so RAM scales with bar count (OOM risk at the high end).
+#   2. Throughput — the engine runs ~200-250 bars/sec and the worker processes
+#      ONE job at a time, so a huge run (e.g. crypto 1m over years ≈ 700k bars ≈
+#      ~50 min) blocks the queue and every other backtest sits 'pending'.
+# 250k ≈ a few minutes worst-case and still covers ~1y of 1-minute stock data;
+# multi-year 1-minute runs are rejected with an actionable "use a coarser
+# resolution" message rather than jamming the worker. Env-tunable.
+MAX_BACKTEST_BARS = int(os.environ.get("BACKTEST_MAX_BARS", "250000"))
 
 STRATEGIES_DIR = Path("/app/strategies")
 
